@@ -76,10 +76,14 @@ assets/
 `assets/localizations/localization.toml`:
 
 ```toml
-languages-directory = "translations"
+translations-directory = "translations"
 source-language = "en"
 default-language = "en"
 ```
+
+`translations-directory` is optional and relative to this TOML. Omit it when
+locale folders (`en/`, `es/`, etc.) sit beside the file; its default is `"."`.
+The legacy `languages-directory` alias is accepted, but do not set both names.
 
 `en/presentation/hud.ftl`:
 

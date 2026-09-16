@@ -23,17 +23,19 @@ consuming package; the second is relative to the asset root. There is no scan
 for an arbitrary resource folder. The definition filename is configurable.
 
 ```toml
-languages-directory = "translations"
+translations-directory = "translations"
 source-language = "en"
 default-language = "en"
 ```
 
-The language directory is relative to this TOML; `"."` places languages beside
-it. Every immediate subdirectory is a language, so keep unrelated folders outside.
+`translations-directory` is relative to this TOML and optional. Omit it to use
+language folders beside the file (default `"."`). The legacy `languages-directory`
+alias remains accepted; specifying both names is an error even with equal values.
+Every immediate subdirectory is a language, so keep unrelated folders outside.
 Nested FTL paths define scopes. Source-language defines the API and type
 annotations; default-language selects startup and may differ from it.
 
-Unknown/missing fields, nonstring or blank values, absolute/escaping paths,
+Unknown fields, missing required language fields, nonstring or blank values, absolute/escaping paths,
 backslashes, asset source/label syntax and symlinked source trees are rejected.
 Keep the same module paths, keys and references in every language.
 
@@ -177,6 +179,10 @@ Named Bevy asset sources are retained for dependent loads.
 The bridge compares parsed definition fields with compiled expected values.
 Comments, formatting and field order are accepted; changed values, unknown fields
 or invalid UTF-8/TOML reject the whole definition until repaired or rebuilt.
+Directory aliases and omission are compared by resolved value: an omitted path
+and explicit `"."` are equivalent, but removing a configured `"translations"`
+changes the path and requires regeneration. Missing or invalid required fields
+are still rejected.
 
 Each complete language is validated independently. A bad module rejects all
 changes to that language, retaining its last-known-good snapshot, while another

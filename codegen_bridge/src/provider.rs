@@ -20,7 +20,7 @@ pub(super) fn implementation() -> Item {
 				definition: &[u8],
 			) -> ::std::result::Result<__fluent_runtime::CatalogDescriptor, ::std::string::String> {
 				__fluent_bridge::validate_definition(definition, &[
-					("languages-directory", LANGUAGES_DIRECTORY),
+					("translations-directory", LANGUAGES_DIRECTORY),
 					("source-language", SOURCE_LANGUAGE),
 					("default-language", DEFAULT_LANGUAGE),
 				])?;

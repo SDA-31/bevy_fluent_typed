@@ -43,6 +43,10 @@ fn main() -> std::process::ExitCode {
 supports explicit build frontends. `Settings` is re-exported only with `build`.
 The minimal consumer lives at [../examples/minimal](../examples/minimal/README.md).
 Its resource path is `assets/localizations/translations/<locale>/`.
+The TOML's optional `translations-directory` is relative to the definition file
+and defaults to `"."`. The legacy `languages-directory` alias is also accepted;
+providing both keys is an error. Definition reload compares resolved values, so
+omission and explicit `"."` are equivalent, but changing the path requires regeneration.
 
 ## Dependency direction
 

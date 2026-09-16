@@ -68,6 +68,23 @@ fn example_paths_come_from_its_generated_configuration() {
 }
 
 #[test]
+fn definition_accepts_directory_alias_but_rejects_a_changed_default_path() {
+	let source = crate::texts::CATALOG_CONFIG;
+	let legacy = source.replace("translations-directory", "languages-directory");
+	assert_eq!(
+		Translations::descriptor(legacy.as_bytes())
+			.unwrap()
+			.modules_directory,
+		std::path::Path::new("translations")
+	);
+
+	let omitted = source.replace("translations-directory = \"translations\"\n", "");
+	assert!(Translations::descriptor(omitted.as_bytes()).is_err());
+	let conflicting = format!("{source}\nlanguages-directory = 'translations'\n");
+	assert!(Translations::descriptor(conflicting.as_bytes()).is_err());
+}
+
+#[test]
 fn generated_modules_preserve_paths_and_each_languages_original_source() {
 	for (locale, expected) in [
 		(

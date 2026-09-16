@@ -73,7 +73,7 @@ fn main() -> std::process::ExitCode {
 In `assets/localizations/localization.toml`:
 
 ```toml
-languages-directory = "translations"
+translations-directory = "translations"
 source-language = "en"
 default-language = "en"
 ```
@@ -82,6 +82,11 @@ Add matching modular FTL trees below
 `assets/localizations/translations/{en,es,ru}/`. All locale directories are
 discovered. Both paths and the source/startup languages are configurable.
 The example starts in English and includes Spanish and Russian translations.
+Omit `translations-directory` when language folders sit beside the TOML file;
+the default is `"."`. `languages-directory` remains a legacy alias, but do not set
+both names. Renaming the key without changing its value, or replacing an omitted
+directory with explicit `"."`, preserves the reload contract. Changing the resolved
+directory requires regeneration.
 
 Declare the tree without naming an output file:
 

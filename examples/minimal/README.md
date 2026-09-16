@@ -61,8 +61,9 @@ assets/localizations/
 
 Cargo metadata selects `asset-root = "assets"` and
 `catalog = "localizations/localization.toml"`; the TOML selects
-`languages-directory = "translations"`. These paths belong to this example,
-not to a fixed library-wide resource tree.
+`translations-directory = "translations"`. These paths belong to this example,
+not to a fixed library-wide resource tree. The directory parameter can be omitted
+when locale folders are directly beside the TOML; the default is `"."`.
 
 `src/main.rs` declares `localization_runtime::translations!(pub mod texts)`.
 The macro includes Cargo output and resolves the renamed dependency automatically;
