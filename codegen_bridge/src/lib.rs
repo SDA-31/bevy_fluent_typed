@@ -1,11 +1,38 @@
-//! Optional generated-code adapter, maintained with `bevy_fluent_typed`.
+//! Connect `fluent_typed_codegen` output to the `bevy_fluent_typed` runtime.
 //!
-//! Enable `build` only in build-dependencies and return `build()` from build.rs.
-//! The main runtime's opt-in `codegen` feature enables this package's `runtime`
-//! feature and exposes `bevy_fluent_typed::translations!`. Cargo resolver 2/3 separates contexts:
-//! build-only use compiles no Bevy, runtime-only use compiles no generator.
-//! Default features are empty. This bridge never depends on the Bevy runtime;
-//! its macros receive the runtime path from the facade. The generator is independent.
+//! This optional companion generates the provider and immutable module resources
+//! consumed by the runtime's localization plugin. Discovery and typed Fluent
+//! accessors belong to the generator; loading, language selection, hot reload and
+//! UI updates belong to the runtime. The bridge supplies the adapter between them.
+//!
+//! # Features and setup
+//!
+//! - **`build`:** generation entrypoints and `Settings`. Enable only in
+//!   build-dependencies, then return `bevy_fluent_codegen_bridge::build()` from
+//!   `build.rs`. It emits the additional provider/resource tree into `OUT_DIR`.
+//! - **`runtime`:** output inclusion and checked definition parsing. The runtime's
+//!   `codegen` feature enables this and exposes its `translations!` facade.
+//! - **No features (default):** no adapter code or dependencies.
+//!
+//! Declare `bevy_fluent_typed::translations!(pub mod texts)` in application source.
+//! This includes generated output; it does not generate files or install a plugin.
+//! The [complete setup and asset example](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md)
+//! shows configuration, a build script and runtime registration. The
+//! [bridge README](https://github.com/SDA-31/bevy_fluent_typed/tree/main/codegen_bridge)
+//! describes the Git dependency setup before crates.io publication.
+//!
+//! # Dependency and reload boundaries
+//!
+//! With Cargo resolver 2/3, build-only use compiles no Bevy and runtime-only use
+//! compiles no generator. The bridge never depends on `bevy_fluent_typed`:
+//! its macro receives the facade's runtime path, avoiding a dependency cycle.
+//! The declared minimum Rust version is 1.95.
+//!
+//! The generated provider checks complete catalogs and immutable configuration.
+//! Compatible prose edits can reload; changes to configuration, languages, modules
+//! or typed contracts require generation and restart. The bridge does not watch
+//! files or publish resources itself: it emits the provider used by the runtime.
+//! Repository links follow `main`; this reference describes the viewed version.
 #![warn(missing_docs)]
 
 #[cfg(feature = "build")]

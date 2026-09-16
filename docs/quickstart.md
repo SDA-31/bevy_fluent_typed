@@ -6,7 +6,8 @@ Use the optional directory generator to turn `presentation/hud.ftl` into
 directly as a Bevy `Res` — no string keys or handwritten catalog adapter.
 
 Bevy **0.19.0 and compatible 0.19.x patches** are supported, not arbitrary future
-Bevy releases. Fonts, glyph coverage, layout and window setup belong to your app.
+Bevy releases. The declared minimum Rust version is **1.95**. Fonts, glyph coverage,
+layout and window setup belong to your app.
 
 ## Features
 

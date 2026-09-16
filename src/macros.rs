@@ -3,7 +3,8 @@
 /// Requires feature `codegen`. In build.rs, call
 /// `bevy_fluent_codegen_bridge::build()` using its `build` feature. The bridge owns
 /// the output layout; this facade forwards the runtime path hygienically, including
-/// when the Cargo dependency is renamed. No generator is compiled into the game.
+/// when the Cargo dependency is renamed. With Cargo resolver 2/3, generation stays
+/// in the build-script dependency graph rather than the application runtime.
 ///
 /// ```ignore
 /// bevy_fluent_typed::translations!(pub mod texts);

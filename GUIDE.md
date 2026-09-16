@@ -134,16 +134,16 @@ Fonts, glyph coverage, keys, windows and presentation of errors remain app polic
 For `presentation/hud.ftl`:
 
 ```rust
-fn draw_presentation(texts: &generated::Presentation) {
-    let hud: &generated::presentation::Hud = texts.hud();
+fn draw_presentation(texts: &texts::Presentation) {
+    let hud: &texts::presentation::Hud = texts.hud();
     draw_hud(hud);
 }
 
-fn draw_hud(texts: &generated::presentation::Hud) {
+fn draw_hud(texts: &texts::presentation::Hud) {
     // Only this module's methods are available.
 }
 
-fn hud_system(texts: bevy::prelude::Res<generated::presentation::Hud>) {
+fn hud_system(texts: bevy::prelude::Res<texts::presentation::Hud>) {
     draw_hud(&texts);
 }
 ```
@@ -162,7 +162,8 @@ Localization resource, never through a separate per-HUD state.
 Publication runs in PreUpdate's `LocalizationSystems::Publish` and before
 PostUpdate text refresh in `LocalizationSystems::Refresh`. For Update readers,
 switch in PreUpdate before Publish. A switch during Update reaches direct
-resources by PostUpdate after Refresh. The central state can therefore be newer
+resources in PostUpdate's Refresh set; order PostUpdate readers with
+`.after(LocalizationSystems::Refresh)`. The central state can therefore be newer
 than direct resources within that Update. Idle frames, identical reloads and
 inactive-language edits do not replace active resources or mark them changed.
 
@@ -185,40 +186,42 @@ structured contracts; direct plain parsing uses the same checks.
 
 Observe `CatalogUpdate` after Publish. Rejected with `locale: None` denotes a
 definition/load failure; Some(locale) identifies a language candidate.
-Text refresh does not recreate entities or overwrite numeric editor drafts.
+Text refresh replaces the contents of bound Text/Text2d components in place
+without recreating entities. Keep editable drafts separate from these bindings;
+the runtime does not manage text-editor state.
 
 A read-but-invalid module stays watched and can recover automatically.
 An initially missing file needs `ReloadCatalogs::<Translations>::default()`
 after creation. Missing external files leave embedded translations usable.
 
-## 7. Extend or migrate
+## 7. Extend the catalog or provide your own adapter
 
 Add a canonical language directory, e.g. pt-BR, with the complete module tree.
 Run cargo check and restart; no Rust enum or language list needs editing.
 New modules, languages, keys, references, argument contracts and configuration
 values require regeneration. Compatible translated prose does not.
 
-Old setup migration:
-
-- Replace the generator's removed `bevy` feature/build call with the bridge.
-- Enable the runtime's `codegen` feature; translations! callsites stay unchanged.
-- Remove fluent_typed_support dependencies and runtime CatalogConfig/schema usage.
-- Custom providers replace `configuration()` with
-  `descriptor(&[u8]) -> Result<CatalogDescriptor, String>` and own checked parsing.
-- Plain consumers add fluent-syntax alongside fluent-typed.
-- Root type is Translations, not Catalog/L10nLanguage; access scopes explicitly.
+For a different source format, use the runtime without `codegen` and implement
+`FluentCatalog`. Its `descriptor(&[u8]) -> Result<CatalogDescriptor, String>`
+interprets your definition bytes; its `parse` checks complete candidate catalogs.
+The runtime continues to own asset loading, active language, publication and text
+bindings. Your provider owns its format and compatibility policy.
 
 The companion bridge is nested in this repository at `codegen_bridge/`.
 The independent generator uses a versioned dependency, patched by the consuming
 workspace to [its Git repository](https://github.com/SDA-31/fluent_typed_codegen)
 until crates.io publication. Use the Git setup in the [README](README.md#optional-generation),
-or a caller-owned checkout override for development. There is no sibling support path.
+or a caller-owned checkout override for development.
 
 ## 8. Verify
 
-These commands run from an enclosing workspace with the runtime, bridge, example
-and generator listed as members. For a standalone checkout, use the explicit
-manifests and caller-owned override in [Verification](README.md#verification).
+From a standalone checkout, use the explicit manifests and generator override in
+[Verification](README.md#verification). Run both example binaries and test the
+runtime, bridge and example packages. After initial dependency resolution,
+`--locked --offline` reuses the local lockfiles and cache.
+
+If an enclosing workspace lists the runtime, bridge, example and generator as
+members, its lockfile and root override also support these commands:
 
 ```sh
 cargo run --locked --offline -p localization-example

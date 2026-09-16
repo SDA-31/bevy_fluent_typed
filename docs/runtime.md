@@ -12,7 +12,7 @@ cargo run --manifest-path examples/minimal/Cargo.toml --bin localization-example
 ```
 
 Use `--locked --offline` on later runs once dependencies and a lockfile exist.
-There is no need for a game checkout, GPU or window for either example.
+Both examples run headlessly, without a GPU or window.
 
 ## Direct resources or deferred text?
 
@@ -70,11 +70,11 @@ The runtime owns asset loading, language state, publication and text bindings.
 It does not interpret the directory generator's TOML. The optional bridge owns
 that adapter; without it, implement [`FluentCatalog`] with your own checked parser,
 definition format and compatibility policy. The application owns fonts, layout,
-input, numeric formatting and how errors are presented to players.
+input, numeric formatting and how errors are presented to users.
 
 ## More detail
 
-- [Full guide: configuration, contracts, migration and scheduling](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md)
+- [Full guide: configuration, contracts, custom providers and scheduling](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md)
 - [Headless examples and their assets](https://github.com/SDA-31/bevy_fluent_typed/tree/main/examples/minimal)
 - [Optional codegen bridge](https://github.com/SDA-31/bevy_fluent_typed/tree/main/codegen_bridge)
 - [Independent directory generator](https://github.com/SDA-31/fluent_typed_codegen)

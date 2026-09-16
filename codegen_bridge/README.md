@@ -1,9 +1,12 @@
 # bevy_fluent_codegen_bridge
 
-One mission: adapt an engine-neutral generated translation tree to
-`bevy_fluent_typed`. This separate Cargo package is maintained **inside** the
-Bevy integration repository, under `codegen_bridge/`; it is not a shared-utils
-crate and is not intended as another Git submodule.
+Connect `fluent_typed_codegen` to `bevy_fluent_typed`: generate a provider and
+immutable Bevy resource types from modular Fluent files. The generator owns
+discovery and the typed translation API; the runtime owns asset loading,
+language switching, hot reload and text bindings.
+
+This companion package lives in the Bevy integration repository under
+`codegen_bridge/`. Its declared minimum Rust version is 1.95.
 
 ## Features
 

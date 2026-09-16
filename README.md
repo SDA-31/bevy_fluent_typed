@@ -2,11 +2,13 @@
 
 Typed Fluent integration for Bevy 0.19. The runtime owns active languages, asset
 loading, transactional reload, immutable module resources and Text/Text2d bindings.
-It owns no game keys, fonts, controls, generator settings or fixed language list.
+Applications own message keys, fonts, controls and generator settings; languages
+are supplied by their catalog provider rather than a fixed runtime list.
 
 The dependency requirement is `bevy = "0.19.0"`: minimum 0.19.0, compatible patches
 below 0.20.0, not an exact pin and not an unbounded future-version promise.
-The application lockfile chooses the concrete patch release.
+The application lockfile chooses the concrete patch release. The declared minimum
+Rust version is 1.95 for both the runtime and its companion bridge.
 
 [Guide](GUIDE.md) · [Runnable example](examples/minimal/README.md) ·
 [Optional bridge](codegen_bridge/README.md)
@@ -47,11 +49,11 @@ asset-root = "assets"
 catalog = "localizations/localization.toml"
 ```
 
-The bridge remains a separate Cargo package **inside this library**, not another
-top-level repository/submodule. The runtime enables only its lightweight `runtime`
+The bridge is a separate Cargo package in this repository. It adapts
+`fluent_typed_codegen` output to this runtime. The runtime enables its lightweight `runtime`
 feature; the build-dependency enables `build`. Use Cargo resolver 2 or 3 to keep
 host build features separate from normal dependencies. The generator is not
-compiled into the game. No dependency points to a sibling support crate.
+compiled into the application runtime.
 
 These packages are available from Git, not crates.io. Keep the root generator
 override until crates.io publication: Cargo can resolve optional dependencies
@@ -133,22 +135,7 @@ remain usable when files are absent.
 
 ## Verification
 
-When checked out inside a consuming workspace, use that workspace's lockfile and
-generator override. For a workspace listing the runtime, bridge, generator and
-minimal example as members:
-
-```sh
-cargo run --locked --offline -p localization-example
-cargo run --locked --offline -p localization-example -- --watch
-cargo test --locked --offline --workspace --all-features
-cargo clippy --locked --offline --workspace --all-targets --all-features -- -D warnings
-cargo doc --locked --offline -p bevy_fluent_typed -p bevy_fluent_codegen_bridge -p fluent_typed_codegen --all-features --no-deps
-```
-
-See the guide for typed arguments, scheduling, custom providers and migration.
-
-In a standalone clone there is no enclosing workspace. Use explicit manifests;
-the companion and example remain separate Cargo packages in this repository.
+From a standalone clone, use explicit manifests for the runtime, bridge and example.
 Fetch the unpublished generator from Git using a caller-owned override:
 
 ```sh
@@ -167,9 +154,24 @@ assume a generator sibling path; the override is caller-owned. For local generat
 development, replace the Git/branch override with
 `--config 'patch.crates-io.fluent_typed_codegen.path="/absolute/path/to/checkout"'`.
 
+If a consuming workspace lists these packages as members, use its generator
+override and lockfile instead. For a workspace including the runtime, bridge,
+generator and minimal example:
+
+```sh
+cargo run --locked --offline -p localization-example
+cargo run --locked --offline -p localization-example -- --watch
+cargo test --locked --offline --workspace --all-features
+cargo clippy --locked --offline --workspace --all-targets --all-features -- -D warnings
+cargo doc --locked --offline -p bevy_fluent_typed -p bevy_fluent_codegen_bridge -p fluent_typed_codegen --all-features --no-deps
+```
+
+See the guide for typed arguments, scheduling and custom providers. Verify feature
+isolation in separate consumer graphs; all-features tests deliberately combine them.
+
 ## License
 
 [MIT](LICENSE). The companion bridge and minimal example are also MIT-licensed,
 with their own package metadata and license files. This license covers this
-repository, not a consuming game or its assets. Third-party dependencies retain
+repository, not a consuming application or its assets. Third-party dependencies retain
 their respective licenses.

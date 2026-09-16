@@ -1,4 +1,4 @@
-//! Deferred typed messages and game-independent reload notifications.
+//! Deferred typed messages and catalog reload notifications.
 use crate::FluentCatalog;
 use bevy::prelude::Component;
 use std::{fmt, marker::PhantomData, sync::Arc};
@@ -21,7 +21,7 @@ impl<C: FluentCatalog> Message<C> {
 		Self(Arc::new(format))
 	}
 
-	/// Only invariant punctuation/empty content belongs outside a catalog.
+	/// Store fixed text returned unchanged for every locale and catalog snapshot.
 	pub fn literal(value: &'static str) -> Self {
 		Self::new(move |_| value.into())
 	}
@@ -42,7 +42,8 @@ impl<C: FluentCatalog> fmt::Debug for Message<C> {
 /// Bind an existing Bevy `Text` or `Text2d` to a deferred message.
 ///
 /// The plugin changes text in place when the catalog or binding changes. It does
-/// not spawn/despawn the entity or reset text-editor state.
+/// not spawn/despawn the entity. Bound text contents are replaced, so keep editable
+/// drafts separate; this binding does not manage or preserve text-editor state.
 pub struct LocalizedText<C: FluentCatalog>(pub(crate) Message<C>);
 
 impl<C: FluentCatalog> LocalizedText<C> {
@@ -78,7 +79,7 @@ pub enum CatalogUpdate<C: FluentCatalog> {
 	},
 }
 
-/// Request one aggregate reload without exposing asset handles to gameplay.
+/// Request one aggregate reload without exposing asset handles to application code.
 ///
 /// Requests processed together coalesce into one asynchronous reload of the
 /// definition and declared modules. Works without watching, including recovery
