@@ -1,0 +1,1 @@
+title = Пример: string

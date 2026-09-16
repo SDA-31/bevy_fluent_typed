@@ -1,0 +1,32 @@
+[package]
+name = "bevy_fluent_typed"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+description = "Typed Fluent catalog bindings and transactional hot reload for Bevy"
+repository = "https://github.com/SDA-31/bevy_fluent_typed"
+license = "MIT"
+publish = false
+
+[package.metadata.docs.rs]
+features = ["codegen", "watch"]
+
+[features]
+default = []
+codegen = ["dep:bevy_fluent_codegen_bridge", "bevy_fluent_codegen_bridge/runtime"]
+watch = ["bevy/file_watcher"]
+
+[dependencies]
+bevy_fluent_codegen_bridge = { version = "0.1.0", path = "codegen_bridge", optional = true }
+fluent-typed = { version = "0.9.0", default-features = false, features = ["langneg"] }
+# Compatible patch releases are allowed; do not claim compatibility with 0.20.
+bevy = { version = "0.19.0", default-features = false, features = [
+    "std",
+    "bevy_asset",
+    "bevy_text",
+    "bevy_ui",
+    "bevy_sprite",
+] }
+
+[dev-dependencies]
+bevy = { version = "0.19.0", default-features = false, features = ["std", "async_executor", "multi_threaded"] }

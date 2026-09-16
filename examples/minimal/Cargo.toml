@@ -1,0 +1,27 @@
+[package]
+name = "localization-example"
+default-run = "localization-example"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+repository = "https://github.com/SDA-31/bevy_fluent_typed"
+license = "MIT"
+publish = false
+
+[[test]]
+name = "raw_catalog"
+path = "src/tests/raw_root.rs"
+
+[package.metadata.localization]
+asset-root = "assets"
+catalog = "localizations/localization.toml"
+
+[dependencies]
+bevy = { version = "0.19.0", default-features = false, features = ["std", "async_executor", "multi_threaded", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }
+localization_runtime = { package = "bevy_fluent_typed", path = "../..", features = ["watch", "codegen"] }
+
+[dev-dependencies]
+fluent-syntax = "0.12"
+
+[build-dependencies]
+localization_bridge = { package = "bevy_fluent_codegen_bridge", path = "../../codegen_bridge", features = ["build"] }

@@ -1,0 +1,19 @@
+[package]
+name = "bevy_fluent_codegen_bridge"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+description = "Opt-in generated adapter between fluent_typed_codegen and bevy_fluent_typed"
+repository = "https://github.com/SDA-31/bevy_fluent_typed"
+license = "MIT"
+publish = false
+
+[features]
+default = []
+build = ["dep:fluent_typed_codegen"]
+runtime = ["dep:fluent-syntax", "dep:toml_edit"]
+
+[dependencies]
+fluent_typed_codegen = { version = "0.1.0", default-features = false, features = ["build"], optional = true }
+fluent-syntax = { version = "0.12", optional = true }
+toml_edit = { version = "0.25.15", default-features = false, features = ["parse"], optional = true }

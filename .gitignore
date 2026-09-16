@@ -1,0 +1,4 @@
+# Standalone package builds; the consuming workspace owns its own lockfile.
+target/
+Cargo.lock
+*~
