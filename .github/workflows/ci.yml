@@ -14,7 +14,7 @@ concurrency:
 
 env:
   # Test a pinned generator checkout, not a game workspace or moving branch.
-  GENERATOR_REV: acdd778815c9de4730444410f931a3ea33c2e9c9
+  GENERATOR_REV: 85f6fb4be25eeb754ed735f175042036c053655d
   # Compile-fail probes inspect rustc diagnostics without ANSI escape sequences.
   CARGO_TERM_COLOR: never
   CARGO_INCREMENTAL: 0

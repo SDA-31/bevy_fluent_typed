@@ -28,6 +28,11 @@ struct LoadStatus {
 fn main() -> Result<(), String> {
 	let watch = std::env::args().any(|argument| argument == "--watch");
 	let root = Path::new(env!("CARGO_MANIFEST_DIR")).join(texts::ASSET_ROOT);
+	// Unix watcher events can resolve symlinks (notably macOS /var -> /private/var).
+	// Give Bevy the same physical root so its prefix comparison remains valid.
+	#[cfg(unix)]
+	let root = root.canonicalize().map_err(|error| error.to_string())?;
+
 	let mut app = App::new();
 	app.add_plugins((
 		MinimalPlugins,

@@ -85,6 +85,14 @@ fn pump(app: &mut App, ready: impl Fn(&World) -> bool) {
 fn several_files_reload_and_invalid_languages_keep_their_last_good_snapshot() {
 	let fixture = tempfile::tempdir().unwrap();
 	let root = fixture.path();
+	// macOS /var is a symlink to /private/var. Watcher events use the physical
+	// Unix path; both the asset root and writes must use that same spelling.
+	// Keep Windows paths unchanged to avoid introducing verbatim path prefixes.
+	#[cfg(unix)]
+	let canonical_root = root.canonicalize().unwrap();
+	#[cfg(unix)]
+	let root = canonical_root.as_path();
+
 	fs::create_dir_all(root.join("localizations")).unwrap();
 	fs::write(root.join(texts::CATALOG_ASSET_PATH), texts::CATALOG_CONFIG).unwrap();
 
