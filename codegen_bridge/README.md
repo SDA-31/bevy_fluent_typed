@@ -76,7 +76,9 @@ With Cargo resolver 2/3, normal use enables only `runtime`, while build-script
 use enables `build` separately. An explicit `--all-features` build of this package
 naturally includes both. Check separate consumer graphs when verifying isolation.
 
-`fluent_typed_codegen = "0.1.1"` is a versioned dependency, not a sibling path.
+`fluent_typed_codegen = "0.1.2"` is a versioned dependency, not a sibling path.
+This minimum includes explicit source-file tracking so deleting FTL modules also
+regenerates the API on Windows. Runtime and bridge package versions remain 0.1.1.
 It explicitly enables the generator's `build` feature with defaults disabled;
 the bridge's runtime-only feature still does not depend on the generator.
 Local generator development can use a caller-owned `[patch.crates-io]` pointing
