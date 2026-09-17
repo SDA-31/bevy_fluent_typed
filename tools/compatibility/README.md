@@ -31,7 +31,7 @@ From the library repository, with a separate generator checkout:
 cargo run --manifest-path tools/compatibility/Cargo.toml -- \
   --generator /absolute/path/to/fluent_typed_codegen \
   --target-dir /absolute/path/to/build-cache \
-  0.17.0 0.18.0 0.19.0
+  0.16.1 0.17.0 0.18.0 0.19.0
 ```
 
 In an enclosing workspace that lists this tool as a member:
@@ -40,10 +40,14 @@ In an enclosing workspace that lists this tool as a member:
 cargo run -p bevy-fluent-compatibility -- \
   --generator crates/fluent_typed_codegen \
   --target-dir target/bevy-compatibility \
-  0.17.0 0.18.0 0.19.0
+  0.16.1 0.17.0 0.18.0 0.19.0
 ```
 
 The generator path is explicit; no sibling checkout convention is assumed.
+The 0.16 backend starts at 0.16.1. The earlier 0.16.0 `bevy_color` package is
+yanked and cannot be selected by a fresh exact-release fixture.
+The 0.16.1 family pins `bevy_color` to 0.16.2 because that is the published
+renderer's minimum; the other official packages remain pinned to 0.16.1.
 Add `--offline` **after** `--` once the needed dependencies are cached. Each test
 fixture has its own lockfile; the consuming workspace's lockfile is untouched.
 Fixtures are copied once at the start of each release check. Re-run after edits.

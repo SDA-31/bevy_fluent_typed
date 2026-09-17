@@ -17,12 +17,13 @@ This public facade is available since 0.1.1.
 The generator resolves from crates.io. Example manifest paths reference packages
 inside this repository; external applications use the
 [registry setup](../../README.md#optional-generation).
-The example and runtime support Bevy 0.17, 0.18 and 0.19 (default).
-To select an older backend, set `default-features = false` and add `bevy-0-17`
-or `bevy-0-18` to the normal dependency's features in Cargo.toml. Do not change
+The example and runtime support Bevy 0.16, 0.17, 0.18 and 0.19 (default).
+To select an older backend, set `default-features = false` and add `bevy-0-16`,
+`bevy-0-17` or `bevy-0-18` to the normal dependency's features in Cargo.toml. Do not change
 the build-dependency or forward backend features to both dependency kinds.
-Each accepts compatible patches starting at .0. The example imports Bevy through
-the runtime's re-export so it cannot accidentally select a second engine minor.
+Each accepts compatible patches, starting at 0.16.1 for the oldest backend and
+.0 for the others. The example imports Bevy through the runtime's re-export so
+it cannot accidentally select a second engine minor.
 Exact pins are used only in isolated minimum-version verification, not in
 library dependency requirements.
 

@@ -7,7 +7,12 @@
 #![warn(missing_docs)]
 
 #[cfg(all(
-	not(any(feature = "bevy-0-17", feature = "bevy-0-18", feature = "bevy-0-19")),
+	not(any(
+		feature = "bevy-0-16",
+		feature = "bevy-0-17",
+		feature = "bevy-0-18",
+		feature = "bevy-0-19"
+	)),
 	any(
 		not(feature = "build"),
 		feature = "runtime",
@@ -15,15 +20,19 @@
 		feature = "watch"
 	)
 ))]
-compile_error!("select one Bevy backend: bevy-0-17, bevy-0-18 or bevy-0-19 (default)");
+compile_error!("select one Bevy backend: bevy-0-16, bevy-0-17, bevy-0-18 or bevy-0-19 (default)");
 
 #[cfg(any(
+	all(
+		feature = "bevy-0-16",
+		any(feature = "bevy-0-17", feature = "bevy-0-18", feature = "bevy-0-19")
+	),
 	all(feature = "bevy-0-17", feature = "bevy-0-18"),
 	all(feature = "bevy-0-17", feature = "bevy-0-19"),
 	all(feature = "bevy-0-18", feature = "bevy-0-19"),
 ))]
 compile_error!(
-	"Bevy backends are mutually exclusive; disable default features to select 0.17 or 0.18"
+	"Bevy backends are mutually exclusive; disable default features to select an older backend"
 );
 
 #[cfg(feature = "runtime")]
@@ -59,7 +68,7 @@ pub use bevy_fluent_codegen_bridge::{Settings, build, from_cargo, generate};
 #[cfg(feature = "runtime")]
 pub use catalog::{CatalogDescriptor, FluentCatalog, Module, ModuleSource};
 #[cfg(feature = "runtime")]
-pub use message::{CatalogUpdate, LocalizedText, Message, ReloadCatalogs};
+pub use message::{CatalogUpdate, CatalogUpdateReader, LocalizedText, Message, ReloadCatalogs};
 #[cfg(feature = "runtime")]
 pub use plugin::{LocalizationPlugin, LocalizationSystems};
 #[cfg(feature = "runtime")]
@@ -84,6 +93,13 @@ pub use bevy_0_18 as bevy;
 ))]
 #[doc(hidden)]
 pub use bevy_0_17 as bevy;
+
+#[cfg(all(
+	feature = "bevy-0-16",
+	not(any(feature = "bevy-0-17", feature = "bevy-0-18", feature = "bevy-0-19"))
+))]
+#[doc(hidden)]
+pub use bevy_0_16 as bevy;
 
 #[cfg(all(test, feature = "runtime"))]
 mod tests;

@@ -6,8 +6,8 @@ mod tests;
 
 use localization_runtime::bevy::{asset::AssetPlugin, ecs as bevy_ecs, prelude::*};
 use localization_runtime::{
-	CatalogUpdate, FluentCatalog, Localization, LocalizationPlugin, LocalizationSystems,
-	LocalizedText,
+	CatalogUpdate, CatalogUpdateReader, FluentCatalog, Localization, LocalizationPlugin,
+	LocalizationSystems, LocalizedText,
 };
 use std::{
 	path::Path,
@@ -102,10 +102,7 @@ fn main() -> Result<(), String> {
 	Ok(())
 }
 
-fn observe(
-	mut updates: MessageReader<CatalogUpdate<Translations>>,
-	mut status: ResMut<LoadStatus>,
-) {
+fn observe(mut updates: CatalogUpdateReader<Translations>, mut status: ResMut<LoadStatus>) {
 	for update in updates.read() {
 		match update {
 			CatalogUpdate::Loaded { locale } => {

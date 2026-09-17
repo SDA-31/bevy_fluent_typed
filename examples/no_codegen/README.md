@@ -10,8 +10,8 @@ cargo test --manifest-path examples/no_codegen/Cargo.toml
 ```
 
 Run from the runtime repository. In an enclosing workspace you can also use
-`cargo run -p localization-no-codegen-example`. Select Bevy 0.17/0.18 with
-`--no-default-features --features bevy-0-17` / `bevy-0-18`.
+`cargo run -p localization-no-codegen-example`. Select Bevy 0.16/0.17/0.18 with
+`--no-default-features --features bevy-0-16` / `bevy-0-17` / `bevy-0-18`.
 
 [src/main.rs](src/main.rs) contains the application;
 [src/texts.rs](src/texts.rs) supplies the handwritten `FluentCatalog` required by

@@ -1,8 +1,8 @@
 //! Prove the runtime accepts opaque providers and preserves named asset sources.
 use crate::bevy::{asset::io::AssetSourceBuilder, ecs as bevy_ecs, prelude::*};
 use crate::{
-	CatalogDescriptor, CatalogUpdate, FluentCatalog, Localization, LocalizationPlugin,
-	LocalizationSystems, Module, ModuleSource, ReloadCatalogs,
+	CatalogDescriptor, CatalogUpdate, CatalogUpdateReader, FluentCatalog, Localization,
+	LocalizationPlugin, LocalizationSystems, Module, ModuleSource, ReloadCatalogs,
 };
 use std::{
 	fs,
@@ -102,10 +102,7 @@ impl Drop for Fixture {
 #[derive(Resource, Default)]
 struct Failures(usize);
 
-fn observe(
-	mut events: MessageReader<CatalogUpdate<OpaqueProvider>>,
-	mut failures: ResMut<Failures>,
-) {
+fn observe(mut events: CatalogUpdateReader<OpaqueProvider>, mut failures: ResMut<Failures>) {
 	for event in events.read() {
 		if matches!(event, CatalogUpdate::Rejected { locale: None, .. }) {
 			failures.0 += 1;
@@ -126,6 +123,14 @@ fn pump_until(app: &mut App, ready: impl Fn(&World) -> bool) {
 		assert!(Instant::now() < deadline, "asset loading timed out");
 		std::thread::sleep(Duration::from_millis(5));
 	}
+}
+
+fn request_reload(world: &mut World) {
+	#[cfg(feature = "bevy-0-16")]
+	world.send_event(ReloadCatalogs::<OpaqueProvider>::default());
+
+	#[cfg(not(feature = "bevy-0-16"))]
+	world.write_message(ReloadCatalogs::<OpaqueProvider>::default());
 }
 
 #[test]
@@ -156,8 +161,7 @@ fn opaque_definition_named_source_and_last_good_recovery_work_without_codegen() 
 
 	fixture.write_definition(b"invalid definition");
 	fixture.write_title("Not yet published");
-	app.world_mut()
-		.write_message(ReloadCatalogs::<OpaqueProvider>::default());
+	request_reload(app.world_mut());
 	pump_until(&mut app, |world| world.resource::<Failures>().0 > 0);
 	assert_eq!(
 		app.world()
@@ -168,8 +172,7 @@ fn opaque_definition_named_source_and_last_good_recovery_work_without_codegen() 
 	);
 
 	fixture.write_definition(DEFINITION);
-	app.world_mut()
-		.write_message(ReloadCatalogs::<OpaqueProvider>::default());
+	request_reload(app.world_mut());
 	pump_until(&mut app, |world| {
 		world.resource::<Localization<OpaqueProvider>>().catalog().0 == "Not yet published"
 	});

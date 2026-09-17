@@ -67,7 +67,8 @@ impl<C: FluentCatalog> From<Message<C>> for LocalizedText<C> {
 }
 
 /// The host application decides how to present successful/rejected reloads.
-#[derive(crate::bevy::prelude::Message)]
+#[cfg_attr(feature = "bevy-0-16", derive(crate::bevy::prelude::Event))]
+#[cfg_attr(not(feature = "bevy-0-16"), derive(crate::bevy::prelude::Message))]
 pub enum CatalogUpdate<C: FluentCatalog> {
 	/// A complete language passed loading and validation; it need not be active.
 	/// Unchanged sources retain the existing snapshot instead of replacing it.
@@ -86,12 +87,21 @@ pub enum CatalogUpdate<C: FluentCatalog> {
 	},
 }
 
+/// Bevy system parameter for reading this provider's reload notifications.
+///
+/// An alias for `EventReader<CatalogUpdate<C>>` on Bevy 0.16 and
+/// `MessageReader<CatalogUpdate<C>>` on newer backends. Iterate with `.read()`;
+/// the underlying engine type remains usable directly.
+pub type CatalogUpdateReader<'w, 's, C> =
+	crate::compatibility::MessageReader<'w, 's, CatalogUpdate<C>>;
+
 /// Request one aggregate reload without exposing asset handles to application code.
 ///
 /// Requests processed together coalesce into one asynchronous reload of the
 /// definition and declared modules. Works without watching, including recovery
 /// after a module was absent during the initial load.
-#[derive(crate::bevy::prelude::Message)]
+#[cfg_attr(feature = "bevy-0-16", derive(crate::bevy::prelude::Event))]
+#[cfg_attr(not(feature = "bevy-0-16"), derive(crate::bevy::prelude::Message))]
 pub struct ReloadCatalogs<C: FluentCatalog>(PhantomData<fn() -> C>);
 
 impl<C: FluentCatalog> Default for ReloadCatalogs<C> {

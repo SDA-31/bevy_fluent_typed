@@ -1,7 +1,7 @@
 //! Generic Bevy scheduling; input, fonts, window titles and logs belong to the host.
-use crate::bevy::{ecs as bevy_ecs, prelude::*, ui::UiSystems};
+use crate::bevy::{ecs as bevy_ecs, prelude::*};
 use crate::{
-	CatalogUpdate, FluentCatalog, Localization, ReloadCatalogs,
+	FluentCatalog, Localization,
 	assets::{
 		CatalogAsset, CatalogLoader, CatalogSource, load_catalogs, publish_catalogs,
 		reload_catalogs, report_failures,
@@ -31,7 +31,7 @@ pub enum LocalizationSystems {
 /// Embedded resources are published immediately when the plugin is added;
 /// asynchronous external loading starts during `Startup`.
 ///
-/// Fonts, controls, window titles and display of [`CatalogUpdate`] errors belong
+/// Fonts, controls, window titles and display of [`crate::CatalogUpdate`] errors belong
 /// to the host. Enable feature `watch` and Bevy's watcher for automatic reloads.
 pub struct LocalizationPlugin<C: FluentCatalog> {
 	definition_path: String,
@@ -45,7 +45,7 @@ impl<C: FluentCatalog> LocalizationPlugin<C> {
 	/// conventional filename is not hardcoded; the supplied path is authoritative.
 	/// Its bytes are interpreted by [`FluentCatalog::descriptor`].
 	/// This constructor only stores the path. Later load failures arrive through
-	/// [`CatalogUpdate`], preserving embedded or last-known-good catalogs.
+	/// [`crate::CatalogUpdate`], preserving embedded or last-known-good catalogs.
 	pub fn new(definition_path: impl Into<String>) -> Self {
 		Self {
 			definition_path: definition_path.into(),
@@ -62,10 +62,10 @@ impl<C: FluentCatalog> Plugin for LocalizationPlugin<C> {
 				marker: PhantomData,
 			})
 			.init_asset::<CatalogAsset<C>>()
-			.init_asset_loader::<CatalogLoader<C>>()
-			.add_message::<CatalogUpdate<C>>()
-			.add_message::<ReloadCatalogs<C>>()
-			.add_systems(Startup, load_catalogs::<C>)
+			.init_asset_loader::<CatalogLoader<C>>();
+		compatibility::register_notifications::<C>(app);
+
+		app.add_systems(Startup, load_catalogs::<C>)
 			.add_systems(
 				PreUpdate,
 				(
@@ -82,8 +82,8 @@ impl<C: FluentCatalog> Plugin for LocalizationPlugin<C> {
 				(
 					resources::synchronize::<C>,
 					compatibility::before_text_detection((
-						refresh_ui::<C>.before(UiSystems::Content),
-						refresh_world::<C>.before(crate::bevy::sprite::update_text2d_layout),
+						refresh_ui::<C>.before(compatibility::UiSystems::Content),
+						refresh_world::<C>.before(compatibility::update_text2d_layout),
 					)),
 				)
 					.chain()

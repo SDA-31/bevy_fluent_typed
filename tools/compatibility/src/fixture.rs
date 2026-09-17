@@ -86,6 +86,7 @@ impl<'a> Fixture<'a> {
 		);
 
 		for name in names {
+			let version = crate::matrix::package_version(name, version);
 			manifest.push_str(&format!(
 				"{name} = {{ version = \"={version}\", default-features = false }}\n"
 			));

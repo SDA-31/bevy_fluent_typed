@@ -77,13 +77,17 @@ another fails validation; separate file saves are not one transaction. Embedded
 catalogs remain usable if external assets are absent or unreadable.
 
 Read [`CatalogUpdate`] after [`LocalizationSystems::Publish`] for success or
-failure details. A `Rejected` event with `locale: None` means the definition or
-aggregate load failed; a locale identifies a rejected language candidate.
+failure details using [`CatalogUpdateReader`] and its `.read()` iterator. This is
+a Bevy `EventReader` on 0.16 and a `MessageReader` on newer backends, not another
+queue or an extra processing step. A `Rejected` event with `locale: None` means
+the definition or aggregate load failed; a locale identifies a rejected language candidate.
 `Loaded` does not necessarily mean the catalog changed.
 
 Send [`ReloadCatalogs`] to retry manually, including without file watching. A file
 that was read but rejected stays watched and can recover after correction. An
 initially missing file needs an explicit reload after it is created.
+On 0.16, send it through `EventWriter` / `World::send_event`; on newer backends,
+use `MessageWriter` / `World::write_message`.
 
 ## Schedule and ownership
 

@@ -6,7 +6,7 @@
 [![MSRV](https://img.shields.io/crates/msrv/bevy_fluent_typed)](https://crates.io/crates/bevy_fluent_typed)
 [![License](https://img.shields.io/crates/l/bevy_fluent_typed)](LICENSE)
 
-Typed Fluent integration for Bevy 0.17, 0.18 and 0.19, built on
+Typed Fluent integration for Bevy 0.16, 0.17, 0.18 and 0.19, built on
 [fluent-typed](https://github.com/human-solutions/fluent-typed) for typed message
 access and Fluent resolution. The runtime owns active languages,
 asset loading, transactional reload, shared module resources and Text/Text2d bindings.
@@ -18,10 +18,22 @@ Optional typed API generation is powered by
 modular Fluent files and generates their Rust translation tree. The companion
 `bevy_fluent_codegen_bridge` connects that tree to this runtime's resources and plugin.
 
-Choose exactly one backend: `bevy-0-19` (default), `bevy-0-18` or `bevy-0-17`.
-Each accepts patches in its own minor, starting at .0, not arbitrary future versions.
+Choose exactly one backend: `bevy-0-19` (default), `bevy-0-18`, `bevy-0-17` or `bevy-0-16`.
+Each accepts patches in its own minor, not arbitrary future versions. The minimum
+is 0.16.1 for the oldest backend and .0 for the others. The 0.16 compatibility
+check uses that engine patch with its required `bevy_color` 0.16.2; an all-0.16.0
+exact dependency set cannot be freshly resolved because `bevy_color` 0.16.0 is yanked.
 The application lockfile chooses the concrete patch release. The declared minimum
 Rust version is 1.95 for both the runtime and its companion bridge.
+This is **stable Rust**, not nightly. Bevy 0.19 itself requires
+[Rust 1.95](https://github.com/bevyengine/bevy/blob/v0.19.0/Cargo.toml), so the
+default backend adds no compiler-version requirement beyond the engine's.
+Selecting an older backend does not currently lower this crate's declared MSRV;
+older compiler support would need its own dependency and CI checks.
+
+The `bevy-0-16` backend and `CatalogUpdateReader` alias are unreleased additions;
+published 0.1.1 supports Bevy 0.17–0.19. Bevy release candidates are not covered by
+the stable compatibility promise.
 
 [API documentation](https://docs.rs/bevy_fluent_typed/latest/bevy_fluent_typed/) ·
 [Guide](GUIDE.md) · [Codegen example](examples/codegen) · [No-codegen example](examples/no_codegen) ·
@@ -150,7 +162,7 @@ rendering. Fonts, input and error presentation belong to the application.
 For `presentation/hud.ftl`, borrow `translations.presentation().hud()` as
 `&texts::presentation::Hud`, or request `Res<texts::presentation::Hud>`.
 Root, groups and leaves share one read-only snapshot through `Arc`. On Bevy 0.19,
-they are ECS-immutable resources: `ResMut` is rejected. On 0.17/0.18, Bevy does not
+they are ECS-immutable resources: `ResMut` is rejected. On 0.16–0.18, Bevy does not
 offer that resource-level guarantee; use `Res` and do not replace individual
 modules. Only the central localization resource changes the active language.
 
@@ -246,7 +258,7 @@ to pin and test exact engine releases in disposable library-only workspaces.
 [CI workflow](.github/workflows/ci.yml) runs on pushes (including tags), pull
 requests and manual dispatch, without an enclosing application checkout:
 
-- Exact Bevy 0.17.0, 0.18.0 and 0.19.0 on Linux with stable Rust.
+- Exact Bevy 0.16.1, 0.17.0, 0.18.0 and 0.19.0 on Linux with stable Rust.
 - Bevy 0.19.0 on Windows/macOS with stable Rust and on Linux with Rust 1.95.0.
 - Real multi-file watcher reloads, headless consumers, text-system ordering,
   runtime dependency isolation and the resource-mutability compile probes.

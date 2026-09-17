@@ -214,7 +214,7 @@ result types are re-exported beside that leaf with a leaf-name prefix, e.g.
 both file and directory are errors. Catalog remains available as a domain name.
 
 The plugin publishes root/group/leaf resources sharing read-only parsed bundles
-through Arc. Bevy 0.19 also enforces ECS resource immutability; 0.17/0.18 do not.
+through Arc. Bevy 0.19 also enforces ECS resource immutability; 0.16–0.18 do not.
 Use `Res` for catalog modules on every backend. They exist before Startup. Change language through the central
 Localization resource, never through a separate per-HUD state.
 
@@ -296,7 +296,7 @@ cargo doc --locked --offline -p bevy_fluent_typed -p bevy_fluent_codegen_bridge 
 The example starts in English, exercises EN/ES/RU and exits after external loads.
 Watch mode waits for edits until Ctrl+C. Neither mode edits source files.
 Use separate feature/consumer checks to verify dependency isolation. The runtime
-requires exactly one `bevy-0-17`, `bevy-0-18` or `bevy-0-19` backend; the last is
+requires exactly one `bevy-0-16`, `bevy-0-17`, `bevy-0-18` or `bevy-0-19` backend; the last is
 the default. Disable defaults to select an older backend, and match the engine
 minor in the application's own dependencies. The build-only facade disables
 defaults and needs no backend flag. Select backend flags directly in the normal

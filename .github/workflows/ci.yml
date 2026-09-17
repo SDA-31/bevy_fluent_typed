@@ -134,6 +134,9 @@ jobs:
         include:
           - os: ubuntu-latest
             rust: stable
+            bevy: '0.16.1'
+          - os: ubuntu-latest
+            rust: stable
             bevy: '0.17.0'
           - os: ubuntu-latest
             rust: stable

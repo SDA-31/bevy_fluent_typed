@@ -37,7 +37,7 @@ impl Options {
 				"--offline" => offline = true,
 				"--help" | "-h" => {
 					println!(
-						"Usage: cargo run -p bevy-fluent-compatibility -- --generator PATH [--offline] [--target-dir PATH] 0.17.0 0.18.0 0.19.0"
+						"Usage: cargo run -p bevy-fluent-compatibility -- --generator PATH [--offline] [--target-dir PATH] 0.16.1 0.17.0 0.18.0 0.19.0"
 					);
 					std::process::exit(0);
 				}

@@ -4,6 +4,7 @@ use crate::bevy::{
 	ecs as bevy_ecs,
 	prelude::*,
 };
+use crate::compatibility::{MessageReader, MessageWriter};
 use crate::{
 	CatalogUpdate, FluentCatalog, Localization, ModuleSource, ReloadCatalogs, addresses,
 	compatibility,

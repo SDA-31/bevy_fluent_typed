@@ -21,7 +21,7 @@ This companion package lives in the Bevy integration repository under
 [Integration guide](../GUIDE.md)
 
 Engine selection belongs only to the runtime. The bridge emits a runtime-owned
-declaration macro: Bevy 0.19 receives ECS-immutable resources, while 0.17/0.18 use
+declaration macro: Bevy 0.19 receives ECS-immutable resources, while older backends use
 ordinary resources around the same read-only snapshots. Do not add backend flags
 to build-dependencies; host and runtime Cargo feature graphs are separate.
 

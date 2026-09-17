@@ -2,8 +2,8 @@
 use crate::{Locale, Translations, texts};
 use localization_runtime::bevy::{ecs as bevy_ecs, prelude::*};
 use localization_runtime::{
-	CatalogUpdate, FluentCatalog, Localization, LocalizationPlugin, LocalizationSystems,
-	LocalizedText,
+	CatalogUpdate, CatalogUpdateReader, FluentCatalog, Localization, LocalizationPlugin,
+	LocalizationSystems, LocalizedText,
 };
 use std::{
 	fs,
@@ -17,7 +17,7 @@ struct Outcomes {
 	rejected: Vec<Locale>,
 }
 
-fn record(mut events: MessageReader<CatalogUpdate<Translations>>, mut outcomes: ResMut<Outcomes>) {
+fn record(mut events: CatalogUpdateReader<Translations>, mut outcomes: ResMut<Outcomes>) {
 	for event in events.read() {
 		match event {
 			CatalogUpdate::Loaded { locale } => outcomes.loaded.push(*locale),

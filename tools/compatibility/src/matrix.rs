@@ -8,10 +8,11 @@ pub(crate) fn backend(version: &str) -> Result<String> {
 
 	if parts.len() != 3
 		|| parts[0] != "0"
-		|| !matches!(parts[1], "17" | "18" | "19")
+		|| !matches!(parts[1], "16" | "17" | "18" | "19")
 		|| parts[2].is_empty()
 		|| !parts[2].bytes().all(|byte| byte.is_ascii_digit())
 		|| parts[2].parse::<u32>().is_err()
+		|| (parts[1] == "16" && parts[2].parse::<u32>() == Ok(0))
 	{
 		return Err(format!("unsupported exact stable release: {version}").into());
 	}
@@ -52,9 +53,11 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 		.collect();
 
 	for (name, resolved) in &active {
-		if official.contains(name.as_str()) && resolved != version {
+		let expected = package_version(name, version);
+
+		if official.contains(name.as_str()) && resolved != expected {
 			return Err(
-				format!("wrong engine package: {name} {resolved} (expected {version})").into(),
+				format!("wrong engine package: {name} {resolved} (expected {expected})").into(),
 			);
 		}
 	}
@@ -249,6 +252,15 @@ fn main() {
 	Ok(())
 }
 
+/// Bevy 0.16.1's published renderer requires the independently patched color crate.
+pub(crate) fn package_version<'a>(name: &str, version: &'a str) -> &'a str {
+	if name == "bevy_color" && version == "0.16.1" {
+		"0.16.2"
+	} else {
+		version
+	}
+}
+
 fn immutable_resource_error(diagnostic: &str) -> bool {
 	// Rust may describe only the unsatisfied bound, without spelling Immutable.
 	diagnostic.contains("error[E0271]")
@@ -337,6 +349,13 @@ fn dependency_tree(
 #[cfg(test)]
 mod tests {
 	#[test]
+	fn color_patch_is_specific_to_the_published_0161_release_family() {
+		assert_eq!(super::package_version("bevy_color", "0.16.1"), "0.16.2");
+		assert_eq!(super::package_version("bevy_ecs", "0.16.1"), "0.16.1");
+		assert_eq!(super::package_version("bevy_color", "0.17.0"), "0.17.0");
+	}
+
+	#[test]
 	fn mutability_probe_requires_the_actual_resource_bound_failure() {
 		assert!(super::immutable_resource_error(
 			"error[E0271]: type mismatch resolving `<Translations as Component>::Mutability == Mutable`\nnote: required by a bound in `ResMut`"
@@ -361,12 +380,14 @@ mod tests {
 	}
 
 	#[test]
-	fn only_supported_exact_stable_versions_are_accepted() {
-		for version in ["0.17.0", "0.18.1", "0.19.1"] {
+	fn runner_accepts_concrete_releases_within_supported_backend_ranges() {
+		// The runner pins one reproducible release; library requirements admit patches.
+		for version in ["0.16.1", "0.17.0", "0.17.3", "0.18.1", "0.19.1"] {
 			assert!(super::backend(version).is_ok());
 		}
 
 		for version in [
+			"0.15.0",
 			"0.16.0",
 			"0.20.0",
 			"0.19",

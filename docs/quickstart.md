@@ -15,9 +15,17 @@ Turn `presentation/hud.ftl` into `texts::presentation::Hud`. Borrow it through
 chained accessors or request it directly as a Bevy `Res` — no string keys or
 handwritten catalog adapter.
 
-Bevy **0.17, 0.18 and 0.19** are supported with explicit backends, not arbitrary
-future Bevy releases. The declared minimum Rust version is **1.95**. Fonts, glyph coverage,
-layout and window setup belong to your app.
+Bevy **0.16, 0.17, 0.18 and 0.19** are supported with explicit backends, not arbitrary
+future Bevy releases. The declared minimum Rust version is **1.95 stable**;
+nightly is not required. This matches
+[Bevy 0.19's own minimum](https://github.com/bevyengine/bevy/blob/v0.19.0/Cargo.toml).
+Older backends currently retain the same crate-level MSRV; they do not promise
+compatibility with older Rust compilers. Fonts, glyph coverage, layout and window
+setup belong to your app.
+
+Support for 0.16 and the `CatalogUpdateReader` alias are unreleased;
+published 0.1.1 supports 0.17–0.19. Release candidates are outside the stable
+compatibility promise.
 
 ## Features
 
@@ -26,6 +34,7 @@ layout and window setup belong to your app.
 | `bevy-0-19` (default) | Bevy 0.19.0 and compatible patches; ECS-immutable generated resources |
 | `bevy-0-18` | Bevy 0.18.0 and compatible patches |
 | `bevy-0-17` | Bevy 0.17.0 and compatible patches |
+| `bevy-0-16` | Bevy 0.16.1 and compatible patches; `watch` also enables its required multithreaded executor |
 | `codegen` | The `translations!` macro and companion generated-provider integration |
 | `watch` | Bevy's filesystem watcher for live text edits |
 | `build` | Explicit build-script generation; disable defaults for an engine-free host build |
@@ -34,7 +43,7 @@ layout and window setup belong to your app.
 The generator runs in the consuming application's build script, not every frame.
 Without `codegen` or `build`, this runtime does not compile the bridge or generator.
 
-Select **exactly one** engine backend. For 0.17 or 0.18, set
+Select **exactly one** engine backend. For 0.16, 0.17 or 0.18, set
 `default-features = false` and enable the matching feature alongside any optional
 `codegen`/`watch` features. Your direct Bevy dependency must use the same minor.
 Build-only use (`default-features = false, features = ["build"]`) needs no backend.

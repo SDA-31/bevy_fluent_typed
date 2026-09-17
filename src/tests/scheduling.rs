@@ -26,7 +26,7 @@ fn observe(ui: Query<&Text>, world: Query<&Text2d>, mut seen: ResMut<Seen>) {
 }
 
 #[test]
-// Shared with 0.17/0.18, which lack 0.19's replacement System::system_type API.
+// Shared with 0.16–0.18, which lack 0.19's replacement System::system_type API.
 #[allow(deprecated)]
 fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 	let mut app = App::new();
@@ -77,7 +77,17 @@ fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 	let nodes: Vec<_> = schedule
 		.systems()
 		.unwrap()
-		.map(|(key, _)| NodeId::System(key))
+		.map(|(key, _)| {
+			#[cfg(feature = "bevy-0-16")]
+			{
+				key
+			}
+
+			#[cfg(not(feature = "bevy-0-16"))]
+			{
+				NodeId::System(key)
+			}
+		})
 		.collect();
 	let systems: Vec<_> = schedules
 		.get(PostUpdate)
