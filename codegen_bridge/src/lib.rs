@@ -1,6 +1,6 @@
 //! Connect `fluent_typed_codegen` output to the `bevy_fluent_typed` runtime.
 //!
-//! This optional companion generates the provider and immutable module resources
+//! This optional companion generates the provider and shared module resources
 //! consumed by the runtime's localization plugin. Discovery and typed Fluent
 //! accessors belong to the generator; loading, language selection, hot reload and
 //! UI updates belong to the runtime. The bridge supplies the adapter between them.
@@ -27,6 +27,9 @@
 //! compiles no generator. The bridge never depends on `bevy_fluent_typed`:
 //! its macro receives the facade's runtime path, avoiding a dependency cycle.
 //! The declared minimum Rust version is 1.95.
+//! Engine backend selection belongs to the runtime, not this build dependency.
+//! Generated declarations use its macro to preserve ECS-immutable resources on
+//! Bevy 0.19 while supporting ordinary resources on 0.17/0.18.
 //!
 //! The generated provider checks complete catalogs and immutable configuration.
 //! Compatible prose edits can reload; changes to configuration, languages, modules

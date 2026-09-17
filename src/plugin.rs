@@ -1,4 +1,5 @@
 //! Generic Bevy scheduling; input, fonts, window titles and logs belong to the host.
+use crate::bevy::{ecs as bevy_ecs, prelude::*, ui::UiSystems};
 use crate::{
 	CatalogUpdate, FluentCatalog, Localization, ReloadCatalogs,
 	assets::{
@@ -6,9 +7,8 @@ use crate::{
 		reload_catalogs, report_failures,
 	},
 	bindings::{refresh_ui, refresh_world},
-	resources,
+	compatibility, resources,
 };
-use bevy::{prelude::*, ui::UiSystems};
 use std::marker::PhantomData;
 
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -81,14 +81,10 @@ impl<C: FluentCatalog> Plugin for LocalizationPlugin<C> {
 				PostUpdate,
 				(
 					resources::synchronize::<C>,
-					(
-						refresh_ui::<C>
-							.before(UiSystems::Content)
-							.before(bevy::text::detect_text_needs_rerender),
-						refresh_world::<C>
-							.before(bevy::sprite::update_text2d_layout)
-							.before(bevy::text::detect_text_needs_rerender),
-					),
+					compatibility::before_text_detection((
+						refresh_ui::<C>.before(UiSystems::Content),
+						refresh_world::<C>.before(crate::bevy::sprite::update_text2d_layout),
+					)),
 				)
 					.chain()
 					.in_set(LocalizationSystems::Refresh),

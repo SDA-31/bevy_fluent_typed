@@ -1,12 +1,12 @@
 # bevy_fluent_typed
 
-Typed Fluent integration for Bevy 0.19. The runtime owns active languages, asset
-loading, transactional reload, immutable module resources and Text/Text2d bindings.
+Typed Fluent integration for Bevy 0.17, 0.18 and 0.19. The runtime owns active languages,
+asset loading, transactional reload, shared module resources and Text/Text2d bindings.
 Applications own message keys, fonts, controls and generator settings; languages
 are supplied by their catalog provider rather than a fixed runtime list.
 
-The dependency requirement is `bevy = "0.19.0"`: minimum 0.19.0, compatible patches
-below 0.20.0, not an exact pin and not an unbounded future-version promise.
+Choose exactly one backend: `bevy-0-19` (default), `bevy-0-18` or `bevy-0-17`.
+Each accepts patches in its own minor, starting at .0, not arbitrary future versions.
 The application lockfile chooses the concrete patch release. The declared minimum
 Rust version is 1.95 for both the runtime and its companion bridge.
 
@@ -21,9 +21,15 @@ will show the same content once packages are published on crates.io.
 
 ## Optional generation
 
-Without features this package is a standalone runtime for a `FluentCatalog`
+Without `codegen` this package is a standalone runtime for a `FluentCatalog`
 provider. Enable `codegen` for the generated-provider integration and
-`translations!`; enable `watch` for Bevy's file watcher. Defaults are empty.
+`translations!`; enable `watch` for Bevy's file watcher. Only `bevy-0-19` is on by default.
+
+For an older engine, set `default-features = false` and enable its backend, for
+example `features = ["bevy-0-17", "codegen", "watch"]`. Your application's own Bevy
+dependency must use the same minor. No engine flag belongs on the build bridge:
+generated resources use the runtime's selected backend. Selecting no backend or
+several backends is a compile error; do not use `--all-features` for this package.
 
 Install from [GitHub](https://github.com/SDA-31/bevy_fluent_typed); the packages are
 not yet published on crates.io. Put dependencies and package metadata in your
@@ -113,8 +119,10 @@ rendering. Fonts, input and error presentation belong to the application.
 
 For `presentation/hud.ftl`, borrow `translations.presentation().hud()` as
 `&texts::presentation::Hud`, or request `Res<texts::presentation::Hud>`.
-Root, groups and leaves are immutable resources sharing one snapshot through
-`Arc`. Only the central localization resource changes the active language.
+Root, groups and leaves share one read-only snapshot through `Arc`. On Bevy 0.19,
+they are ECS-immutable resources: `ResMut` is rejected. On 0.17/0.18, Bevy does not
+offer that resource-level guarantee; use `Res` and do not replace individual
+modules. Only the central localization resource changes the active language.
 
 Publication runs before Startup, in PreUpdate's `LocalizationSystems::Publish`,
 and in PostUpdate before `LocalizationSystems::Refresh` text consumers.
@@ -146,7 +154,7 @@ Fetch the unpublished generator from Git using a caller-owned override:
 ```sh
 git clone https://github.com/SDA-31/bevy_fluent_typed.git
 cd bevy_fluent_typed
-cargo test --manifest-path Cargo.toml --all-features --config 'patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen.git"' --config 'patch.crates-io.fluent_typed_codegen.branch="main"'
+cargo test --manifest-path Cargo.toml --features codegen,watch --config 'patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen.git"' --config 'patch.crates-io.fluent_typed_codegen.branch="main"'
 cargo test --manifest-path codegen_bridge/Cargo.toml --all-features --config 'patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen.git"' --config 'patch.crates-io.fluent_typed_codegen.branch="main"'
 cargo test --manifest-path examples/minimal/Cargo.toml --config 'patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen.git"' --config 'patch.crates-io.fluent_typed_codegen.branch="main"'
 cargo run --manifest-path examples/minimal/Cargo.toml --config 'patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen.git"' --config 'patch.crates-io.fluent_typed_codegen.branch="main"'
@@ -166,13 +174,17 @@ generator and minimal example:
 ```sh
 cargo run --locked --offline -p localization-example
 cargo run --locked --offline -p localization-example -- --watch
-cargo test --locked --offline --workspace --all-features
-cargo clippy --locked --offline --workspace --all-targets --all-features -- -D warnings
-cargo doc --locked --offline -p bevy_fluent_typed -p bevy_fluent_codegen_bridge -p fluent_typed_codegen --all-features --no-deps
+cargo test --locked --offline --workspace
+cargo clippy --locked --offline --workspace --all-targets -- -D warnings
+cargo doc --locked --offline -p bevy_fluent_typed -p bevy_fluent_codegen_bridge -p fluent_typed_codegen --features bevy_fluent_typed/codegen,bevy_fluent_typed/watch,bevy_fluent_codegen_bridge/build --no-deps
 ```
 
 See the guide for typed arguments, scheduling and custom providers. Verify feature
-isolation in separate consumer graphs; all-features tests deliberately combine them.
+isolation in separate consumer graphs. Never unify the mutually exclusive engine
+backends with `--all-features`.
+
+Maintainers can run the [Rust compatibility tool](tools/compatibility/README.md)
+to pin and test exact engine releases in disposable library-only workspaces.
 
 ## License
 

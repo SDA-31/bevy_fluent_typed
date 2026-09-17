@@ -1,12 +1,17 @@
 # bevy_fluent_codegen_bridge
 
 Connect `fluent_typed_codegen` to `bevy_fluent_typed`: generate a provider and
-immutable Bevy resource types from modular Fluent files. The generator owns
+shared Bevy resource types from modular Fluent files. The generator owns
 discovery and the typed translation API; the runtime owns asset loading,
 language switching, hot reload and text bindings.
 
 This companion package lives in the Bevy integration repository under
 `codegen_bridge/`. Its declared minimum Rust version is 1.95.
+
+Engine selection belongs only to the runtime. The bridge emits a runtime-owned
+declaration macro: Bevy 0.19 receives ECS-immutable resources, while 0.17/0.18 use
+ordinary resources around the same read-only snapshots. Do not add backend flags
+to build-dependencies; host and runtime Cargo feature graphs are separate.
 
 ## Features
 

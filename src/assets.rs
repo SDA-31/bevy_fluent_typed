@@ -1,8 +1,12 @@
 //! One aggregate asset watches all declared modules, publishing each language atomically.
-use crate::{CatalogUpdate, FluentCatalog, Localization, ModuleSource, ReloadCatalogs, addresses};
-use bevy::{
-	asset::{AssetLoader, AssetPath, LoadContext, io::Reader},
+use crate::bevy::{
+	asset::{self as bevy_asset, AssetLoader, AssetPath, LoadContext, io::Reader},
+	ecs as bevy_ecs,
 	prelude::*,
+};
+use crate::{
+	CatalogUpdate, FluentCatalog, Localization, ModuleSource, ReloadCatalogs, addresses,
+	compatibility,
 };
 use std::{any::type_name, io, marker::PhantomData, path::Path, sync::Arc};
 
@@ -65,8 +69,7 @@ impl<C: FluentCatalog> AssetLoader for CatalogLoader<C> {
 		let descriptor = C::descriptor(&definition).map_err(io::Error::other)?;
 		addresses::validate_directory(&descriptor.modules_directory)?;
 
-		let directory = context
-			.path()
+		let directory = compatibility::asset_path(context)
 			.path()
 			.parent()
 			.unwrap_or(Path::new(""))
@@ -82,7 +85,7 @@ impl<C: FluentCatalog> AssetLoader for CatalogLoader<C> {
 				addresses::validate_module(module.path)?;
 				let path = directory.join(locale.as_ref()).join(module.path);
 				let asset_path = AssetPath::from(path.clone())
-					.with_source(context.path().source().clone_owned());
+					.with_source(compatibility::asset_path(context).source().clone_owned());
 				// Successful byte reads register watcher dependencies, even if later
 				// validation fails. Initially missing modules need an explicit reload.
 				let bytes = match context.read_asset_bytes(asset_path).await {
@@ -200,7 +203,7 @@ pub(crate) fn publish_catalogs<C: FluentCatalog>(
 
 /// Report aggregate failures for this provider's retained handle without replacing data.
 pub(crate) fn report_failures<C: FluentCatalog>(
-	mut events: MessageReader<bevy::asset::AssetLoadFailedEvent<CatalogAsset<C>>>,
+	mut events: MessageReader<bevy_asset::AssetLoadFailedEvent<CatalogAsset<C>>>,
 	handle: Option<Res<CatalogHandle<C>>>,
 	mut updates: MessageWriter<CatalogUpdate<C>>,
 ) {

@@ -15,3 +15,27 @@ macro_rules! translations {
 		$crate::__codegen::translations!(runtime = $crate; $($tokens)*);
 	};
 }
+
+/// Apply the selected engine's resource contract to a generated declaration.
+/// Chosen in the runtime graph, never through the consumer's cfg or build.rs.
+#[doc(hidden)]
+#[cfg(feature = "bevy-0-19")]
+#[macro_export]
+macro_rules! __localized_resource {
+	($declaration:item) => {
+		#[derive($crate::bevy::prelude::Resource)]
+		#[component(immutable)]
+		$declaration
+	};
+}
+
+/// Older Bevy backends have resources but no ECS-level resource immutability.
+#[doc(hidden)]
+#[cfg(not(feature = "bevy-0-19"))]
+#[macro_export]
+macro_rules! __localized_resource {
+	($declaration:item) => {
+		#[derive($crate::bevy::prelude::Resource)]
+		$declaration
+	};
+}

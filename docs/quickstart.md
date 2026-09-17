@@ -5,20 +5,34 @@ Use the optional directory generator to turn `presentation/hud.ftl` into
 `texts::presentation::Hud`. Borrow it through chained accessors or request it
 directly as a Bevy `Res` — no string keys or handwritten catalog adapter.
 
-Bevy **0.19.0 and compatible 0.19.x patches** are supported, not arbitrary future
-Bevy releases. The declared minimum Rust version is **1.95**. Fonts, glyph coverage,
+Bevy **0.17, 0.18 and 0.19** are supported with explicit backends, not arbitrary
+future Bevy releases. The declared minimum Rust version is **1.95**. Fonts, glyph coverage,
 layout and window setup belong to your app.
 
 ## Features
 
 | Feature | What it adds |
 | --- | --- |
-| none (default) | Runtime for your own [`FluentCatalog`] provider |
+| `bevy-0-19` (default) | Bevy 0.19.0 and compatible patches; ECS-immutable generated resources |
+| `bevy-0-18` | Bevy 0.18.0 and compatible patches |
+| `bevy-0-17` | Bevy 0.17.0 and compatible patches |
 | `codegen` | The `translations!` macro and companion generated-provider integration |
 | `watch` | Bevy's filesystem watcher for live text edits |
 
 The generator runs in the consuming application's build script, not every frame.
 Without `codegen`, this runtime does not compile the bridge or generator.
+
+Select **exactly one** engine backend. For 0.17 or 0.18, set
+`default-features = false` and enable the matching feature alongside any optional
+`codegen`/`watch` features. Your direct Bevy dependency must use the same minor.
+The build bridge needs no engine-version feature. `--all-features` is intentionally
+invalid for this runtime because it selects incompatible backends together.
+
+All backends expose read-only catalog snapshots. Only Bevy 0.19 can enforce
+resource immutability in ECS: `ResMut<texts::presentation::Hud>` is rejected there.
+On older backends, use `Res` by convention; do not replace individual modules.
+`ResMut<Localization<Translations>>` remains supported on every backend for
+language selection. Changing a `LocalizedText` binding does not need a mutable catalog.
 
 ## Quick start: from assets to typed resources
 

@@ -1,6 +1,6 @@
 //! Refresh bound UI/world entities without respawning or touching editor state.
+use crate::bevy::prelude::*;
 use crate::{FluentCatalog, Localization, LocalizedText};
-use bevy::prelude::*;
 
 pub(crate) fn refresh_ui<C: FluentCatalog>(
 	localization: Res<Localization<C>>,

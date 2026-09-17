@@ -1,9 +1,9 @@
 //! Prove the runtime accepts opaque providers and preserves named asset sources.
+use crate::bevy::{asset::io::AssetSourceBuilder, ecs as bevy_ecs, prelude::*};
 use crate::{
 	CatalogDescriptor, CatalogUpdate, FluentCatalog, Localization, LocalizationPlugin,
 	LocalizationSystems, Module, ModuleSource, ReloadCatalogs,
 };
-use bevy::{asset::io::AssetSourceBuilder, prelude::*};
 use std::{
 	fs,
 	path::PathBuf,

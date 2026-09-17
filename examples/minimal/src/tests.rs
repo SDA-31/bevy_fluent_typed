@@ -3,6 +3,7 @@ use localization_runtime::{FluentCatalog, Localization, Message};
 
 mod contracts;
 mod macros;
+mod reload;
 mod resources;
 
 // Raw upstream output remains independently usable without the Bevy adapter.

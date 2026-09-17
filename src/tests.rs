@@ -1,11 +1,12 @@
+use crate::bevy::prelude::*;
 use crate::{
 	CatalogDescriptor, FluentCatalog, Localization, LocalizedText, Message, Module, ModuleSource,
 	bindings,
 };
-use bevy::prelude::*;
 use std::sync::Arc;
 
 mod loader;
+mod scheduling;
 
 // Deliberately no Clone, Default or TypePath: generated catalogs need none.
 struct TestCatalog(String);

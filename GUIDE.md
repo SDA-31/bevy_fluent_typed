@@ -157,8 +157,9 @@ result types are re-exported beside that leaf with a leaf-name prefix, e.g.
 `presentation::HudPrompt`. Colliding scope/message type names and a path being
 both file and directory are errors. Catalog remains available as a domain name.
 
-The plugin publishes immutable root/group/leaf resources sharing parsed bundles
-through Arc. They exist before Startup. Change language through the central
+The plugin publishes root/group/leaf resources sharing read-only parsed bundles
+through Arc. Bevy 0.19 also enforces ECS resource immutability; 0.17/0.18 do not.
+Use `Res` for catalog modules on every backend. They exist before Startup. Change language through the central
 Localization resource, never through a separate per-HUD state.
 
 Publication runs in PreUpdate's `LocalizationSystems::Publish` and before
@@ -232,12 +233,20 @@ members, its lockfile and root override also support these commands:
 ```sh
 cargo run --locked --offline -p localization-example
 cargo run --locked --offline -p localization-example -- --watch
-cargo test --locked --offline --workspace --all-features
-cargo clippy --locked --offline --workspace --all-targets --all-features -- -D warnings
-cargo doc --locked --offline -p bevy_fluent_typed -p bevy_fluent_codegen_bridge -p fluent_typed_codegen --all-features --no-deps
+cargo test --locked --offline --workspace
+cargo clippy --locked --offline --workspace --all-targets -- -D warnings
+cargo doc --locked --offline -p bevy_fluent_typed -p bevy_fluent_codegen_bridge -p fluent_typed_codegen --features bevy_fluent_typed/codegen,bevy_fluent_typed/watch,bevy_fluent_codegen_bridge/build --no-deps
 ```
 
 The example starts in English, exercises EN/ES/RU and exits after external loads.
 Watch mode waits for edits until Ctrl+C. Neither mode edits source files.
-Use separate feature/consumer checks to verify dependency isolation: a workspace
-all-features build intentionally enables combinations consumers may not use.
+Use separate feature/consumer checks to verify dependency isolation. The runtime
+requires exactly one `bevy-0-17`, `bevy-0-18` or `bevy-0-19` backend; the last is
+the default. Disable defaults to select an older backend, and match the engine
+minor in the application's own dependencies. The build bridge needs no backend
+flag. Do not use `--all-features` on the runtime or an enclosing workspace.
+
+The [maintainer compatibility command](tools/compatibility/README.md) tests exact
+engine releases in isolated Cargo graphs, including watcher reloads and the
+version-dependent resource mutability contract. It is a Rust-only development
+tool, not part of the runtime or generation dependency graph.

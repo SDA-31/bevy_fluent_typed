@@ -11,7 +11,11 @@ with only its `build` feature. The bridge belongs to the runtime repository.
 The consuming root patches the unpublished generator to its Git repository or a
 local checkout. Example manifest paths reference packages inside this repository;
 external applications use the [Git setup](../../README.md#optional-generation).
-The example and runtime accept Bevy 0.19.0 and compatible 0.19.x patches.
+The example and runtime support Bevy 0.17, 0.18 and 0.19 (default).
+To select an older backend, add `--no-default-features --features bevy-0-17`
+or `--no-default-features --features bevy-0-18` to the example's Cargo command.
+Each accepts compatible patches starting at .0. The example imports Bevy through
+the runtime's re-export so it cannot accidentally select a second engine minor.
 Exact pins are used only in isolated minimum-version verification, not in
 library dependency requirements.
 
@@ -83,7 +87,7 @@ original module sources, external validation, engine-free output, deferred
 arguments and isolation of upstream private locale symbols. The nested
 `presentation/hud.ftl` and `presentation/panel.ftl` deliberately repeat keys with
 different argument contracts. Tests exercise explicit `Presentation` / `Hud`
-types, direct immutable resources, locale-switch scheduling, local references,
+types, shared resources (ECS-immutable on 0.19), locale-switch scheduling, local references,
 attributes and structured messages. Extra small catalogs exercise Rust keywords
 and standard-library-name collisions; they are fixtures, not application features.
 The `catalog.ftl` fixture verifies that a domain type named `Catalog` can coexist
@@ -98,6 +102,13 @@ a generated wrapper module. These tests are included in workspace verification:
 ```sh
 cargo test --locked --offline -p localization-example
 ```
+
+`src/tests/reload.rs` edits several copied FTL files through the real filesystem
+watcher. It checks UI/world text and direct-resource consistency, rejection of a
+broken active language while an inactive language updates, and automatic recovery.
+Only disposable temporary assets are edited; example sources remain unchanged.
+Separate saves can publish intermediate valid snapshots: this is not an atomic
+multi-file editor transaction. Allow up to 15 seconds for watcher convergence.
 
 ## License
 

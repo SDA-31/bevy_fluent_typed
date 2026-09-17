@@ -1,6 +1,6 @@
 //! Publish a whole typed resource tree without idle-frame change notifications.
+use crate::bevy::{ecs as bevy_ecs, prelude::*};
 use crate::{FluentCatalog, Localization};
-use bevy::prelude::*;
 use std::sync::Arc;
 
 #[derive(Resource)]

@@ -2,7 +2,7 @@
 use crate::provider;
 use fluent_typed_codegen::{
 	Extension, Scope, Settings,
-	syn::{Attribute, Item, ItemUse, Stmt, parse_quote},
+	syn::{Item, ItemStruct, ItemUse, Stmt, parse_quote},
 };
 use std::{path::Path, process::ExitCode};
 
@@ -40,11 +40,10 @@ impl Extension for BevyExtension {
 		]
 	}
 
-	fn type_attributes(&self) -> Vec<Attribute> {
-		vec![
-			parse_quote!(#[derive(__fluent_runtime::bevy::prelude::Resource)]),
-			parse_quote!(#[component(immutable)]),
-		]
+	fn type_declaration(&self, declaration: ItemStruct) -> Item {
+		parse_quote! {
+			__fluent_runtime::__localized_resource! { #declaration }
+		}
 	}
 
 	fn reserved_names(&self) -> &[&str] {

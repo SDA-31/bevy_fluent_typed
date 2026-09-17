@@ -4,7 +4,7 @@ localization_runtime::translations!(pub mod texts);
 #[cfg(test)]
 mod tests;
 
-use bevy::{asset::AssetPlugin, prelude::*};
+use localization_runtime::bevy::{asset::AssetPlugin, ecs as bevy_ecs, prelude::*};
 use localization_runtime::{
 	CatalogUpdate, FluentCatalog, Localization, LocalizationPlugin, LocalizationSystems,
 	LocalizedText,

@@ -1,5 +1,5 @@
 //! Application-supplied generated API and its modular source catalogs.
-use bevy::prelude::World;
+use crate::bevy::prelude::World;
 use std::path::PathBuf;
 
 /// Validated source layout, relative to the loaded definition asset's directory.

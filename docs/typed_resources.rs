@@ -1,4 +1,4 @@
-use bevy::{asset::AssetPlugin, prelude::*};
+use bevy_fluent_typed::bevy::{asset::AssetPlugin, prelude::*};
 use bevy_fluent_typed::{Localization, LocalizationPlugin, LocalizedText};
 
 bevy_fluent_typed::translations!(pub mod texts);

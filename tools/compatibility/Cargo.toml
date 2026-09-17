@@ -1,0 +1,12 @@
+[package]
+name = "bevy-fluent-compatibility"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.95"
+license = "MIT"
+publish = false
+description = "Maintainer-only exact-version compatibility checks"
+
+[dependencies]
+serde_json = "1"
+tempfile = "3"

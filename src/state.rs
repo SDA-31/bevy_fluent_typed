@@ -1,6 +1,6 @@
 //! Active language and immutable last-known-good catalogs of an arbitrary provider.
 use crate::FluentCatalog;
-use bevy::prelude::Resource;
+use crate::bevy::{ecs as bevy_ecs, prelude::Resource};
 use std::sync::Arc;
 
 #[derive(Resource)]

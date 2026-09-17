@@ -12,21 +12,17 @@ publish = false
 features = ["codegen", "watch"]
 
 [features]
-default = []
+default = ["bevy-0-19"]
+bevy-0-17 = ["dep:bevy_0_17"]
+bevy-0-18 = ["dep:bevy_0_18"]
+bevy-0-19 = ["dep:bevy_0_19"]
 codegen = ["dep:bevy_fluent_codegen_bridge", "bevy_fluent_codegen_bridge/runtime"]
-watch = ["bevy/file_watcher"]
+watch = ["bevy_0_17?/file_watcher", "bevy_0_18?/file_watcher", "bevy_0_19?/file_watcher"]
 
 [dependencies]
 bevy_fluent_codegen_bridge = { version = "0.1.0", path = "codegen_bridge", optional = true }
 fluent-typed = { version = "0.9.0", default-features = false, features = ["langneg"] }
-# Compatible patch releases are allowed; do not claim compatibility with 0.20.
-bevy = { version = "0.19.0", default-features = false, features = [
-    "std",
-    "bevy_asset",
-    "bevy_text",
-    "bevy_ui",
-    "bevy_sprite",
-] }
-
-[dev-dependencies]
-bevy = { version = "0.19.0", default-features = false, features = ["std", "async_executor", "multi_threaded"] }
+# Select exactly one backend. Each admits patches within its own Bevy minor.
+bevy_0_17 = { package = "bevy", version = "0.17.0", optional = true, default-features = false, features = ["std", "async_executor", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }
+bevy_0_18 = { package = "bevy", version = "0.18.0", optional = true, default-features = false, features = ["std", "async_executor", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }
+bevy_0_19 = { package = "bevy", version = "0.19.0", optional = true, default-features = false, features = ["std", "async_executor", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }

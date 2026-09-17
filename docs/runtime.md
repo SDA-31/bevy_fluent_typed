@@ -31,6 +31,13 @@ Change language through [`Localization::set_locale`], not individual module
 resources. Initialize `Localization::<Translations>::new(Locale::Es)` **before**
 adding the plugin to override startup language.
 
+Catalog immutability does not freeze displayed text. Replace a `LocalizedText`
+binding to choose another message, change captured arguments or transform its
+formatted result. Editable user drafts should use separate text components:
+direct edits to a bound `Text`/`Text2d` can be overwritten by the next binding or
+catalog refresh. In-memory editing of shared FTL templates is not currently a
+public runtime API; it would need checked, whole-catalog publication.
+
 ## Hot reload and failures
 
 Enable `watch` and Bevy's asset watcher. For the generated provider, compatible
