@@ -1,5 +1,6 @@
 //! Maintainer command: isolated exact-version tests, not a library dependency.
 mod fixture;
+mod incremental;
 mod matrix;
 
 use std::{env, error::Error, path::PathBuf, process::Command};

@@ -17,17 +17,12 @@ asset-root = "assets"
 catalog = "localizations/localization.toml"
 
 [dependencies]
-localization_runtime = { package = "bevy_fluent_typed", path = "../..", default-features = false, features = ["watch", "codegen"] }
-
-[features]
-default = ["bevy-0-19"]
-bevy-0-17 = ["localization_runtime/bevy-0-17"]
-bevy-0-18 = ["localization_runtime/bevy-0-18"]
-bevy-0-19 = ["localization_runtime/bevy-0-19"]
+localization_runtime = { package = "bevy_fluent_typed", path = "../..", features = ["watch", "codegen"] }
 
 [dev-dependencies]
+fluent_typed_decimal = "0.1.0"
 fluent-syntax = "0.12"
 tempfile = "3"
 
 [build-dependencies]
-localization_bridge = { package = "bevy_fluent_codegen_bridge", path = "../../codegen_bridge", features = ["build"] }
+localization_runtime = { package = "bevy_fluent_typed", path = "../..", default-features = false, features = ["build"] }

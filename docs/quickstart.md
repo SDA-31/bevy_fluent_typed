@@ -1,11 +1,14 @@
 Typed Fluent localization for Bevy: language switching, hot-reloaded assets,
 typed module resources and automatic updates to existing `Text`/`Text2d` entities.
 
+Message access and Fluent resolution use
+[fluent-typed](https://docs.rs/fluent-typed/0.9.0/fluent_typed/).
+
 Optional typed API generation is powered by
-[fluent_typed_codegen](https://docs.rs/fluent_typed_codegen/0.1.0/fluent_typed_codegen/),
+[fluent_typed_codegen](https://docs.rs/fluent_typed_codegen/0.1.1/fluent_typed_codegen/),
 which discovers modular Fluent files and generates their Rust translation tree.
 The companion
-[bevy_fluent_codegen_bridge](https://docs.rs/bevy_fluent_codegen_bridge/0.1.0/bevy_fluent_codegen_bridge/)
+[bevy_fluent_codegen_bridge](https://docs.rs/bevy_fluent_codegen_bridge/0.1.1/bevy_fluent_codegen_bridge/)
 connects that tree to this runtime's resources and plugin.
 
 Turn `presentation/hud.ftl` into `texts::presentation::Hud`. Borrow it through
@@ -25,14 +28,17 @@ layout and window setup belong to your app.
 | `bevy-0-17` | Bevy 0.17.0 and compatible patches |
 | `codegen` | The `translations!` macro and companion generated-provider integration |
 | `watch` | Bevy's filesystem watcher for live text edits |
+| `build` | Explicit build-script generation; disable defaults for an engine-free host build |
+| `runtime` | Runtime APIs, enabled automatically by each Bevy backend |
 
 The generator runs in the consuming application's build script, not every frame.
-Without `codegen`, this runtime does not compile the bridge or generator.
+Without `codegen` or `build`, this runtime does not compile the bridge or generator.
 
 Select **exactly one** engine backend. For 0.17 or 0.18, set
 `default-features = false` and enable the matching feature alongside any optional
 `codegen`/`watch` features. Your direct Bevy dependency must use the same minor.
-The build bridge needs no engine-version feature. `--all-features` is intentionally
+Build-only use (`default-features = false, features = ["build"]`) needs no backend.
+`--all-features` is intentionally
 invalid for this runtime because it selects incompatible backends together.
 
 All backends expose read-only catalog snapshots. Only Bevy 0.19 can enforce
@@ -45,15 +51,19 @@ language selection. Changing a `LocalizedText` binding does not need a mutable c
 
 ### 1. Dependencies and source paths
 
-Add the registry dependencies to your application's Cargo.toml:
+This setup uses the public build facade introduced in **0.1.1**. Upgrade both
+dependency entries together from 0.1.0. The runnable repository examples use
+path dependencies only to test their checkout.
+
+In your application's Cargo.toml:
 
 ```toml
 [dependencies]
 bevy = { version = "0.19.0", default-features = false, features = ["std", "async_executor", "multi_threaded", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }
-bevy_fluent_typed = { version = "0.1.0", features = ["codegen", "watch"] }
+bevy_fluent_typed = { version = "0.1.1", features = ["codegen", "watch"] }
 
 [build-dependencies]
-bevy_fluent_codegen_bridge = { version = "0.1.0", features = ["build"] }
+bevy_fluent_typed = { version = "0.1.1", default-features = false, features = ["build"] }
 
 [package.metadata.localization]
 asset-root = "assets"
@@ -61,18 +71,28 @@ catalog = "localizations/localization.toml"
 ```
 
 Use resolver 2 or 3 to keep build and runtime features separate. Cargo.lock pins
-the resolved versions. No Git dependencies or registry patches are required.
+the resolved versions. The bridge is an implementation detail; application code
+and both dependency entries use `bevy_fluent_typed`. No registry patch is required.
 
 In `build.rs`:
 
 ```rust,ignore
 fn main() -> std::process::ExitCode {
-    bevy_fluent_codegen_bridge::build()
+    bevy_fluent_typed::build()
 }
 ```
 
 Generation runs during `cargo check` and rust-analyzer's build-script indexing.
 Output stays in Cargo's `OUT_DIR` under target/, never beside translation assets.
+The explicit build.rs call performs all generation and registers source tracking.
+`translations!` only includes the prepared output; macro expansion does not invoke
+the generator or write files. A normal dependency feature cannot declare build
+dependencies for the consuming package.
+
+Small, complete consumers are available separately:
+[with codegen](https://github.com/SDA-31/bevy_fluent_typed/tree/main/examples/codegen)
+and [without codegen](https://github.com/SDA-31/bevy_fluent_typed/tree/main/examples/no_codegen).
+The latter has no build.rs and implements a one-message `FluentCatalog` by hand.
 
 ### 2. Create the assets
 

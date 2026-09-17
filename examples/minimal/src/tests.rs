@@ -3,6 +3,7 @@ use localization_runtime::{FluentCatalog, Localization, Message};
 
 mod contracts;
 mod macros;
+mod plurals;
 mod reload;
 mod resources;
 
@@ -113,7 +114,7 @@ fn generated_modules_preserve_paths_and_each_languages_original_source() {
 	] {
 		let modules = Translations::modules(locale);
 
-		assert_eq!(modules.len(), 10);
+		assert_eq!(modules.len(), 11);
 		let ui = modules
 			.iter()
 			.find(|module| module.path == "ui.ftl")

@@ -79,18 +79,6 @@ fn an_update_language_change_is_published_before_post_update_consumers() {
 	);
 }
 
-#[cfg(feature = "bevy-0-19")]
-#[test]
-fn generated_root_group_and_leaf_are_ecs_immutable_on_bevy_019() {
-	use localization_runtime::bevy::ecs::component::Immutable;
-
-	fn immutable<T: Resource + Component<Mutability = Immutable>>() {}
-
-	immutable::<Translations>();
-	immutable::<texts::Presentation>();
-	immutable::<texts::presentation::Hud>();
-}
-
 #[test]
 fn duplicate_local_keys_have_independent_types_references_attributes_and_structured_results() {
 	let catalog = Locale::En.load();

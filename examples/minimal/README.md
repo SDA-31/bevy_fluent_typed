@@ -1,4 +1,9 @@
-# Minimal typed Bevy localization
+# Bevy localization integration suite
+
+For minimal starting points use [codegen](../codegen) or
+[no_codegen](../no_codegen). This example keeps its larger catalog and watcher
+regressions. All generated consumers use an explicit call from build.rs;
+`translations!` only includes its output.
 
 This is a complete application with its own build script and modular EN/ES/RU
 sources. Code, explanations and the initial greeting are English; Spanish and
@@ -6,14 +11,16 @@ Russian remain real translations, not alternate versions of the example code.
 No generated Rust is checked in. It runs without a window or GPU.
 The runtime dependency is bevy_fluent_typed, deliberately renamed to
 `localization_runtime` in Cargo with opt-in `codegen` and `watch` features.
-The build-dependency is bevy_fluent_codegen_bridge, renamed to `localization_bridge`,
-with only its `build` feature. The bridge belongs to the runtime repository.
+The build-dependency is the same public crate under the same alias, with defaults
+disabled and only feature `build`. The bridge is an implementation detail.
+This public facade is available since 0.1.1.
 The generator resolves from crates.io. Example manifest paths reference packages
 inside this repository; external applications use the
 [registry setup](../../README.md#optional-generation).
 The example and runtime support Bevy 0.17, 0.18 and 0.19 (default).
-To select an older backend, add `--no-default-features --features bevy-0-17`
-or `--no-default-features --features bevy-0-18` to the example's Cargo command.
+To select an older backend, set `default-features = false` and add `bevy-0-17`
+or `bevy-0-18` to the normal dependency's features in Cargo.toml. Do not change
+the build-dependency or forward backend features to both dependency kinds.
 Each accepts compatible patches starting at .0. The example imports Bevy through
 the runtime's re-export so it cannot accidentally select a second engine minor.
 Exact pins are used only in isolated minimum-version verification, not in
@@ -51,7 +58,7 @@ The configuration is `assets/localizations/localization.toml` inside this
 example. Both `source-language` and `default-language` are `en`. To watch Spanish
 or Russian instead, change `default-language` to `es` or `ru` and rebuild before
 starting watch mode. No enum or build-script language list needs editing.
-Each language has the same ten FTL modules; `es/` includes Spanish punctuation
+Each language has the same eleven FTL modules; `es/` includes Spanish punctuation
 and accents as well as the nested HUD/panel messages.
 
 ```text
@@ -109,6 +116,21 @@ broken active language while an inactive language updates, and automatic recover
 Only disposable temporary assets are edited; example sources remain unchanged.
 Separate saves can publish intermediate valid snapshots: this is not an atomic
 multi-file editor transaction. Allow up to 15 seconds for watcher convergence.
+
+## Decimal and plural regression
+
+`src/tests/plurals.rs` passes the published
+[fluent_typed_decimal](https://github.com/SDA-31/fluent_typed_decimal) adapter's
+text/category strings to actual generated `Numbers` accessors. A deferred Bevy
+text captures the raw value and per-locale formatters, then follows EN/ES/RU
+switches without retaining the old grammar. Separate checks cover visible `1`
+versus `1.0` and native Fluent exact numeric matching.
+
+The Decimal adapter is only a test dependency here, not a dependency of the
+runtime, bridge or generator. Its own generated consumer additionally tests
+Arabic text, digits and bidi isolation. Neither suite renders glyphs or verifies
+visual RTL layout. The [guide](../../GUIDE.md#decimal-and-plural-arguments)
+explains this ownership split and shows the source-language FTL contract.
 
 ## License
 

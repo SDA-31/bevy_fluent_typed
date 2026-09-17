@@ -23,7 +23,7 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 	let backend = backend(version)?;
 	let fixture = Fixture::new(source, options, version)?;
 	fixture.pin(&["bevy".into()], version)?;
-	let features = format!("{backend},codegen,watch,localization-example/{backend}");
+	let features = format!("{backend},codegen,watch");
 	let args = [
 		"metadata",
 		"--format-version=1",
@@ -34,7 +34,7 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 		&features,
 	];
 	let graph = metadata(&fixture, &args)?;
-	let active = dependency_tree(&fixture, "localization-example", &backend)?;
+	let active = dependency_tree(&fixture, "localization-example", "")?;
 	let family = official_packages(&graph)
 		.filter(|package| {
 			active.contains(&(
@@ -46,7 +46,7 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 		.collect::<BTreeSet<_>>();
 	fixture.pin(&family.into_iter().collect::<Vec<_>>(), version)?;
 	let graph = metadata(&fixture, &args)?;
-	let active = dependency_tree(&fixture, "localization-example", &backend)?;
+	let active = dependency_tree(&fixture, "localization-example", "")?;
 	let official: BTreeSet<_> = official_packages(&graph)
 		.map(|package| package["name"].as_str().unwrap())
 		.collect();
@@ -64,6 +64,62 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 		serde_json::to_vec_pretty(&graph)?,
 	)?;
 	let runtime = dependency_tree(&fixture, "bevy_fluent_typed", &format!("{backend},watch"))?;
+	let host = dependency_tree(&fixture, "bevy_fluent_typed", "build")?;
+
+	if host
+		.iter()
+		.any(|(name, _)| name == "bevy" || name.starts_with("bevy_0_") || name == "bevy_internal")
+	{
+		return Err("build-only facade unexpectedly depends on Bevy".into());
+	}
+
+	if !host.iter().any(|(name, _)| name == "fluent_typed_codegen") {
+		return Err("build facade is missing its generator".into());
+	}
+
+	fixture.success(&[
+		"check",
+		"--locked",
+		"-p",
+		"bevy_fluent_typed",
+		"--no-default-features",
+		"--features",
+		"build",
+	])?;
+	let target_graph = fixture.cargo(
+		&[
+			"tree",
+			"--locked",
+			"-p",
+			"localization-codegen-example",
+			"--edges",
+			"normal,no-proc-macro",
+			"--prefix",
+			"none",
+			"--format",
+			"{p}",
+		],
+		true,
+	)?;
+
+	if !target_graph.status.success() {
+		return Err(String::from_utf8_lossy(&target_graph.stderr)
+			.into_owned()
+			.into());
+	}
+
+	let target_graph = String::from_utf8(target_graph.stdout)?;
+
+	for line in target_graph.lines() {
+		if matches!(
+			line.split_whitespace().next(),
+			Some("fluent_typed_codegen" | "prettyplease" | "tempfile")
+		) {
+			return Err(
+				format!("host-only generator dependency entered target graph: {line}").into(),
+			);
+		}
+	}
 
 	if runtime.iter().any(|(name, _)| {
 		matches!(
@@ -83,18 +139,53 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 		"--features",
 		&format!("{backend},watch"),
 	])?;
-	let example = [
-		"--locked",
-		"-p",
-		"localization-example",
-		"--no-default-features",
-		"--features",
-		&backend,
-	];
+	let example = ["--locked", "-p", "localization-example"];
 	fixture.success(&[&["test"][..], &example].concat())?;
 
 	for binary in ["localization-example", "typed_resources"] {
 		fixture.success(&[&["run"][..], &example, &["--bin", binary]].concat())?;
+	}
+
+	fixture.success(&["test", "--locked", "-p", "localization-codegen-example"])?;
+	fixture.success(&[
+		"test",
+		"--locked",
+		"-p",
+		"localization-no-codegen-example",
+		"--no-default-features",
+		"--features",
+		&backend,
+	])?;
+
+	crate::incremental::check(&fixture)?;
+
+	if backend == "bevy-0-19" {
+		// Verify root, group and leaf without making the consumer forward backend
+		// features to its build dependency merely to cfg-gate a test.
+		fs::write(
+			fixture
+				.path
+				.join("examples/minimal/src/bin/immutable_types_probe.rs"),
+			r#"use localization_runtime::bevy::{ecs::component::Immutable, prelude::*};
+localization_runtime::translations!(mod texts);
+
+fn immutable<T: Resource + Component<Mutability = Immutable>>() {}
+
+fn main() {
+    immutable::<texts::Translations>();
+    immutable::<texts::Presentation>();
+    immutable::<texts::presentation::Hud>();
+}
+"#,
+		)?;
+		fixture.success(
+			&[
+				&["check"][..],
+				&example,
+				&["--bin", "immutable_types_probe"],
+			]
+			.concat(),
+		)?;
 	}
 
 	fs::write(

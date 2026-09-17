@@ -5,6 +5,7 @@ use crate::{
 };
 use std::sync::Arc;
 
+mod documentation;
 mod loader;
 mod scheduling;
 

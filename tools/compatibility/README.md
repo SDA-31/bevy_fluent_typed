@@ -6,6 +6,18 @@ pins the consumer's selected official Bevy packages to the requested release, th
 - Runtime tests, including named asset sources and actual text-detector ordering.
 - Generated consumer tests, including multi-file filesystem watcher reloads.
 - Both headless example binaries.
+- Separate minimal codegen/no-codegen examples, including actual resource/Text
+  values after switching through all three languages.
+- Explicit-build Cargo rebuild probes: edits, added/deleted modules and locales,
+  missing build.rs, validation failures/recovery, excluded-asset tracking
+  and repeated unchanged checks. After an edit, upstream's watched staging files
+  may cause one extra timestamp-settling rebuild; two subsequent checks must be
+  fresh. This is a bounded known limitation, not permission for a rebuild loop.
+- Target dependency isolation with proc-macro edges excluded: the codegen feature
+  must not link the build-time generator or formatting tools into the app.
+- Build-only facade checks: no Bevy dependency or backend feature. Cargo artifacts
+  from the real generated consumer must show separate `build`-only host and
+  runtime feature sets, including on unchanged checks.
 - A compile probe: generated `ResMut` is rejected on 0.19 and accepted by older ECS
   versions. The generated catalog API remains read-only on every backend.
 - Runtime-only dependency isolation; on 0.19, rejected missing/conflicting backend selections.
@@ -35,6 +47,8 @@ The generator path is explicit; no sibling checkout convention is assumed.
 Add `--offline` **after** `--` once the needed dependencies are cached. Each test
 fixture has its own lockfile; the consuming workspace's lockfile is untouched.
 Fixtures are copied once at the start of each release check. Re-run after edits.
+The two generated examples select their backend directly on the normal dependency
+inside the fixture. They do not forward backend flags to the build-dependency.
 Bevy pins live in a separate test-only package, leaving the tested library's
 dependency requirements unchanged. Optional backend entries in a lockfile are
 not evidence that those backends were compiled.

@@ -1,7 +1,9 @@
 /// Declare a module containing this application's generated translations.
 ///
-/// Run `bevy_fluent_codegen_bridge::build()` from the consuming package's `build.rs`
-/// with the bridge's `build` feature enabled first. This macro includes that package's
+/// Run `bevy_fluent_typed::build()` from the consuming package's `build.rs`
+/// with that crate's defaults disabled and `build` feature enabled first.
+/// Low-level callers can instead use this bridge's `build()` with its `build` feature.
+/// This macro includes the consuming package's
 /// Cargo output; it does not generate files or register the Bevy plugin itself.
 /// No handwritten `generated.rs`, output path or runtime dependency alias is needed.
 ///

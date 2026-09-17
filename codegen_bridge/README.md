@@ -6,10 +6,13 @@
 [![MSRV](https://img.shields.io/crates/msrv/bevy_fluent_codegen_bridge)](https://crates.io/crates/bevy_fluent_codegen_bridge)
 [![License](https://img.shields.io/crates/l/bevy_fluent_codegen_bridge)](LICENSE)
 
-Connect `fluent_typed_codegen` to `bevy_fluent_typed`: generate a provider and
+Connect [fluent_typed_codegen](https://github.com/SDA-31/fluent_typed_codegen) to
+[bevy_fluent_typed](https://github.com/SDA-31/bevy_fluent_typed): generate a provider and
 shared Bevy resource types from modular Fluent files. The generator owns
 discovery and the typed translation API; the runtime owns asset loading,
 language switching, hot reload and text bindings.
+The actual message accessors and Fluent resolution are supplied by
+[fluent-typed](https://github.com/human-solutions/fluent-typed).
 
 This companion package lives in the Bevy integration repository under
 `codegen_bridge/`. Its declared minimum Rust version is 1.95.
@@ -32,11 +35,16 @@ to build-dependencies; host and runtime Cargo feature graphs are separate.
 
 The main runtime's `codegen` feature enables this package's `runtime` feature.
 Applications normally invoke `bevy_fluent_typed::translations!(pub mod texts)`.
-They use this package directly only as a build-dependency:
+Since 0.1.1 the facade also exposes generation as `bevy_fluent_typed::build()`.
+Standard consumers use that crate in both dependency sections, enabling only
+`build` with defaults disabled in build-dependencies. They do not name this bridge.
+See the [facade setup](../README.md#optional-generation).
+
+Direct bridge access remains available for low-level users:
 
 ```toml
 [build-dependencies]
-bevy_fluent_codegen_bridge = { version = "0.1.0", features = ["build"] }
+bevy_fluent_codegen_bridge = { version = "0.1.1", features = ["build"] }
 ```
 
 The bridge and generator resolve from crates.io; no checkout or registry patch
@@ -50,7 +58,7 @@ fn main() -> std::process::ExitCode {
 
 `from_cargo()` offers fallible error handling; `generate(package, output, settings)`
 supports explicit build frontends. `Settings` is re-exported only with `build`.
-The minimal consumer lives at [../examples/minimal](../examples/minimal/README.md).
+The minimal consumer lives at [../examples/codegen](../examples/codegen/README.md).
 Its resource path is `assets/localizations/translations/<locale>/`.
 The TOML's optional `translations-directory` is relative to the definition file
 and defaults to `"."`. The legacy `languages-directory` alias is also accepted;
@@ -68,13 +76,24 @@ With Cargo resolver 2/3, normal use enables only `runtime`, while build-script
 use enables `build` separately. An explicit `--all-features` build of this package
 naturally includes both. Check separate consumer graphs when verifying isolation.
 
-`fluent_typed_codegen = "0.1.0"` is a versioned dependency, not a sibling path.
+`fluent_typed_codegen = "0.1.1"` is a versioned dependency, not a sibling path.
 It explicitly enables the generator's `build` feature with defaults disabled;
 the bridge's runtime-only feature still does not depend on the generator.
 Local generator development can use a caller-owned `[patch.crates-io]` pointing
 to its checkout. Patches in a dependency's manifest do not propagate to consumers.
 For manual releases, publish the generator first,
 then this bridge, then the Bevy runtime. The bridge shares the runtime's repository.
+
+## Number and presentation boundaries
+
+The bridge preserves upstream native numeric arguments and String selectors.
+Applications may pass number text and plural keywords from
+[fluent_typed_decimal](https://github.com/SDA-31/fluent_typed_decimal) as ordinary
+String arguments; neither the bridge nor the generator needs that dependency.
+The adapter uses ICU4X; Fluent resolves the selected message, and the application
+keeps numeric formatting aligned with the active catalog. The bridge does not
+format numbers, watch files, shape Arabic text or implement visual RTL layout.
+See the [plural guide](../GUIDE.md#decimal-and-plural-arguments).
 
 ## Implementation map
 

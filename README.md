@@ -6,7 +6,9 @@
 [![MSRV](https://img.shields.io/crates/msrv/bevy_fluent_typed)](https://crates.io/crates/bevy_fluent_typed)
 [![License](https://img.shields.io/crates/l/bevy_fluent_typed)](LICENSE)
 
-Typed Fluent integration for Bevy 0.17, 0.18 and 0.19. The runtime owns active languages,
+Typed Fluent integration for Bevy 0.17, 0.18 and 0.19, built on
+[fluent-typed](https://github.com/human-solutions/fluent-typed) for typed message
+access and Fluent resolution. The runtime owns active languages,
 asset loading, transactional reload, shared module resources and Text/Text2d bindings.
 Applications own message keys, fonts, controls and generator settings; languages
 are supplied by their catalog provider rather than a fixed runtime list.
@@ -22,14 +24,14 @@ The application lockfile chooses the concrete patch release. The declared minimu
 Rust version is 1.95 for both the runtime and its companion bridge.
 
 [API documentation](https://docs.rs/bevy_fluent_typed/latest/bevy_fluent_typed/) ·
-[Guide](GUIDE.md) · [Runnable example](examples/minimal/README.md) ·
+[Guide](GUIDE.md) · [Codegen example](examples/codegen) · [No-codegen example](examples/no_codegen) ·
 [Optional bridge](codegen_bridge/README.md)
 
 The crate's Rustdoc landing page contains a self-contained asset-to-resource
 quick start. Its `texts::presentation::Hud` / `Res` sample is included from the
 [runnable typed-resource example](docs/typed_resources.rs), not
 maintained as a separate code copy. Read it on
-[docs.rs](https://docs.rs/bevy_fluent_typed/0.1.0/bevy_fluent_typed/)
+[docs.rs](https://docs.rs/bevy_fluent_typed/latest/bevy_fluent_typed/)
 or build it locally with `cargo doc`.
 
 ## Optional generation
@@ -40,38 +42,69 @@ provider. Enable `codegen` for the generated-provider integration and
 
 For an older engine, set `default-features = false` and enable its backend, for
 example `features = ["bevy-0-17", "codegen", "watch"]`. Your application's own Bevy
-dependency must use the same minor. No engine flag belongs on the build bridge:
-generated resources use the runtime's selected backend. Selecting no backend or
-several backends is a compile error; do not use `--all-features` for this package.
+dependency must use the same minor. The build-only facade needs no engine flag:
+generated resources use the runtime's selected backend. Runtime use requires exactly
+one backend; `default-features = false, features = ["build"]` needs none.
+Do not use `--all-features` for this package.
 
-Put dependencies and package metadata in your application's Cargo.toml.
-No Git dependency, sibling checkout or registry patch is required.
+The setup below uses the public build facade introduced in **0.1.1**. Both
+dependency entries use this same crate; 0.1.0 consumers should upgrade to use it.
+Repository examples deliberately use local paths to test their checkout.
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.1.0", features = ["codegen", "watch"] }
+bevy_fluent_typed = { version = "0.1.1", features = ["codegen", "watch"] }
 
 [build-dependencies]
-bevy_fluent_codegen_bridge = { version = "0.1.0", features = ["build"] }
+bevy_fluent_typed = { version = "0.1.1", default-features = false, features = ["build"] }
 
 [package.metadata.localization]
 asset-root = "assets"
 catalog = "localizations/localization.toml"
 ```
 
-The bridge is a separate Cargo package in this repository. It adapts
-`fluent_typed_codegen` output to this runtime. The runtime enables its lightweight `runtime`
-feature; the build-dependency enables `build`. Use Cargo resolver 2 or 3 to keep
-host build features separate from normal dependencies. The generator is not
-compiled into the application runtime.
+Both dependency entries refer to the same public crate. Its `build` feature
+exposes explicit generation; `codegen` exposes the runtime integration. The bridge
+is an internal adapter, not a required name in application manifests or build.rs.
+Use Cargo resolver 2 or 3: build-only use compiles no Bevy, while normal use
+compiles no generator. Disable defaults on the build-dependency.
 
 In `build.rs`:
 
 ```rust
 fn main() -> std::process::ExitCode {
-    bevy_fluent_codegen_bridge::build()
+    bevy_fluent_typed::build()
 }
 ```
+
+This is the **explicit generation phase**. `translations!` only includes its
+output; expanding the macro never invokes a generator or writes files. A normal
+dependency feature cannot supply dependencies to the consumer's build.rs, so this
+build-dependency is intentional. Cargo tracks catalog files and directories through
+the bridge's build-script rerun directives.
+
+Select engine features directly on the normal dependency. Forwarding them through
+application features to the shared dependency name also enables them in the host
+graph. After an asset edit, upstream's watched staging timestamps can cause one
+additional build-script run; subsequent unchanged checks are verified to stay fresh.
+
+## Minimal examples
+
+- [With codegen](examples/codegen): one FTL module per language, the explicit
+  build call above, generated `texts::ui::Greeting` and EN/ES/RU switching.
+- [Without codegen](examples/no_codegen): no build.rs or build-dependencies;
+  a small handwritten `FluentCatalog` and automatic updates to a Bevy `Text`.
+- [Integration suite](examples/minimal): typed arguments, resource scopes,
+  filesystem watching and contract regression tests.
+
+```sh
+cargo run --manifest-path examples/codegen/Cargo.toml
+cargo run --manifest-path examples/no_codegen/Cargo.toml
+```
+
+## Source assets and generated tree
+
+Continue the generated setup with the source assets below.
 
 In `assets/localizations/localization.toml`:
 
@@ -124,6 +157,32 @@ modules. Only the central localization resource changes the active language.
 Publication runs before Startup, in PreUpdate's `LocalizationSystems::Publish`,
 and in PostUpdate before `LocalizationSystems::Refresh` text consumers.
 Unchanged reloads and inactive-language edits do not replace active resources.
+
+## Decimal numbers, plurals and RTL
+
+For localized Decimal displays, add the independent
+[fluent_typed_decimal](https://github.com/SDA-31/fluent_typed_decimal)
+([API reference](https://docs.rs/fluent_typed_decimal/)) to your application.
+Its `NumberFormatter` uses ICU4X to prepare number text and a plural category
+from the same rounded value. Pass `LocalizedNumber::text()` and `selector()`
+to two `(String)` arguments in your FTL. No runtime feature or generator change
+is required, and the adapter is not an implicit dependency of this library.
+
+Fluent matches String selectors to literal `[one]`, `[few]`, etc., with the
+starred branch as fallback. Native numeric selectors and exact `[0]`/`[1]`
+matches remain supported separately. See the
+[plural guide](GUIDE.md#decimal-and-plural-arguments) for the FTL contract and
+the [compiled deferred-text test](examples/minimal/src/tests/plurals.rs) for
+automatic updates when the active language changes.
+
+Capture the raw Decimal and reusable per-locale formatters in deferred messages,
+not a `LocalizedNumber` prepared for an old language. Select the formatter from
+the current catalog's locale each time the closure renders. Replace the binding
+when the numeric value or formatting policy changes.
+
+Arabic digits and grammatical rules do not provide complete RTL UI support.
+Preserve Fluent's bidi isolation; glyph shaping, visual bidi ordering, fonts,
+alignment and mirrored layout belong to the application's rendering stack.
 
 ## Reload and provider boundaries
 

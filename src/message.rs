@@ -7,6 +7,11 @@ use std::{fmt, marker::PhantomData, sync::Arc};
 ///
 /// Capture owned argument values, not an already translated string. This allows
 /// stored notices to follow later language switches and hot reloads.
+/// For Decimal displays, capture the raw value and reusable per-locale formatters,
+/// then select the formatter using the catalog passed to the closure. A captured
+/// preformatted number would keep the old language's digits and plural category.
+/// See the independent [Decimal adapter](https://docs.rs/fluent_typed_decimal/);
+/// it supplies ordinary String arguments, not a special runtime message type.
 pub struct Message<C: FluentCatalog>(Arc<dyn Fn(&C) -> String + Send + Sync>);
 
 impl<C: FluentCatalog> Clone for Message<C> {
@@ -44,6 +49,8 @@ impl<C: FluentCatalog> fmt::Debug for Message<C> {
 /// The plugin changes text in place when the catalog or binding changes. It does
 /// not spawn/despawn the entity. Bound text contents are replaced, so keep editable
 /// drafts separate; this binding does not manage or preserve text-editor state.
+/// Number formatting belongs to the closure (see [`Message`]); shaping, visual
+/// bidi ordering and font coverage belong to the renderer, not this component.
 pub struct LocalizedText<C: FluentCatalog>(pub(crate) Message<C>);
 
 impl<C: FluentCatalog> LocalizedText<C> {

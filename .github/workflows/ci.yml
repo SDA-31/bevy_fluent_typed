@@ -14,7 +14,7 @@ concurrency:
 
 env:
   # Test a pinned generator checkout, not a game workspace or moving branch.
-  GENERATOR_REV: 85f6fb4be25eeb754ed735f175042036c053655d
+  GENERATOR_REV: da43d5866e974ecba1edf05c72a293f43ee9619d
   # Compile-fail probes inspect rustc diagnostics without ANSI escape sequences.
   CARGO_TERM_COLOR: never
   CARGO_INCREMENTAL: 0
@@ -60,24 +60,28 @@ jobs:
             bevy-quality-${{ runner.os }}-${{ runner.arch }}-${{ env.GENERATOR_REV }}-${{ hashFiles('runtime/**/Cargo.toml') }}-
       - name: Check formatting in every package and the documentation example
         run: |
-          for manifest in Cargo.toml codegen_bridge/Cargo.toml examples/minimal/Cargo.toml tools/compatibility/Cargo.toml; do
+          for manifest in Cargo.toml codegen_bridge/Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml tools/compatibility/Cargo.toml; do
             cargo fmt --manifest-path "$manifest" --all -- --check
           done
           rustfmt --check --edition 2024 docs/typed_resources.rs
       - name: Resolve independent package graphs
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
-          for manifest in Cargo.toml codegen_bridge/Cargo.toml examples/minimal/Cargo.toml tools/compatibility/Cargo.toml; do
+          for manifest in Cargo.toml codegen_bridge/Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml tools/compatibility/Cargo.toml; do
             cargo generate-lockfile --manifest-path "$manifest" --config "$generator_config"
           done
       - name: Clippy
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
           cargo clippy --locked --all-targets --features codegen,watch --config "$generator_config" -- -D warnings
+          cargo clippy --locked --all-targets --no-default-features --features build --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path codegen_bridge/Cargo.toml --all-targets --all-features --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path codegen_bridge/Cargo.toml --all-targets --no-default-features --features runtime --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path examples/minimal/Cargo.toml --all-targets --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path tools/compatibility/Cargo.toml --all-targets -- -D warnings
+          for manifest in examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml; do
+            cargo clippy --locked --manifest-path "$manifest" --all-targets --config "$generator_config" -- -D warnings
+          done
       - name: Test bridge and maintainer tool
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
@@ -97,7 +101,8 @@ jobs:
       - name: Build runtime and bridge documentation
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
-          cargo doc --locked --no-deps --features codegen,watch --config "$generator_config"
+          cargo doc --locked --no-deps --features codegen,watch,build --config "$generator_config"
+          cargo doc --locked --no-deps --no-default-features --features build --config "$generator_config"
           cargo doc --locked --manifest-path codegen_bridge/Cargo.toml --no-deps --all-features --config "$generator_config"
       - name: Inspect library archives without uploading
         run: |
@@ -107,11 +112,13 @@ jobs:
           grep -Fx LICENSE "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/quickstart.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/runtime.md "$CARGO_TARGET_DIR/runtime-package.txt"
+          grep -Fx docs/build.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/typed_resources.rs "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx LICENSE "$CARGO_TARGET_DIR/bridge-package.txt"
-          # Registry-backed package compilation becomes possible after the first
-          # manual generator/bridge releases. Inventory is not a publish dry-run.
-          if grep -E '^(codegen_bridge|examples/minimal|tools/compatibility)/' "$CARGO_TARGET_DIR/runtime-package.txt"; then
+          # A new runtime version cannot be package-verified until its bridge
+          # version is published. Inventory is not a publish dry-run; the manual
+          # child-to-parent release performs registry-backed verification.
+          if grep -E '^(codegen_bridge|examples|tools/compatibility)/' "$CARGO_TARGET_DIR/runtime-package.txt"; then
             echo 'A nested package leaked into the runtime archive.' >&2
             exit 1
           fi

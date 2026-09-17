@@ -1,4 +1,7 @@
-//! Connect `fluent_typed_codegen` output to the `bevy_fluent_typed` runtime.
+//! Connect [fluent_typed_codegen](https://docs.rs/fluent_typed_codegen/) output
+//! to the [bevy_fluent_typed](https://docs.rs/bevy_fluent_typed/) runtime.
+//! Message accessors and Fluent resolution are provided by
+//! [fluent-typed](https://docs.rs/fluent-typed/).
 //!
 //! This optional companion generates the provider and shared module resources
 //! consumed by the runtime's localization plugin. Discovery and typed Fluent
@@ -8,8 +11,9 @@
 //! # Features and setup
 //!
 //! - **`build`:** generation entrypoints and `Settings`. Enable only in
-//!   build-dependencies, then return `bevy_fluent_codegen_bridge::build()` from
-//!   `build.rs`. It emits the additional provider/resource tree into `OUT_DIR`.
+//!   the host graph. Consumers normally enable `bevy_fluent_typed/build` with
+//!   defaults disabled and call `bevy_fluent_typed::build()` in `build.rs`.
+//!   It emits the additional provider/resource tree into `OUT_DIR`.
 //! - **`runtime`:** output inclusion and checked definition parsing. The runtime's
 //!   `codegen` feature enables this and exposes its `translations!` facade.
 //! - **No features (default):** no adapter code or dependencies.
@@ -19,7 +23,8 @@
 //! The [complete setup and asset example](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md)
 //! shows configuration, a build script and runtime registration. The
 //! [bridge README](https://github.com/SDA-31/bevy_fluent_typed/tree/main/codegen_bridge)
-//! describes the build-dependency setup and feature boundaries.
+//! describes low-level entrypoints and feature boundaries. The public build
+//! facade is available since 0.1.1; version 0.1.0 used the bridge directly.
 //!
 //! # Dependency and reload boundaries
 //!
@@ -35,6 +40,10 @@
 //! Compatible prose edits can reload; changes to configuration, languages, modules
 //! or typed contracts require generation and restart. The bridge does not watch
 //! files or publish resources itself: it emits the provider used by the runtime.
+//! Native numeric selectors remain available. Number text and plural keywords
+//! from [fluent_typed_decimal](https://docs.rs/fluent_typed_decimal/) pass through
+//! ordinary String parameters; the bridge has no Decimal dependency or formatting
+//! policy. RTL layout, glyph shaping and fonts belong to the application's renderer.
 //! Repository links follow `main`; this reference describes the viewed version.
 #![warn(missing_docs)]
 

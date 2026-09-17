@@ -9,10 +9,14 @@ From a checkout of [the repository](https://github.com/SDA-31/bevy_fluent_typed)
 ```sh
 cargo run --manifest-path examples/minimal/Cargo.toml --bin typed_resources
 cargo run --manifest-path examples/minimal/Cargo.toml --bin localization-example -- --watch
+cargo run --manifest-path examples/codegen/Cargo.toml
+cargo run --manifest-path examples/no_codegen/Cargo.toml
 ```
 
 Use `--locked --offline` on later runs once dependencies and a lockfile exist.
-Both examples run headlessly, without a GPU or window.
+All examples run headlessly, without a GPU or window. `codegen` is the smallest
+generated consumer with an explicit build.rs; `no_codegen` has a handwritten
+provider and no build script. The larger `minimal` remains the integration suite.
 
 ## Direct resources or deferred text?
 
@@ -37,6 +41,27 @@ formatted result. Editable user drafts should use separate text components:
 direct edits to a bound `Text`/`Text2d` can be overwritten by the next binding or
 catalog refresh. In-memory editing of shared FTL templates is not currently a
 public runtime API; it would need checked, whole-catalog publication.
+
+## Decimal values and plural selection
+
+The independent [fluent_typed_decimal adapter](https://docs.rs/fluent_typed_decimal/)
+can supply locale-formatted Decimal text and a plural-category keyword to two
+generated String arguments. It uses ICU4X for formatting and plural rules; Fluent
+matches the keyword to literal branches such as `[one]` or `[few]`. Native numeric
+selectors remain available, including exact `[0]` / `[1]` matches. The runtime
+does not add a Decimal dependency or require a numeric-formatting feature.
+
+For deferred messages, capture a Decimal and reusable per-locale formatters;
+choose the formatter from the current catalog's locale when rendering. Capturing
+an already prepared `LocalizedNumber` would keep the old language's digits and
+grammar. Replace a binding when its numeric input or precision policy changes.
+The [plural guide and FTL contract](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md#decimal-and-plural-arguments)
+and [compiled text-switch regression](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/minimal/src/tests/plurals.rs)
+show the two String arguments and their lifecycle.
+
+Arabic number formatting is separate from visual RTL: preserve Fluent's default
+bidi isolation, and provide glyph shaping, bidi layout, fonts and UI mirroring
+through your rendering stack. These headless examples verify strings, not pixels.
 
 ## Hot reload and failures
 

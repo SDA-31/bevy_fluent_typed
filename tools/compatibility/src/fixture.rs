@@ -30,8 +30,37 @@ impl<'a> Fixture<'a> {
 			"docs",
 			"codegen_bridge",
 			"examples/minimal",
+			"examples/codegen",
+			"examples/no_codegen",
 		] {
 			copy(&source.join(name), &path.join(name))?;
+		}
+
+		// Keep the smallest example free of backend-forwarding features: forwarding
+		// a feature to the same dependency name would also enable it on the host.
+		let backend = crate::matrix::backend(version)?;
+
+		for example in ["codegen", "minimal"] {
+			let example_manifest = path.join(format!("examples/{example}/Cargo.toml"));
+			let original = fs::read_to_string(&example_manifest)?;
+			let features = if example == "minimal" {
+				"\"watch\", \"codegen\""
+			} else {
+				"\"codegen\""
+			};
+			let dependency = format!("features = [{features}]");
+
+			if !original.contains(&dependency) {
+				return Err(format!("{example} example's runtime dependency changed").into());
+			}
+
+			fs::write(
+				&example_manifest,
+				original.replace(
+					&dependency,
+					&format!("default-features = false, features = [{features}, \"{backend}\"]"),
+				),
+			)?;
 		}
 
 		let manifest = path.join("Cargo.toml");
@@ -39,7 +68,7 @@ impl<'a> Fixture<'a> {
 		fs::write(
 			&manifest,
 			format!(
-				"{}\n[workspace]\nmembers = [\"codegen_bridge\", \"examples/minimal\", \"version-pins\"]\nresolver = \"3\"\n[patch.crates-io]\nfluent_typed_codegen = {{ path = {generator} }}\n[profile.dev]\ndebug = 0\n",
+				"{}\n[workspace]\nmembers = [\"codegen_bridge\", \"examples/minimal\", \"examples/codegen\", \"examples/no_codegen\", \"version-pins\"]\nresolver = \"3\"\n[patch.crates-io]\nfluent_typed_codegen = {{ path = {generator} }}\n[profile.dev]\ndebug = 0\n",
 				fs::read_to_string(&manifest)?
 			),
 		)?;

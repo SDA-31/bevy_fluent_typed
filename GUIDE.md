@@ -4,6 +4,10 @@ The [README](README.md#optional-generation) contains the current dependency setu
 This guide covers the directory-generator integration; custom providers can use
 the runtime without its optional `codegen` feature.
 
+For the smallest starting points, see [codegen](examples/codegen) and
+[no_codegen](examples/no_codegen). The larger [integration suite](examples/minimal)
+is intended for typed arguments, watching and regression tests.
+
 ## 1. Configure sources
 
 The example uses this configurable layout:
@@ -68,21 +72,73 @@ Keys are independent between files, including argument types. References to
 messages, terms and attributes stay within the same file; unresolved/cyclic
 references fail. Cross-file imports are not implemented. Production number
 formatting belongs to the application: a displayed localized number may be passed
-as a String, with a separate numeric selector if grammar requires it.
+as a String, with a separate selector if grammar requires it.
+
+### Decimal and plural arguments
+
+Typed accessors and Fluent resolution come from
+[fluent-typed](https://github.com/human-solutions/fluent-typed). For Decimal-based
+formatting, add [fluent_typed_decimal](https://github.com/SDA-31/fluent_typed_decimal)
+as an application dependency, not a build-dependency. It does not replace Fluent
+or add a numeric type to its syntax.
+
+In a source-language `numbers.ftl`:
+
+```ftl
+# $value (String) - Locale-formatted number text.
+# $plural (String) - ICU plural category of the same visible value.
+remaining = { $plural ->
+    [one] { $value } item left
+   *[other] { $value } items left
+    }
+```
+
+`formatter.localize(&decimal, PluralRuleType::Cardinal)` returns our adapter's
+`LocalizedNumber`. The generated call is
+`catalog.numbers().msg_remaining(number.selector(), number.text())` because the
+source pattern encounters `plural` first. ICU chooses the category after applying
+the display precision; Fluent then matches the String literally. Other languages
+may add `[few]`, `[many]`, `[two]` or `[zero]` as their grammar requires. Keep a
+starred fallback; unknown strings go there. Decimal formatting does not make
+the String selector match numeric `[0]` or `[1]` variants.
+
+Alternatively, keep a native Fluent Number selector alongside formatted String
+text. Both APIs remain available. Required application states (for example an
+empty inventory) can choose a separate message from the raw value, independently
+of rounding and grammar. Never infer a number back from its localized text.
+
+For `Message` / `LocalizedText`, keep the Decimal and reusable formatters owned
+by the closure, select a formatter using the current catalog's `locale()`, then
+prepare the two strings. Capturing an already-localized number would preserve
+the old language after a switch. The
+[compiled regression](examples/minimal/src/tests/plurals.rs) checks the actual
+Bevy text after each switch. Its input is bounded test data; applications should
+handle adapter errors according to their numeric-domain policy.
+
+The adapter's own tests cover Arabic categories, fractional values and `arab` /
+`latn` digits. Bidi isolation comes from Fluent interpolation, not this adapter.
+Visual RTL ordering, Arabic shaping, font coverage and mirrored UI remain renderer
+responsibilities; the headless examples do not claim to test those.
 
 ## 3. Generate and index
 
 Enable `bevy_fluent_typed/codegen` at runtime and use
-`bevy_fluent_codegen_bridge` with `build` in build-dependencies. Return its result:
+that same crate with defaults disabled and `build` in build-dependencies.
+The README's registry setup uses the public facade introduced in **0.1.1**.
+Return its result:
 
 ```rust
 fn main() -> std::process::ExitCode {
-    bevy_fluent_codegen_bridge::build()
+    bevy_fluent_typed::build()
 }
 ```
 
-This emits readable errors without panicking. `from_cargo()` returns Result for
+The internal bridge is not named by the application. Build-only use needs no Bevy
+backend. `build()` emits readable errors without panicking. `from_cargo()` returns Result for
 custom handlers. Do not ignore generation errors: output is not transactional.
+Generation belongs to this explicit build call, not macro expansion. The macro
+below only includes prepared Cargo output. The build-dependency remains explicit
+because a normal dependency feature cannot install consumer build dependencies.
 
 Declare the module:
 
@@ -242,8 +298,10 @@ Watch mode waits for edits until Ctrl+C. Neither mode edits source files.
 Use separate feature/consumer checks to verify dependency isolation. The runtime
 requires exactly one `bevy-0-17`, `bevy-0-18` or `bevy-0-19` backend; the last is
 the default. Disable defaults to select an older backend, and match the engine
-minor in the application's own dependencies. The build bridge needs no backend
-flag. Do not use `--all-features` on the runtime or an enclosing workspace.
+minor in the application's own dependencies. The build-only facade disables
+defaults and needs no backend flag. Select backend flags directly in the normal
+dependency; do not forward them to the shared name through consumer features.
+Do not use `--all-features` on the runtime or an enclosing workspace.
 
 The [maintainer compatibility command](tools/compatibility/README.md) tests exact
 engine releases in isolated Cargo graphs, including watcher reloads and the

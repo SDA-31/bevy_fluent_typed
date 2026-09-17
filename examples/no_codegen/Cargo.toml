@@ -1,0 +1,17 @@
+[package]
+name = "localization-no-codegen-example"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "MIT"
+publish = false
+
+[dependencies]
+bevy_fluent_typed = { path = "../..", default-features = false }
+toml_edit = { version = "0.25.15", default-features = false, features = ["parse"] }
+
+[features]
+default = ["bevy-0-19"]
+bevy-0-17 = ["bevy_fluent_typed/bevy-0-17"]
+bevy-0-18 = ["bevy_fluent_typed/bevy-0-18"]
+bevy-0-19 = ["bevy_fluent_typed/bevy-0-19"]
