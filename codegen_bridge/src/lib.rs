@@ -19,7 +19,7 @@
 //! The [complete setup and asset example](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md)
 //! shows configuration, a build script and runtime registration. The
 //! [bridge README](https://github.com/SDA-31/bevy_fluent_typed/tree/main/codegen_bridge)
-//! describes the Git dependency setup before crates.io publication.
+//! describes the build-dependency setup and feature boundaries.
 //!
 //! # Dependency and reload boundaries
 //!

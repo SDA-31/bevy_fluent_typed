@@ -13,8 +13,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Pin the unpublished generator; no game workspace or moving branch is used.
-  GENERATOR_REV: 394e254648cba5d40c5d0db8ee6f17dd21ab0fba
+  # Test a pinned generator checkout, not a game workspace or moving branch.
+  GENERATOR_REV: acdd778815c9de4730444410f931a3ea33c2e9c9
   # Compile-fail probes inspect rustc diagnostics without ANSI escape sequences.
   CARGO_TERM_COLOR: never
   CARGO_INCREMENTAL: 0

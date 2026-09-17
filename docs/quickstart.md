@@ -38,32 +38,23 @@ language selection. Changing a `LocalizedText` binding does not need a mutable c
 
 ### 1. Dependencies and source paths
 
-Until crates.io publication, use the Git repositories. Application Cargo.toml:
+Add the registry dependencies to your application's Cargo.toml:
 
 ```toml
 [dependencies]
 bevy = { version = "0.19.0", default-features = false, features = ["std", "async_executor", "multi_threaded", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }
-bevy_fluent_typed = { git = "https://github.com/SDA-31/bevy_fluent_typed.git", branch = "main", features = ["codegen", "watch"] }
+bevy_fluent_typed = { version = "0.1.0", features = ["codegen", "watch"] }
 
 [build-dependencies]
-bevy_fluent_codegen_bridge = { git = "https://github.com/SDA-31/bevy_fluent_typed.git", branch = "main", features = ["build"] }
+bevy_fluent_codegen_bridge = { version = "0.1.0", features = ["build"] }
 
 [package.metadata.localization]
 asset-root = "assets"
 catalog = "localizations/localization.toml"
-
-# This section belongs to the workspace root, which may be a different file.
-[patch.crates-io]
-fluent_typed_codegen = { git = "https://github.com/SDA-31/fluent_typed_codegen.git", branch = "main" }
 ```
 
 Use resolver 2 or 3 to keep build and runtime features separate. Cargo.lock pins
-the resolved Git revisions; replace `branch` with `rev` for explicit pins. The
-runtime and bridge must use the same revision of their shared repository.
-
-The patch supplies the unpublished generator to Cargo. Feature selection and
-dependency resolution are different: disabled optional code need not compile,
-but Cargo may still resolve its package when creating a lockfile.
+the resolved versions. No Git dependencies or registry patches are required.
 
 In `build.rs`:
 

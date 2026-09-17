@@ -6,7 +6,10 @@ rust-version = "1.95"
 description = "Opt-in generated adapter between fluent_typed_codegen and bevy_fluent_typed"
 repository = "https://github.com/SDA-31/bevy_fluent_typed"
 license = "MIT"
-publish = false
+publish = ["crates-io"]
+
+[package.metadata.docs.rs]
+features = ["build", "runtime"]
 
 [features]
 default = []

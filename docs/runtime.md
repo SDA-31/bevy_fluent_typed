@@ -7,8 +7,8 @@ asynchronous; this short example does not wait for it to finish. The separate
 From a checkout of [the repository](https://github.com/SDA-31/bevy_fluent_typed):
 
 ```sh
-cargo run --manifest-path examples/minimal/Cargo.toml --bin typed_resources --config 'patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen.git"' --config 'patch.crates-io.fluent_typed_codegen.branch="main"'
-cargo run --manifest-path examples/minimal/Cargo.toml --bin localization-example --config 'patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen.git"' --config 'patch.crates-io.fluent_typed_codegen.branch="main"' -- --watch
+cargo run --manifest-path examples/minimal/Cargo.toml --bin typed_resources
+cargo run --manifest-path examples/minimal/Cargo.toml --bin localization-example -- --watch
 ```
 
 Use `--locked --offline` on later runs once dependencies and a lockfile exist.

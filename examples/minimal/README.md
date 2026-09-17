@@ -8,9 +8,9 @@ The runtime dependency is bevy_fluent_typed, deliberately renamed to
 `localization_runtime` in Cargo with opt-in `codegen` and `watch` features.
 The build-dependency is bevy_fluent_codegen_bridge, renamed to `localization_bridge`,
 with only its `build` feature. The bridge belongs to the runtime repository.
-The consuming root patches the unpublished generator to its Git repository or a
-local checkout. Example manifest paths reference packages inside this repository;
-external applications use the [Git setup](../../README.md#optional-generation).
+The generator resolves from crates.io. Example manifest paths reference packages
+inside this repository; external applications use the
+[registry setup](../../README.md#optional-generation).
 The example and runtime support Bevy 0.17, 0.18 and 0.19 (default).
 To select an older backend, add `--no-default-features --features bevy-0-17`
 or `--no-default-features --features bevy-0-18` to the example's Cargo command.
@@ -20,7 +20,7 @@ Exact pins are used only in isolated minimum-version verification, not in
 library dependency requirements.
 
 From a standalone checkout, use the explicit `examples/minimal/Cargo.toml`
-manifest and the Git generator override shown in the
+manifest as shown in the
 [runtime README](../../README.md#verification). For watch mode, append `-- --watch`.
 
 If an enclosing workspace lists this example as a member, use its generator
@@ -32,7 +32,7 @@ cargo run --locked --offline -p localization-example -- --watch
 ```
 
 For the short asset-to-type walkthrough, run `--bin typed_resources` with the
-same generator override. Its [source](../../docs/typed_resources.rs) is embedded directly
+same manifest. Its [source](../../docs/typed_resources.rs) is embedded directly
 in the library's Rustdoc landing page. It shows `texts::presentation::Hud`,
 chained typed borrows, a direct `Res` parameter and automatic updates to a Bevy
 text entity after a language switch. A small launcher supplies this package's

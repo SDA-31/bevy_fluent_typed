@@ -16,8 +16,9 @@ Rust version is 1.95 for both the runtime and its companion bridge.
 The crate's Rustdoc landing page contains a self-contained asset-to-resource
 quick start. Its `texts::presentation::Hud` / `Res` sample is included from the
 [runnable typed-resource example](docs/typed_resources.rs), not
-maintained as a separate code copy. Build it locally with `cargo doc`; docs.rs
-will show the same content once packages are published on crates.io.
+maintained as a separate code copy. Read it on
+[docs.rs](https://docs.rs/bevy_fluent_typed/0.1.0/bevy_fluent_typed/)
+or build it locally with `cargo doc`.
 
 ## Optional generation
 
@@ -31,24 +32,15 @@ dependency must use the same minor. No engine flag belongs on the build bridge:
 generated resources use the runtime's selected backend. Selecting no backend or
 several backends is a compile error; do not use `--all-features` for this package.
 
-Install from [GitHub](https://github.com/SDA-31/bevy_fluent_typed); the packages are
-not yet published on crates.io. Put dependencies and package metadata in your
-application's Cargo.toml, and `[patch.crates-io]` in the workspace root (the same
-file for a standalone application). A virtual workspace has no package sections.
-Cargo.lock pins the selected Git revisions; for explicit pins,
-replace `branch` with `rev` (use the same Bevy-repository revision for both packages).
+Put dependencies and package metadata in your application's Cargo.toml.
+No Git dependency, sibling checkout or registry patch is required.
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { git = "https://github.com/SDA-31/bevy_fluent_typed.git", branch = "main", features = ["codegen", "watch"] }
+bevy_fluent_typed = { version = "0.1.0", features = ["codegen", "watch"] }
 
 [build-dependencies]
-bevy_fluent_codegen_bridge = { git = "https://github.com/SDA-31/bevy_fluent_typed.git", branch = "main", features = ["build"] }
-
-# Required for generation until the generator is published on crates.io.
-# Patches belong to the consuming workspace root, not this library.
-[patch.crates-io]
-fluent_typed_codegen = { git = "https://github.com/SDA-31/fluent_typed_codegen.git", branch = "main" }
+bevy_fluent_codegen_bridge = { version = "0.1.0", features = ["build"] }
 
 [package.metadata.localization]
 asset-root = "assets"
@@ -60,13 +52,6 @@ The bridge is a separate Cargo package in this repository. It adapts
 feature; the build-dependency enables `build`. Use Cargo resolver 2 or 3 to keep
 host build features separate from normal dependencies. The generator is not
 compiled into the application runtime.
-
-These packages are available from Git, not crates.io. Keep the root generator
-override until crates.io publication: Cargo can resolve optional dependencies
-when creating a lockfile even if their features are disabled. Runtime-only builds
-do not compile the generator; dependency resolution and feature activation are
-different. The Git patch does not require a sibling checkout. After publication,
-the registry version can replace this override.
 
 In `build.rs`:
 
@@ -149,22 +134,21 @@ remain usable when files are absent.
 ## Verification
 
 From a standalone clone, use explicit manifests for the runtime, bridge and example.
-Fetch the unpublished generator from Git using a caller-owned override:
+The generator dependency resolves from crates.io:
 
 ```sh
 git clone https://github.com/SDA-31/bevy_fluent_typed.git
 cd bevy_fluent_typed
-cargo test --manifest-path Cargo.toml --features codegen,watch --config 'patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen.git"' --config 'patch.crates-io.fluent_typed_codegen.branch="main"'
-cargo test --manifest-path codegen_bridge/Cargo.toml --all-features --config 'patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen.git"' --config 'patch.crates-io.fluent_typed_codegen.branch="main"'
-cargo test --manifest-path examples/minimal/Cargo.toml --config 'patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen.git"' --config 'patch.crates-io.fluent_typed_codegen.branch="main"'
-cargo run --manifest-path examples/minimal/Cargo.toml --config 'patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen.git"' --config 'patch.crates-io.fluent_typed_codegen.branch="main"'
-cargo run --manifest-path examples/minimal/Cargo.toml --bin typed_resources --config 'patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen.git"' --config 'patch.crates-io.fluent_typed_codegen.branch="main"'
+cargo test --manifest-path Cargo.toml --features codegen,watch
+cargo test --manifest-path codegen_bridge/Cargo.toml --all-features
+cargo test --manifest-path examples/minimal/Cargo.toml
+cargo run --manifest-path examples/minimal/Cargo.toml
+cargo run --manifest-path examples/minimal/Cargo.toml --bin typed_resources
 ```
 
 Standalone lockfiles and target directories are local build artifacts. Use
 `--locked --offline` after resolving dependencies once. Library manifests do not
-assume a generator sibling path; the override is caller-owned. For local generator
-development, replace the Git/branch override with
+assume a generator sibling path. For local generator development, add the caller-owned override
 `--config 'patch.crates-io.fluent_typed_codegen.path="/absolute/path/to/checkout"'`.
 
 If a consuming workspace lists these packages as members, use its generator
@@ -198,8 +182,8 @@ requests and manual dispatch, without an enclosing application checkout:
 - Formatting of every package, Clippy, bridge/tool tests, runtime-only bridge
   isolation, Rustdoc and library archive inventories on Linux.
 
-The unpublished generator is checked out separately at `GENERATOR_REV`, a full
-commit SHA in the workflow. Publish that commit to its Git repository **before**
+The generator is checked out separately at `GENERATOR_REV`, a full
+commit SHA in the workflow. Push that commit to its Git repository **before**
 pushing this workflow; update the pin deliberately when adopting a new generator.
 The caller-owned path override exists only in CI commands and disposable fixtures,
 not in library manifests. No repository credentials or game source are needed.
@@ -211,10 +195,9 @@ limit concurrent matrix jobs to three. These are headless tests, not rendering t
 Actions are SHA-pinned with read-only repository permission and no retained
 checkout credentials. There is **no automatic publication**, registry token or
 release creation. Pushing version tags to GitHub triggers tests only.
-`publish = false` stays enabled; archive inventory checks are not a successful
-`cargo publish --dry-run`.
-Full registry-backed packaging of the bridge/runtime must be checked during the
-first manual release, after their dependencies are published in order.
+Archive inventory checks are not a successful `cargo publish --dry-run`.
+Manual releases verify registry-backed packaging and publish dependencies in order:
+`fluent_typed_codegen`, then `bevy_fluent_codegen_bridge`, then `bevy_fluent_typed`.
 
 ## License
 

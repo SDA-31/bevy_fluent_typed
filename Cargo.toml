@@ -6,7 +6,7 @@ rust-version = "1.95"
 description = "Typed Fluent catalog bindings and transactional hot reload for Bevy"
 repository = "https://github.com/SDA-31/bevy_fluent_typed"
 license = "MIT"
-publish = false
+publish = ["crates-io"]
 
 [package.metadata.docs.rs]
 features = ["codegen", "watch"]

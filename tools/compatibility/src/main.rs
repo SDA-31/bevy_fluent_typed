@@ -57,7 +57,7 @@ impl Options {
 
 		Ok(Self {
 			generator: generator
-				.ok_or("--generator PATH is required until crates.io publication")?,
+				.ok_or("--generator PATH is required to verify an explicit generator checkout")?,
 			target,
 			offline,
 			versions,

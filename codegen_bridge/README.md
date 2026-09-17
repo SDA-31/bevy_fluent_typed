@@ -27,16 +27,11 @@ They use this package directly only as a build-dependency:
 
 ```toml
 [build-dependencies]
-bevy_fluent_codegen_bridge = { git = "https://github.com/SDA-31/bevy_fluent_typed.git", branch = "main", features = ["build"] }
-
-# Required in the consuming root until the generator is on crates.io.
-[patch.crates-io]
-fluent_typed_codegen = { git = "https://github.com/SDA-31/fluent_typed_codegen.git", branch = "main" }
+bevy_fluent_codegen_bridge = { version = "0.1.0", features = ["build"] }
 ```
 
-Cargo finds this nested package in the Bevy repository by its package name.
-Use the same Git revision for the runtime and bridge. Cargo.lock pins resolved
-revisions; `rev` can replace `branch` when explicit pins are preferred.
+The bridge and generator resolve from crates.io; no checkout or registry patch
+is required. Cargo.lock pins the resolved versions.
 
 ```rust
 fn main() -> std::process::ExitCode {
@@ -67,12 +62,9 @@ naturally includes both. Check separate consumer graphs when verifying isolation
 `fluent_typed_codegen = "0.1.0"` is a versioned dependency, not a sibling path.
 It explicitly enables the generator's `build` feature with defaults disabled;
 the bridge's runtime-only feature still does not depend on the generator.
-Git consumers supply the generator using the root `[patch.crates-io]` above;
-local development can instead patch it to a checkout. Keep this override until
-crates.io publication, even for runtime-only dependency resolution: Cargo may
-resolve optional packages while building a lockfile without compiling them.
-Patches in a dependency's manifest do not
-propagate to consumers. Publish the generator first,
+Local generator development can use a caller-owned `[patch.crates-io]` pointing
+to its checkout. Patches in a dependency's manifest do not propagate to consumers.
+For manual releases, publish the generator first,
 then this bridge, then the Bevy runtime. The bridge shares the runtime's repository.
 
 ## Implementation map

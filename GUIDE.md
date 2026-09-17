@@ -215,14 +215,13 @@ The runtime continues to own asset loading, active language, publication and tex
 bindings. Your provider owns its format and compatibility policy.
 
 The companion bridge is nested in this repository at `codegen_bridge/`.
-The independent generator uses a versioned dependency, patched by the consuming
-workspace to [its Git repository](https://github.com/SDA-31/fluent_typed_codegen)
-until crates.io publication. Use the Git setup in the [README](README.md#optional-generation),
-or a caller-owned checkout override for development.
+The independent generator uses a versioned crates.io dependency. Use the setup
+in the [README](README.md#optional-generation), or a caller-owned checkout
+override for generator development.
 
 ## 8. Verify
 
-From a standalone checkout, use the explicit manifests and generator override in
+From a standalone checkout, use the explicit manifests in
 [Verification](README.md#verification). Run both example binaries and test the
 runtime, bridge and example packages. After initial dependency resolution,
 `--locked --offline` reuses the local lockfiles and cache.
