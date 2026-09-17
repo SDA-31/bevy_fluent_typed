@@ -1,5 +1,11 @@
 # bevy_fluent_typed
 
+[![crates.io](https://img.shields.io/crates/v/bevy_fluent_typed)](https://crates.io/crates/bevy_fluent_typed)
+[![docs.rs](https://img.shields.io/docsrs/bevy_fluent_typed)](https://docs.rs/bevy_fluent_typed/latest/bevy_fluent_typed/)
+[![CI](https://img.shields.io/github/actions/workflow/status/SDA-31/bevy_fluent_typed/ci.yml?branch=main&label=CI&logo=github)](https://github.com/SDA-31/bevy_fluent_typed/actions/workflows/ci.yml)
+[![MSRV](https://img.shields.io/crates/msrv/bevy_fluent_typed)](https://crates.io/crates/bevy_fluent_typed)
+[![License](https://img.shields.io/crates/l/bevy_fluent_typed)](LICENSE)
+
 Typed Fluent integration for Bevy 0.17, 0.18 and 0.19. The runtime owns active languages,
 asset loading, transactional reload, shared module resources and Text/Text2d bindings.
 Applications own message keys, fonts, controls and generator settings; languages
@@ -10,6 +16,7 @@ Each accepts patches in its own minor, starting at .0, not arbitrary future vers
 The application lockfile chooses the concrete patch release. The declared minimum
 Rust version is 1.95 for both the runtime and its companion bridge.
 
+[API documentation](https://docs.rs/bevy_fluent_typed/latest/bevy_fluent_typed/) ·
 [Guide](GUIDE.md) · [Runnable example](examples/minimal/README.md) ·
 [Optional bridge](codegen_bridge/README.md)
 

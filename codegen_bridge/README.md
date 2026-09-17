@@ -1,5 +1,11 @@
 # bevy_fluent_codegen_bridge
 
+[![crates.io](https://img.shields.io/crates/v/bevy_fluent_codegen_bridge)](https://crates.io/crates/bevy_fluent_codegen_bridge)
+[![docs.rs](https://img.shields.io/docsrs/bevy_fluent_codegen_bridge)](https://docs.rs/bevy_fluent_codegen_bridge/latest/bevy_fluent_codegen_bridge/)
+[![CI](https://img.shields.io/github/actions/workflow/status/SDA-31/bevy_fluent_typed/ci.yml?branch=main&label=CI&logo=github)](https://github.com/SDA-31/bevy_fluent_typed/actions/workflows/ci.yml)
+[![MSRV](https://img.shields.io/crates/msrv/bevy_fluent_codegen_bridge)](https://crates.io/crates/bevy_fluent_codegen_bridge)
+[![License](https://img.shields.io/crates/l/bevy_fluent_codegen_bridge)](LICENSE)
+
 Connect `fluent_typed_codegen` to `bevy_fluent_typed`: generate a provider and
 shared Bevy resource types from modular Fluent files. The generator owns
 discovery and the typed translation API; the runtime owns asset loading,
@@ -7,6 +13,9 @@ language switching, hot reload and text bindings.
 
 This companion package lives in the Bevy integration repository under
 `codegen_bridge/`. Its declared minimum Rust version is 1.95.
+
+[API documentation](https://docs.rs/bevy_fluent_codegen_bridge/latest/bevy_fluent_codegen_bridge/) ·
+[Integration guide](../GUIDE.md)
 
 Engine selection belongs only to the runtime. The bridge emits a runtime-owned
 declaration macro: Bevy 0.19 receives ECS-immutable resources, while 0.17/0.18 use
