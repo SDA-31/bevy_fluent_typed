@@ -186,6 +186,36 @@ backends with `--all-features`.
 Maintainers can run the [Rust compatibility tool](tools/compatibility/README.md)
 to pin and test exact engine releases in disposable library-only workspaces.
 
+## Continuous integration
+
+[CI workflow](.github/workflows/ci.yml) runs on pushes (including tags), pull
+requests and manual dispatch, without an enclosing application checkout:
+
+- Exact Bevy 0.17.0, 0.18.0 and 0.19.0 on Linux with stable Rust.
+- Bevy 0.19.0 on Windows/macOS with stable Rust and on Linux with Rust 1.95.0.
+- Real multi-file watcher reloads, headless consumers, text-system ordering,
+  runtime dependency isolation and the resource-mutability compile probes.
+- Formatting of every package, Clippy, bridge/tool tests, runtime-only bridge
+  isolation, Rustdoc and library archive inventories on Linux.
+
+The unpublished generator is checked out separately at `GENERATOR_REV`, a full
+commit SHA in the workflow. Publish that commit to its Git repository **before**
+pushing this workflow; update the pin deliberately when adopting a new generator.
+The caller-owned path override exists only in CI commands and disposable fixtures,
+not in library manifests. No repository credentials or game source are needed.
+
+Standalone lockfiles are resolved before `--locked` checks. Compatibility jobs
+use the Rust maintainer tool, preserve their console logs for seven days, and
+limit concurrent matrix jobs to three. These are headless tests, not rendering tests.
+
+Actions are SHA-pinned with read-only repository permission and no retained
+checkout credentials. There is **no automatic publication**, registry token or
+release creation. Pushing version tags to GitHub triggers tests only.
+`publish = false` stays enabled; archive inventory checks are not a successful
+`cargo publish --dry-run`.
+Full registry-backed packaging of the bridge/runtime must be checked during the
+first manual release, after their dependencies are published in order.
+
 ## License
 
 [MIT](LICENSE). The companion bridge and minimal example are also MIT-licensed,
