@@ -1,9 +1,16 @@
 Typed Fluent localization for Bevy: language switching, hot-reloaded assets,
 typed module resources and automatic updates to existing `Text`/`Text2d` entities.
 
-Use the optional directory generator to turn `presentation/hud.ftl` into
-`texts::presentation::Hud`. Borrow it through chained accessors or request it
-directly as a Bevy `Res` — no string keys or handwritten catalog adapter.
+Optional typed API generation is powered by
+[fluent_typed_codegen](https://docs.rs/fluent_typed_codegen/0.1.0/fluent_typed_codegen/),
+which discovers modular Fluent files and generates their Rust translation tree.
+The companion
+[bevy_fluent_codegen_bridge](https://docs.rs/bevy_fluent_codegen_bridge/0.1.0/bevy_fluent_codegen_bridge/)
+connects that tree to this runtime's resources and plugin.
+
+Turn `presentation/hud.ftl` into `texts::presentation::Hud`. Borrow it through
+chained accessors or request it directly as a Bevy `Res` — no string keys or
+handwritten catalog adapter.
 
 Bevy **0.17, 0.18 and 0.19** are supported with explicit backends, not arbitrary
 future Bevy releases. The declared minimum Rust version is **1.95**. Fonts, glyph coverage,

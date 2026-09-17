@@ -11,6 +11,11 @@ asset loading, transactional reload, shared module resources and Text/Text2d bin
 Applications own message keys, fonts, controls and generator settings; languages
 are supplied by their catalog provider rather than a fixed runtime list.
 
+Optional typed API generation is powered by
+[fluent_typed_codegen](https://github.com/SDA-31/fluent_typed_codegen), which discovers
+modular Fluent files and generates their Rust translation tree. The companion
+`bevy_fluent_codegen_bridge` connects that tree to this runtime's resources and plugin.
+
 Choose exactly one backend: `bevy-0-19` (default), `bevy-0-18` or `bevy-0-17`.
 Each accepts patches in its own minor, starting at .0, not arbitrary future versions.
 The application lockfile chooses the concrete patch release. The declared minimum
