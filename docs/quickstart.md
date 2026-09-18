@@ -5,10 +5,10 @@ Message access and Fluent resolution use
 [fluent-typed](https://docs.rs/fluent-typed/0.9.0/fluent_typed/).
 
 Optional typed API generation is powered by
-[fluent_typed_codegen](https://docs.rs/fluent_typed_codegen/0.1.1/fluent_typed_codegen/),
+[fluent_typed_codegen](https://docs.rs/fluent_typed_codegen/0.1.3/fluent_typed_codegen/),
 which discovers modular Fluent files and generates their Rust translation tree.
 The companion
-[bevy_fluent_codegen_bridge](https://docs.rs/bevy_fluent_codegen_bridge/0.1.1/bevy_fluent_codegen_bridge/)
+[bevy_fluent_codegen_bridge](https://docs.rs/bevy_fluent_codegen_bridge/0.1.2/bevy_fluent_codegen_bridge/)
 connects that tree to this runtime's resources and plugin.
 
 Turn `presentation/hud.ftl` into `texts::presentation::Hud`. Borrow it through
@@ -23,8 +23,8 @@ Older backends currently retain the same crate-level MSRV; they do not promise
 compatibility with older Rust compilers. Fonts, glyph coverage, layout and window
 setup belong to your app.
 
-Support for 0.16 and the `CatalogUpdateReader` alias are unreleased;
-published 0.1.1 supports 0.17–0.19. Release candidates are outside the stable
+Support for 0.16 and the `CatalogUpdateReader` alias starts with 0.1.2;
+version 0.1.1 supports 0.17–0.19. Release candidates are outside the stable
 compatibility promise.
 
 ## Features
@@ -69,10 +69,10 @@ In your application's Cargo.toml:
 ```toml
 [dependencies]
 bevy = { version = "0.19.0", default-features = false, features = ["std", "async_executor", "multi_threaded", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }
-bevy_fluent_typed = { version = "0.1.1", features = ["codegen", "watch"] }
+bevy_fluent_typed = { version = "0.1.2", features = ["codegen", "watch"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.1.1", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.1.2", default-features = false, features = ["build"] }
 
 [package.metadata.localization]
 asset-root = "assets"

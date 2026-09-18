@@ -31,8 +31,8 @@ default backend adds no compiler-version requirement beyond the engine's.
 Selecting an older backend does not currently lower this crate's declared MSRV;
 older compiler support would need its own dependency and CI checks.
 
-The `bevy-0-16` backend and `CatalogUpdateReader` alias are unreleased additions;
-published 0.1.1 supports Bevy 0.17–0.19. Bevy release candidates are not covered by
+The `bevy-0-16` backend and `CatalogUpdateReader` alias are available starting with
+0.1.2; version 0.1.1 supports Bevy 0.17–0.19. Bevy release candidates are not covered by
 the stable compatibility promise.
 
 [API documentation](https://docs.rs/bevy_fluent_typed/latest/bevy_fluent_typed/) ·
@@ -65,10 +65,10 @@ Repository examples deliberately use local paths to test their checkout.
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.1.1", features = ["codegen", "watch"] }
+bevy_fluent_typed = { version = "0.1.2", features = ["codegen", "watch"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.1.1", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.1.2", default-features = false, features = ["build"] }
 
 [package.metadata.localization]
 asset-root = "assets"

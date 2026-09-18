@@ -44,7 +44,7 @@ Direct bridge access remains available for low-level users:
 
 ```toml
 [build-dependencies]
-bevy_fluent_codegen_bridge = { version = "0.1.1", features = ["build"] }
+bevy_fluent_codegen_bridge = { version = "0.1.2", features = ["build"] }
 ```
 
 The bridge and generator resolve from crates.io; no checkout or registry patch
@@ -76,9 +76,11 @@ With Cargo resolver 2/3, normal use enables only `runtime`, while build-script
 use enables `build` separately. An explicit `--all-features` build of this package
 naturally includes both. Check separate consumer graphs when verifying isolation.
 
-`fluent_typed_codegen = "0.1.2"` is a versioned dependency, not a sibling path.
+`fluent_typed_codegen = "0.1.3"` is a versioned dependency, not a sibling path.
 This minimum includes explicit source-file tracking so deleting FTL modules also
-regenerates the API on Windows. Runtime and bridge package versions remain 0.1.1.
+regenerates the API on Windows. Version 0.1.3 also documents application-owned
+ICU formatting without the retired Decimal adapter. Runtime and bridge package
+versions are 0.1.2.
 It explicitly enables the generator's `build` feature with defaults disabled;
 the bridge's runtime-only feature still does not depend on the generator.
 Local generator development can use a caller-owned `[patch.crates-io]` pointing
