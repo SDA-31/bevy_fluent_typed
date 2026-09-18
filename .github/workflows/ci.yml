@@ -60,14 +60,15 @@ jobs:
             bevy-quality-${{ runner.os }}-${{ runner.arch }}-${{ env.GENERATOR_REV }}-${{ hashFiles('runtime/**/Cargo.toml') }}-
       - name: Check formatting in every package and the documentation example
         run: |
-          for manifest in Cargo.toml codegen_bridge/Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml tools/compatibility/Cargo.toml; do
+          for manifest in Cargo.toml codegen_bridge/Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml tools/compatibility/Cargo.toml; do
             cargo fmt --manifest-path "$manifest" --all -- --check
           done
           rustfmt --check --edition 2024 docs/typed_resources.rs
+          rustfmt --check --edition 2024 docs/icu_resources.rs
       - name: Resolve independent package graphs
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
-          for manifest in Cargo.toml codegen_bridge/Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml tools/compatibility/Cargo.toml; do
+          for manifest in Cargo.toml codegen_bridge/Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml tools/compatibility/Cargo.toml; do
             cargo generate-lockfile --manifest-path "$manifest" --config "$generator_config"
           done
       - name: Clippy
@@ -79,7 +80,7 @@ jobs:
           cargo clippy --locked --manifest-path codegen_bridge/Cargo.toml --all-targets --no-default-features --features runtime --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path examples/minimal/Cargo.toml --all-targets --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path tools/compatibility/Cargo.toml --all-targets -- -D warnings
-          for manifest in examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml; do
+          for manifest in examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml; do
             cargo clippy --locked --manifest-path "$manifest" --all-targets --config "$generator_config" -- -D warnings
           done
       - name: Test bridge and maintainer tool
@@ -114,6 +115,8 @@ jobs:
           grep -Fx docs/runtime.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/build.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/typed_resources.rs "$CARGO_TARGET_DIR/runtime-package.txt"
+          grep -Fx docs/formatting.md "$CARGO_TARGET_DIR/runtime-package.txt"
+          grep -Fx docs/icu_resources.rs "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx LICENSE "$CARGO_TARGET_DIR/bridge-package.txt"
           # A new runtime version cannot be package-verified until its bridge
           # version is published. Inventory is not a publish dry-run; the manual

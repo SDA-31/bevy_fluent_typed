@@ -108,10 +108,13 @@ additional build-script run; subsequent unchanged checks are verified to stay fr
   a small handwritten `FluentCatalog` and automatic updates to a Bevy `Text`.
 - [Integration suite](examples/minimal): typed arguments, resource scopes,
   filesystem watching and contract regression tests.
+- [ICU formatters](examples/icu): application-owned Decimal and percentage
+  services, shared Bevy resources and EN/ES/RU/AR text updates.
 
 ```sh
 cargo run --manifest-path examples/codegen/Cargo.toml
 cargo run --manifest-path examples/no_codegen/Cargo.toml
+cargo run --manifest-path examples/icu/Cargo.toml
 ```
 
 ## Source assets and generated tree
@@ -172,13 +175,22 @@ Unchanged reloads and inactive-language edits do not replace active resources.
 
 ## Decimal numbers, plurals and RTL
 
-For localized Decimal displays, add the independent
-[fluent_typed_decimal](https://github.com/SDA-31/fluent_typed_decimal)
-([API reference](https://docs.rs/fluent_typed_decimal/)) to your application.
-Its `NumberFormatter` uses ICU4X to prepare number text and a plural category
-from the same rounded value. Pass `LocalizedNumber::text()` and `selector()`
-to two `(String)` arguments in your FTL. No runtime feature or generator change
-is required, and the adapter is not an implicit dependency of this library.
+Use dedicated [ICU4X](https://docs.rs/icu/) or
+[ICU](https://unicode-org.github.io/icu/userguide/format_parse/) components for
+localized numbers, percentages, currencies and dates. The runtime integrates
+translations with Bevy; it does not implement number formatting or add a direct
+ICU dependency.
+Pass already formatted text to a `(String)` FTL argument. When grammar must
+follow decimal precision, pass the same prepared value to ICU4X DecimalFormatter
+and PluralRules, then supply the category keyword through a separate String
+selector. Keep native numeric selectors available where they fit the application.
+
+The standalone [ICU resource example](examples/icu) creates Decimal and percentage
+formatters once per locale, injects them through `Res`, and captures a shared
+`Arc` in deferred bindings. It covers English, Spanish, Russian and Arabic.
+No runtime feature, new trait implementation or public API change is needed.
+The percentage component is explicitly pinned experimental ICU4X code, confined
+to the example; its input is percent units, so a ratio is scaled before formatting.
 
 Fluent matches String selectors to literal `[one]`, `[few]`, etc., with the
 starred branch as fallback. Native numeric selectors and exact `[0]`/`[1]`
@@ -188,9 +200,10 @@ the [compiled deferred-text test](examples/minimal/src/tests/plurals.rs) for
 automatic updates when the active language changes.
 
 Capture the raw Decimal and reusable per-locale formatters in deferred messages,
-not a `LocalizedNumber` prepared for an old language. Select the formatter from
+not a formatted string prepared for an old language. Select the formatter from
 the current catalog's locale each time the closure renders. Replace the binding
-when the numeric value or formatting policy changes.
+when the numeric value or formatting policy changes. A change to an arbitrary
+Bevy resource is not an automatic invalidation signal for captured `Arc`s.
 
 Arabic digits and grammatical rules do not provide complete RTL UI support.
 Preserve Fluent's bidi isolation; glyph shaping, visual bidi ordering, fonts,
@@ -227,6 +240,8 @@ cargo test --manifest-path codegen_bridge/Cargo.toml --all-features
 cargo test --manifest-path examples/minimal/Cargo.toml
 cargo run --manifest-path examples/minimal/Cargo.toml
 cargo run --manifest-path examples/minimal/Cargo.toml --bin typed_resources
+cargo test --manifest-path examples/icu/Cargo.toml
+cargo run --manifest-path examples/icu/Cargo.toml
 ```
 
 Standalone lockfiles and target directories are local build artifacts. Use

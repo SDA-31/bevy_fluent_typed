@@ -20,7 +20,10 @@ catalog = "localizations/localization.toml"
 localization_runtime = { package = "bevy_fluent_typed", path = "../..", features = ["watch", "codegen"] }
 
 [dev-dependencies]
-fluent_typed_decimal = "0.1.0"
+icu_decimal = { version = "2.3", features = ["alloc"] }
+icu_locale_core = "2.3"
+icu_plurals = "2.3"
+icu_provider = { version = "2.3", features = ["sync"] }
 fluent-syntax = "0.12"
 tempfile = "3"
 

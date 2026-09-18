@@ -32,6 +32,7 @@ impl<'a> Fixture<'a> {
 			"examples/minimal",
 			"examples/codegen",
 			"examples/no_codegen",
+			"examples/icu",
 		] {
 			copy(&source.join(name), &path.join(name))?;
 		}
@@ -40,7 +41,7 @@ impl<'a> Fixture<'a> {
 		// a feature to the same dependency name would also enable it on the host.
 		let backend = crate::matrix::backend(version)?;
 
-		for example in ["codegen", "minimal"] {
+		for example in ["codegen", "minimal", "icu"] {
 			let example_manifest = path.join(format!("examples/{example}/Cargo.toml"));
 			let original = fs::read_to_string(&example_manifest)?;
 			let features = if example == "minimal" {
@@ -68,7 +69,7 @@ impl<'a> Fixture<'a> {
 		fs::write(
 			&manifest,
 			format!(
-				"{}\n[workspace]\nmembers = [\"codegen_bridge\", \"examples/minimal\", \"examples/codegen\", \"examples/no_codegen\", \"version-pins\"]\nresolver = \"3\"\n[patch.crates-io]\nfluent_typed_codegen = {{ path = {generator} }}\n[profile.dev]\ndebug = 0\n",
+				"{}\n[workspace]\nmembers = [\"codegen_bridge\", \"examples/minimal\", \"examples/codegen\", \"examples/no_codegen\", \"examples/icu\", \"version-pins\"]\nresolver = \"3\"\n[patch.crates-io]\nfluent_typed_codegen = {{ path = {generator} }}\n[profile.dev]\ndebug = 0\n",
 				fs::read_to_string(&manifest)?
 			),
 		)?;

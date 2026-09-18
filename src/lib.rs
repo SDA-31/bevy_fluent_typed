@@ -3,6 +3,10 @@
 #![cfg_attr(feature = "runtime", doc = include_str!("../docs/typed_resources.rs"))]
 #![cfg_attr(feature = "runtime", doc = "\n```\n")]
 #![cfg_attr(feature = "runtime", doc = include_str!("../docs/runtime.md"))]
+#![cfg_attr(feature = "runtime", doc = include_str!("../docs/formatting.md"))]
+#![cfg_attr(feature = "runtime", doc = "\n```rust,ignore\n")]
+#![cfg_attr(feature = "runtime", doc = include_str!("../docs/icu_resources.rs"))]
+#![cfg_attr(feature = "runtime", doc = "\n```\n")]
 #![cfg_attr(feature = "build", doc = include_str!("../docs/build.md"))]
 #![warn(missing_docs)]
 

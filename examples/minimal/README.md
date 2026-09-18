@@ -120,16 +120,15 @@ multi-file editor transaction. Allow up to 15 seconds for watcher convergence.
 
 ## Decimal and plural regression
 
-`src/tests/plurals.rs` passes the published
-[fluent_typed_decimal](https://github.com/SDA-31/fluent_typed_decimal) adapter's
-text/category strings to actual generated `Numbers` accessors. A deferred Bevy
+`src/tests/plurals.rs` uses ICU4X DecimalFormatter and PluralRules directly and
+passes text/category strings to actual generated `Numbers` accessors. A deferred Bevy
 text captures the raw value and per-locale formatters, then follows EN/ES/RU
 switches without retaining the old grammar. Separate checks cover visible `1`
 versus `1.0` and native Fluent exact numeric matching.
 
-The Decimal adapter is only a test dependency here, not a dependency of the
-runtime, bridge or generator. Its own generated consumer additionally tests
-Arabic text, digits and bidi isolation. Neither suite renders glyphs or verifies
+ICU is only a test dependency here, not a dependency of the runtime, bridge or
+generator. The separate [ICU resource example](../icu) demonstrates shared Decimal
+and percentage formatters, Arabic digits and locale changes. Neither suite renders glyphs or verifies
 visual RTL layout. The [guide](../../GUIDE.md#decimal-and-plural-arguments)
 explains this ownership split and shows the source-language FTL contract.
 

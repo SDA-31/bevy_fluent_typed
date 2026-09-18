@@ -1,0 +1,24 @@
+[package]
+name = "localization-icu-example"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+repository = "https://github.com/SDA-31/bevy_fluent_typed"
+license = "MIT"
+publish = false
+
+[dependencies]
+bevy_fluent_typed = { path = "../..", features = ["codegen"] }
+icu_decimal = { version = "2.3", features = ["alloc"] }
+# Percentage formatting is experimental; pin the demonstrated API explicitly.
+icu_experimental = "=0.6.0"
+icu_locale_core = "2.3"
+icu_provider = { version = "2.3", features = ["sync"] }
+writeable = "0.6"
+
+[build-dependencies]
+bevy_fluent_typed = { path = "../..", default-features = false, features = ["build"] }
+
+[package.metadata.localization]
+asset-root = "assets"
+catalog = "localizations/localization.toml"

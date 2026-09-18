@@ -1,6 +1,8 @@
 //! Decimal text and grammar follow the current generated catalog, not capture time.
 use crate::{Locale, Translations};
-use fluent_typed_decimal::{Decimal, NumberFormatter, PluralRuleType};
+use icu_decimal::{DecimalFormatter, input::Decimal};
+use icu_locale_core::Locale as IcuLocale;
+use icu_plurals::{PluralCategory, PluralRules};
 use localization_runtime::bevy::prelude::*;
 use localization_runtime::{
 	FluentCatalog, Localization, LocalizationPlugin, LocalizedText, Message,
@@ -10,24 +12,30 @@ fn message(value: Decimal) -> Message<Translations> {
 	let formatters: Vec<_> = Translations::locales()
 		.iter()
 		.map(|&locale| {
+			let language: IcuLocale = locale.as_ref().parse().unwrap();
 			let formatter =
-				NumberFormatter::try_new(&locale.as_ref().parse().unwrap(), Default::default())
-					.unwrap();
-			(locale, formatter)
+				DecimalFormatter::try_new((&language).into(), Default::default()).unwrap();
+			let rules = PluralRules::try_new_cardinal((&language).into()).unwrap();
+			(locale, formatter, rules)
 		})
 		.collect();
 
 	Message::new(move |catalog: &Translations| {
-		let (_, formatter) = formatters
+		let (_, formatter, rules) = formatters
 			.iter()
-			.find(|(locale, _)| *locale == catalog.locale())
+			.find(|(locale, _, _)| *locale == catalog.locale())
 			.expect("a formatter for every compiled language");
-		let number = formatter
-			.localize(&value, PluralRuleType::Cardinal)
-			.expect("bounded test input is representable");
-		catalog
-			.numbers()
-			.msg_remaining(number.selector(), number.text())
+		let text = formatter.format_to_string(&value);
+		let selector = match rules.category_for(&value) {
+			PluralCategory::Zero => "zero",
+			PluralCategory::One => "one",
+			PluralCategory::Two => "two",
+			PluralCategory::Few => "few",
+			PluralCategory::Many => "many",
+			PluralCategory::Other => "other",
+		};
+
+		catalog.numbers().msg_remaining(selector, text)
 	})
 }
 

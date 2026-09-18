@@ -89,10 +89,11 @@ then this bridge, then the Bevy runtime. The bridge shares the runtime's reposit
 ## Number and presentation boundaries
 
 The bridge preserves upstream native numeric arguments and String selectors.
-Applications may pass number text and plural keywords from
-[fluent_typed_decimal](https://github.com/SDA-31/fluent_typed_decimal) as ordinary
-String arguments; neither the bridge nor the generator needs that dependency.
-The adapter uses ICU4X; Fluent resolves the selected message, and the application
+Applications should format numbers, percentages and currencies with dedicated
+[ICU4X](https://docs.rs/icu/) or
+[ICU](https://unicode-org.github.io/icu/userguide/format_parse/) components, then
+pass formatted text and any plural keywords as ordinary String arguments.
+Neither the bridge nor the generator depends on ICU. Fluent resolves the selected message, and the application
 keeps numeric formatting aligned with the active catalog. The bridge does not
 format numbers, watch files, shape Arabic text or implement visual RTL layout.
 See the [plural guide](../GUIDE.md#decimal-and-plural-arguments).

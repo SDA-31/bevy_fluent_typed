@@ -77,10 +77,11 @@ as a String, with a separate selector if grammar requires it.
 ### Decimal and plural arguments
 
 Typed accessors and Fluent resolution come from
-[fluent-typed](https://github.com/human-solutions/fluent-typed). For Decimal-based
-formatting, add [fluent_typed_decimal](https://github.com/SDA-31/fluent_typed_decimal)
-as an application dependency, not a build-dependency. It does not replace Fluent
-or add a numeric type to its syntax.
+[fluent-typed](https://github.com/human-solutions/fluent-typed). Use dedicated
+[ICU4X](https://docs.rs/icu/) or
+[ICU](https://unicode-org.github.io/icu/userguide/format_parse/) components for
+numbers, percentages, currencies and dates. These are application dependencies,
+not runtime/generator features. They do not add a numeric type to Fluent syntax.
 
 In a source-language `numbers.ftl`:
 
@@ -93,11 +94,12 @@ remaining = { $plural ->
     }
 ```
 
-`formatter.localize(&decimal, PluralRuleType::Cardinal)` returns our adapter's
-`LocalizedNumber`. The generated call is
-`catalog.numbers().msg_remaining(number.selector(), number.text())` because the
-source pattern encounters `plural` first. ICU chooses the category after applying
-the display precision; Fluent then matches the String literally. Other languages
+Apply the intended display precision to an ICU Decimal once, then use
+`DecimalFormatter::format_to_string(&value)` and `PluralRules::category_for(&value)`.
+Map the category to its CLDR keyword (`one`, `few`, etc.). The generated call is
+`catalog.numbers().msg_remaining(selector, text)` because the source pattern
+encounters `plural` first. ICU chooses the category; Fluent then matches the
+String literally. Other languages
 may add `[few]`, `[many]`, `[two]` or `[zero]` as their grammar requires. Keep a
 starred fallback; unknown strings go there. Decimal formatting does not make
 the String selector match numeric `[0]` or `[1]` variants.
@@ -113,10 +115,16 @@ prepare the two strings. Capturing an already-localized number would preserve
 the old language after a switch. The
 [compiled regression](examples/minimal/src/tests/plurals.rs) checks the actual
 Bevy text after each switch. Its input is bounded test data; applications should
-handle adapter errors according to their numeric-domain policy.
+validate ICU's input/operand limits according to their numeric-domain policy.
 
-The adapter's own tests cover Arabic categories, fractional values and `arab` /
-`latn` digits. Bidi isolation comes from Fluent interpolation, not this adapter.
+The [ICU resource example](examples/icu) creates shared Decimal and percentage
+formatters, injects them through `Res`, and selects by the current catalog locale.
+Its tests cover Arabic digits, decimal precision, percentages and already-bound
+UI/world text. Locale changes rerender bindings; replacing another resource does
+not replace captured `Arc`s, so explicitly rebuild bindings for formatter-policy
+changes. The percentage component is experimental and confined to that example.
+
+Bidi isolation comes from Fluent interpolation, not number formatting.
 Visual RTL ordering, Arabic shaping, font coverage and mirrored UI remain renderer
 responsibilities; the headless examples do not claim to test those.
 

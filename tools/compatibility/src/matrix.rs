@@ -150,6 +150,8 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 	}
 
 	fixture.success(&["test", "--locked", "-p", "localization-codegen-example"])?;
+	fixture.success(&["test", "--locked", "-p", "localization-icu-example"])?;
+	fixture.success(&["run", "--locked", "-p", "localization-icu-example"])?;
 	fixture.success(&[
 		"test",
 		"--locked",

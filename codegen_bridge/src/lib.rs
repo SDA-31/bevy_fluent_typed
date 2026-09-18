@@ -41,8 +41,9 @@
 //! or typed contracts require generation and restart. The bridge does not watch
 //! files or publish resources itself: it emits the provider used by the runtime.
 //! Native numeric selectors remain available. Number text and plural keywords
-//! from [fluent_typed_decimal](https://docs.rs/fluent_typed_decimal/) pass through
-//! ordinary String parameters; the bridge has no Decimal dependency or formatting
+//! from application-owned [ICU4X](https://docs.rs/icu/) or
+//! [ICU](https://unicode-org.github.io/icu/userguide/format_parse/) services pass
+//! through ordinary String parameters; the bridge has no ICU dependency or formatting
 //! policy. RTL layout, glyph shaping and fonts belong to the application's renderer.
 //! Repository links follow `main`; this reference describes the viewed version.
 #![warn(missing_docs)]

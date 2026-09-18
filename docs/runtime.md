@@ -11,6 +11,7 @@ cargo run --manifest-path examples/minimal/Cargo.toml --bin typed_resources
 cargo run --manifest-path examples/minimal/Cargo.toml --bin localization-example -- --watch
 cargo run --manifest-path examples/codegen/Cargo.toml
 cargo run --manifest-path examples/no_codegen/Cargo.toml
+cargo run --manifest-path examples/icu/Cargo.toml
 ```
 
 Use `--locked --offline` on later runs once dependencies and a lockfile exist.
@@ -44,16 +45,18 @@ public runtime API; it would need checked, whole-catalog publication.
 
 ## Decimal values and plural selection
 
-The independent [fluent_typed_decimal adapter](https://docs.rs/fluent_typed_decimal/)
-can supply locale-formatted Decimal text and a plural-category keyword to two
-generated String arguments. It uses ICU4X for formatting and plural rules; Fluent
+Use dedicated [ICU4X](https://docs.rs/icu/) or
+[ICU](https://unicode-org.github.io/icu/userguide/format_parse/) components for
+numbers, percentages, currencies and dates; their APIs and stability differ.
+ICU4X DecimalFormatter and PluralRules can supply text and a plural-category keyword
+to two generated String arguments. Prepare display precision once for both; Fluent
 matches the keyword to literal branches such as `[one]` or `[few]`. Native numeric
 selectors remain available, including exact `[0]` / `[1]` matches. The runtime
-does not add a Decimal dependency or require a numeric-formatting feature.
+does not add an ICU dependency or require a numeric-formatting feature.
 
 For deferred messages, capture a Decimal and reusable per-locale formatters;
 choose the formatter from the current catalog's locale when rendering. Capturing
-an already prepared `LocalizedNumber` would keep the old language's digits and
+an already formatted string would keep the old language's digits and
 grammar. Replace a binding when its numeric input or precision policy changes.
 The [plural guide and FTL contract](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md#decimal-and-plural-arguments)
 and [compiled text-switch regression](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/minimal/src/tests/plurals.rs)

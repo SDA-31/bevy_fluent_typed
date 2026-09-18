@@ -8,6 +8,9 @@ pins the consumer's selected official Bevy packages to the requested release, th
 - Both headless example binaries.
 - Separate minimal codegen/no-codegen examples, including actual resource/Text
   values after switching through all three languages.
+- The standalone ICU resource example: Decimal and percentage formatters,
+  EN/ES/RU/AR UI/world strings, exact ratio scaling and explicit rebinding after
+  formatter-policy changes. ICU is an example dependency, not a runtime feature.
 - Explicit-build Cargo rebuild probes: edits, added/deleted modules and locales,
   missing build.rs, validation failures/recovery, excluded-asset tracking
   and repeated unchanged checks. After an edit, upstream's watched staging files
@@ -51,7 +54,7 @@ renderer's minimum; the other official packages remain pinned to 0.16.1.
 Add `--offline` **after** `--` once the needed dependencies are cached. Each test
 fixture has its own lockfile; the consuming workspace's lockfile is untouched.
 Fixtures are copied once at the start of each release check. Re-run after edits.
-The two generated examples select their backend directly on the normal dependency
+The generated examples select their backend directly on the normal dependency
 inside the fixture. They do not forward backend flags to the build-dependency.
 Bevy pins live in a separate test-only package, leaving the tested library's
 dependency requirements unchanged. Optional backend entries in a lockfile are
