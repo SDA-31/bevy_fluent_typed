@@ -59,6 +59,9 @@ inside the fixture. They do not forward backend flags to the build-dependency.
 Bevy pins live in a separate test-only package, leaving the tested library's
 dependency requirements unchanged. Optional backend entries in a lockfile are
 not evidence that those backends were compiled.
+Release-family validation matches package names and versions together: metadata
+from an inactive backend must not classify another version of an independently
+released dependency as part of the selected engine release.
 
 The tool prints each temporary fixture path and retains it, even on failure, for
 inspection. `verified-metadata.json` records workspace-resolved packages,

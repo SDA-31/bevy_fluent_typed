@@ -48,19 +48,7 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 	fixture.pin(&family.into_iter().collect::<Vec<_>>(), version)?;
 	let graph = metadata(&fixture, &args)?;
 	let active = dependency_tree(&fixture, "localization-example", "")?;
-	let official: BTreeSet<_> = official_packages(&graph)
-		.map(|package| package["name"].as_str().unwrap())
-		.collect();
-
-	for (name, resolved) in &active {
-		let expected = package_version(name, version);
-
-		if official.contains(name.as_str()) && resolved != expected {
-			return Err(
-				format!("wrong engine package: {name} {resolved} (expected {expected})").into(),
-			);
-		}
-	}
+	validate_engine_versions(&graph, &active, version)?;
 
 	fs::write(
 		fixture.path.join("verified-metadata.json"),
@@ -299,6 +287,35 @@ fn official_packages(graph: &Value) -> impl Iterator<Item = &Value> {
 		})
 }
 
+fn validate_engine_versions(
+	graph: &Value,
+	active: &BTreeSet<(String, String)>,
+	version: &str,
+) -> Result<()> {
+	let official: BTreeSet<_> = official_packages(graph)
+		.map(|package| {
+			(
+				package["name"].as_str().unwrap(),
+				package["version"].as_str().unwrap(),
+			)
+		})
+		.collect();
+
+	for (name, resolved) in active {
+		let expected = package_version(name, version);
+
+		// Optional backends can contain an older package with different repository
+		// metadata, e.g. bevy_mikktspace before it became an independent project.
+		if official.contains(&(name.as_str(), resolved.as_str())) && resolved != expected {
+			return Err(
+				format!("wrong engine package: {name} {resolved} (expected {expected})").into(),
+			);
+		}
+	}
+
+	Ok(())
+}
+
 fn dependency_tree(
 	fixture: &Fixture<'_>,
 	package: &str,
@@ -350,6 +367,35 @@ fn dependency_tree(
 
 #[cfg(test)]
 mod tests {
+	#[test]
+	fn engine_version_validation_keeps_metadata_for_each_package_version_separate() {
+		// Cargo metadata contains optional 0.16 packages even for a 0.17 consumer.
+		let graph = serde_json::json!({ "packages": [
+			{"name": "bevy_ecs", "version": "0.17.0", "repository": "https://github.com/bevyengine/bevy"},
+			{"name": "bevy_mikktspace", "version": "0.16.1", "repository": "https://github.com/bevyengine/bevy"},
+			{"name": "bevy_mikktspace", "version": "0.17.0-dev", "repository": "https://github.com/bevyengine/bevy_mikktspace"}
+		] });
+		let active = [
+			("bevy_ecs".into(), "0.17.0".into()),
+			("bevy_mikktspace".into(), "0.17.0-dev".into()),
+		]
+		.into();
+		assert!(super::validate_engine_versions(&graph, &active, "0.17.0").is_ok());
+	}
+
+	#[test]
+	fn engine_version_validation_still_rejects_wrong_official_patches() {
+		let graph = serde_json::json!({ "packages": [
+			{"name": "bevy_ecs", "version": "0.17.3", "repository": "https://github.com/bevyengine/bevy"}
+		] });
+		let active = [("bevy_ecs".into(), "0.17.3".into())].into();
+		let error = super::validate_engine_versions(&graph, &active, "0.17.0").unwrap_err();
+		assert_eq!(
+			error.to_string(),
+			"wrong engine package: bevy_ecs 0.17.3 (expected 0.17.0)"
+		);
+	}
+
 	#[test]
 	fn color_patch_is_specific_to_the_published_0161_release_family() {
 		assert_eq!(super::package_version("bevy_color", "0.16.1"), "0.16.2");
