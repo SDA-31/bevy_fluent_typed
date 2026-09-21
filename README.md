@@ -24,57 +24,14 @@ handles asset loading, language selection and text bindings.
 
 ## Contents
 
-- [Compatibility and features](#compatibility-and-features)
 - [Getting started](#getting-started)
+- [Compatibility and features](#compatibility-and-features)
 - [Minimal examples](#minimal-examples)
 - [Runtime integration](#runtime-integration)
 - [Decimal numbers, plurals and RTL](#decimal-numbers-plurals-and-rtl)
 - [Reload and provider boundaries](#reload-and-provider-boundaries)
 - [Verification](#verification) and [continuous integration](#continuous-integration)
 - [License](#license)
-
-## Compatibility and features
-
-Choose exactly one backend: `bevy-0-19` (default), `bevy-0-18`, `bevy-0-17` or `bevy-0-16`.
-Each accepts patches in its own minor, not arbitrary future versions. The minimum
-is 0.16.1 for the oldest backend and .0 for the others. The 0.16 compatibility
-check uses that engine patch with its required `bevy_color` 0.16.2; an all-0.16.0
-exact dependency set cannot be freshly resolved because `bevy_color` 0.16.0 is yanked.
-The application lockfile chooses the concrete patch release. The declared minimum
-Rust version is 1.95 for both the runtime and its companion bridge.
-This is **stable Rust**, not nightly. Bevy 0.19 itself requires
-[Rust 1.95](https://github.com/bevyengine/bevy/blob/v0.19.0/Cargo.toml), so the
-default backend adds no compiler-version requirement beyond the engine's.
-Selecting an older backend does not currently lower this crate's declared MSRV;
-older compiler support would need its own dependency and CI checks.
-
-The `bevy-0-16` backend and `CatalogUpdateReader` alias are available starting with
-0.1.2; version 0.1.1 supports Bevy 0.17–0.19. Bevy release candidates are not covered by
-the stable compatibility promise.
-
-Compiler and engine support are separate decisions: a Rust minimum increase does
-not by itself remove a Bevy backend. When support for a compiler or backend is
-dropped, the last compatible release will be documented. Older releases remain
-available, without a promise of indefinite maintenance.
-
-| Feature | Purpose |
-| --- | --- |
-| `bevy-0-19` (default), `bevy-0-18`, `bevy-0-17`, `bevy-0-16` | Select exactly one Bevy backend |
-| `codegen` | Generated-provider integration and the `translations!` macro |
-| `watch` | Bevy's filesystem watcher for live edits |
-| `build` | Explicit generation from the consumer's build script |
-| `runtime` | Runtime APIs; enabled automatically by each backend |
-
-For an older engine, set `default-features = false` and enable its backend, for
-example `features = ["bevy-0-17", "codegen", "watch"]`. Your application's own Bevy
-dependency must use the same minor. The build-only facade needs no engine flag:
-generated resources use the runtime's selected backend. Runtime use requires exactly
-one backend; `default-features = false, features = ["build"]` needs none.
-**Do not use `--all-features` for this package:** it selects incompatible backends.
-
-Without `codegen`, use a handwritten `FluentCatalog` provider as shown in the
-[no-codegen example](examples/no_codegen). Without either `codegen` or `build`,
-the runtime compiles neither the companion bridge nor the generator.
 
 <a id="optional-generation"></a>
 
@@ -187,8 +144,18 @@ The bridge owns output filenames and hygienic dependency aliases; no handwritten
 adapter or generated source file belongs in the source tree. The macro does not
 replace `build.rs` or install the runtime plugin.
 
-Set `AssetPlugin.file_path` to the asset root your application will use, then add
-`LocalizationPlugin::<Translations>::new(texts::CATALOG_ASSET_PATH)`.
+For the `assets/` layout above, Bevy's `DefaultPlugins` already uses the correct
+asset directory; no extra path configuration is needed. Add
+`LocalizationPlugin::<Translations>::new(texts::CATALOG_ASSET_PATH)` after
+`DefaultPlugins`.
+
+Set `AssetPlugin.file_path` only if your application loads its assets from a
+different directory, such as `Resources/`. The `asset-root` setting in Cargo.toml
+tells the generator where to find translations **during the build**; it does not
+configure where Bevy loads files **while the application runs**. The catalog path
+is relative to Bevy's asset directory: `localizations/localization.toml`, without
+the `assets/` prefix.
+
 The plugin makes generated modules available as resources before `Startup`.
 For the files above, a system can request the HUD directly:
 
@@ -216,6 +183,49 @@ The [typed-resource example](examples/minimal/src/bin/typed_resources.rs) contai
 the complete, tested application setup. For a windowed application, supply your
 normal UI hierarchy, camera and fonts. Choose a deployment asset root explicitly
 when packaging the application.
+
+## Compatibility and features
+
+Choose exactly one backend: `bevy-0-19` (default), `bevy-0-18`, `bevy-0-17` or `bevy-0-16`.
+Each accepts patches in its own minor, not arbitrary future versions. The minimum
+is 0.16.1 for the oldest backend and .0 for the others. The 0.16 compatibility
+check uses that engine patch with its required `bevy_color` 0.16.2; an all-0.16.0
+exact dependency set cannot be freshly resolved because `bevy_color` 0.16.0 is yanked.
+The application lockfile chooses the concrete patch release. The declared minimum
+Rust version is 1.95 for both the runtime and its companion bridge.
+This is **stable Rust**, not nightly. Bevy 0.19 itself requires
+[Rust 1.95](https://github.com/bevyengine/bevy/blob/v0.19.0/Cargo.toml), so the
+default backend adds no compiler-version requirement beyond the engine's.
+Selecting an older backend does not currently lower this crate's declared MSRV;
+older compiler support would need its own dependency and CI checks.
+
+The `bevy-0-16` backend and `CatalogUpdateReader` alias are available starting with
+0.1.2; version 0.1.1 supports Bevy 0.17–0.19. Bevy release candidates are not covered by
+the stable compatibility promise.
+
+Compiler and engine support are separate decisions: a Rust minimum increase does
+not by itself remove a Bevy backend. When support for a compiler or backend is
+dropped, the last compatible release will be documented. Older releases remain
+available, without a promise of indefinite maintenance.
+
+| Feature | Purpose |
+| --- | --- |
+| `bevy-0-19` (default), `bevy-0-18`, `bevy-0-17`, `bevy-0-16` | Select exactly one Bevy backend |
+| `codegen` | Generated-provider integration and the `translations!` macro |
+| `watch` | Bevy's filesystem watcher for live edits |
+| `build` | Explicit generation from the consumer's build script |
+| `runtime` | Runtime APIs; enabled automatically by each backend |
+
+For an older engine, set `default-features = false` and enable its backend, for
+example `features = ["bevy-0-17", "codegen", "watch"]`. Your application's own Bevy
+dependency must use the same minor. The build-only facade needs no engine flag:
+generated resources use the runtime's selected backend. Runtime use requires exactly
+one backend; `default-features = false, features = ["build"]` needs none.
+**Do not use `--all-features` for this package:** it selects incompatible backends.
+
+Without `codegen`, use a handwritten `FluentCatalog` provider as shown in the
+[no-codegen example](examples/no_codegen). Without either `codegen` or `build`,
+the runtime compiles neither the companion bridge nor the generator.
 
 ## Minimal examples
 
@@ -257,15 +267,17 @@ Unchanged reloads and inactive-language edits do not replace active resources.
 
 ## Decimal numbers, plurals and RTL
 
-Use dedicated [ICU4X](https://docs.rs/icu/) or
-[ICU](https://unicode-org.github.io/icu/userguide/format_parse/) components for
-localized numbers, percentages, currencies and dates. The runtime integrates
-translations with Bevy; it does not implement number formatting or add a direct
-ICU dependency.
-Pass already formatted text to a `(String)` FTL argument. When grammar must
-follow decimal precision, pass the same prepared value to ICU4X DecimalFormatter
-and PluralRules, then supply the category keyword through a separate String
-selector. Keep native numeric selectors available where they fit the application.
+For localized numbers, percentages, currencies and dates, it's recommended to use
+a dedicated formatting library, such as [ICU4X](https://docs.rs/icu/) or
+[ICU](https://unicode-org.github.io/icu/userguide/format_parse/). The choice belongs
+to your application: the runtime integrates translations with Bevy, but does not
+implement number formatting or depend on ICU.
+
+Already formatted text can be passed to a `(String)` FTL argument. If plural
+selection should follow the displayed decimal precision, one approach is to pass
+the same prepared Decimal to ICU4X DecimalFormatter and PluralRules, then supply
+the category keyword through a separate String selector. Native Fluent numeric
+selectors remain available as an alternative.
 
 The standalone [ICU resource example](examples/icu) creates Decimal and percentage
 formatters once per locale, injects them through `Res`, and captures a shared
