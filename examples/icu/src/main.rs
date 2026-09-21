@@ -5,8 +5,6 @@ use icu_decimal::options::GroupingStrategy;
 
 bevy_fluent_typed::translations!(mod texts);
 
-// Compile the exact resource/binding source shown in the library's Rustdoc.
-#[path = "../../../docs/icu_resources.rs"]
 mod formatting;
 
 #[cfg(test)]

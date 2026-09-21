@@ -40,11 +40,11 @@ cargo run --locked --offline -p localization-example -- --watch
 ```
 
 For the short asset-to-type walkthrough, run `--bin typed_resources` with the
-same manifest. Its [source](../../docs/typed_resources.rs) is embedded directly
-in the library's Rustdoc landing page. It shows `texts::presentation::Hud`,
+same manifest. Its [source](src/bin/typed_resources.rs) is linked from
+the library's Rustdoc landing page. It shows `texts::presentation::Hud`,
 chained typed borrows, a direct `Res` parameter and automatic updates to a Bevy
-text entity after a language switch. A small launcher supplies this package's
-renamed dependency, and a test executes the same source. This example uses the
+text entity after a language switch. The binary handles this package's renamed
+dependency directly, and its test executes `main`. This example uses the
 embedded catalogs immediately and does not wait for external loading.
 `localization-example` remains the default binary and the external-load/watch demo.
 

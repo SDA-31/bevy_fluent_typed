@@ -58,13 +58,11 @@ jobs:
           key: bevy-quality-${{ runner.os }}-${{ runner.arch }}-${{ env.GENERATOR_REV }}-${{ hashFiles('runtime/**/Cargo.toml') }}-${{ github.sha }}
           restore-keys: |
             bevy-quality-${{ runner.os }}-${{ runner.arch }}-${{ env.GENERATOR_REV }}-${{ hashFiles('runtime/**/Cargo.toml') }}-
-      - name: Check formatting in every package and the documentation example
+      - name: Check formatting in every package
         run: |
           for manifest in Cargo.toml codegen_bridge/Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml tools/compatibility/Cargo.toml; do
             cargo fmt --manifest-path "$manifest" --all -- --check
           done
-          rustfmt --check --edition 2024 docs/typed_resources.rs
-          rustfmt --check --edition 2024 docs/icu_resources.rs
       - name: Resolve independent package graphs
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
@@ -114,9 +112,7 @@ jobs:
           grep -Fx docs/quickstart.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/runtime.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/build.md "$CARGO_TARGET_DIR/runtime-package.txt"
-          grep -Fx docs/typed_resources.rs "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/formatting.md "$CARGO_TARGET_DIR/runtime-package.txt"
-          grep -Fx docs/icu_resources.rs "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx LICENSE "$CARGO_TARGET_DIR/bridge-package.txt"
           # A new runtime version cannot be package-verified until its bridge
           # version is published. Inventory is not a publish dry-run; the manual

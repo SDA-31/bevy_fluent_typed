@@ -35,8 +35,8 @@ symbol and spacing; the FTL adds only the surrounding translated label.
 
 - [main.rs](src/main.rs) registers the plugin and resource once, then changes
   locales and reads the existing UI/world entities.
-- [icu_resources.rs](../../docs/icu_resources.rs) is the exact resource and
-  binding implementation compiled by this example and included in Rustdoc.
+- [formatting.rs](src/formatting.rs) owns the resource and binding implementation;
+  the library's Rustdoc links here instead of embedding the example's source.
 - [tests.rs](src/tests.rs) checks real `Text` / `Text2d` output, exact large
   decimals, visible zeros, ratio scaling, Arabic digits and formatter replacement.
 

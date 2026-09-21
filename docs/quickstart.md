@@ -162,14 +162,20 @@ independent. For example, another `ui/menu.ftl` becomes `texts::ui::Menu`.
 
 ### 4. Register the plugin and request a module
 
-The following headless example shows asset configuration, the
+Configure Bevy's asset root and add
+`LocalizationPlugin::<texts::Translations>::new(texts::CATALOG_ASSET_PATH)` after
+Bevy's `AssetPlugin`. Register your UI system in `Startup`; its
+`Res<texts::presentation::Hud>` parameter receives the generated module resource.
+
+The complete [headless example](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/minimal/src/bin/typed_resources.rs)
+shows asset configuration, the
 `Translations → Presentation → Hud` chain, `Res<texts::presentation::Hud>`, a
 localized Bevy text entity and switching to Spanish. With a window, use your
 normal Bevy plugins and UI hierarchy; localization bindings work the same way.
 
-The snippet is included directly from the runnable `typed_resources` example,
-so the documentation and example use the **same Rust source**. It requires the
-consumer's build script and FTL files above; it cannot run as an isolated doctest
-of this library. The bundled consumer also includes Russian and more test modules.
+The executable source and its test live together in
+`examples/minimal/src/bin/typed_resources.rs`, not in this library's documentation.
+The example requires the consumer's build script and FTL files above; the bundled
+consumer also includes Russian and more test modules.
 The source-tree asset path is convenient for development; choose a deployment
 asset root explicitly when packaging your application.

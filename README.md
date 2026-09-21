@@ -6,17 +6,34 @@
 [![MSRV](https://img.shields.io/crates/msrv/bevy_fluent_typed)](https://crates.io/crates/bevy_fluent_typed)
 [![License](https://img.shields.io/crates/l/bevy_fluent_typed)](LICENSE)
 
-Typed Fluent integration for Bevy 0.16, 0.17, 0.18 and 0.19, built on
-[fluent-typed](https://github.com/human-solutions/fluent-typed) for typed message
-access and Fluent resolution. The runtime owns active languages,
-asset loading, transactional reload, shared module resources and Text/Text2d bindings.
-Applications own message keys, fonts, controls and generator settings; languages
-are supplied by their catalog provider rather than a fixed runtime list.
+Typed [Fluent](https://projectfluent.org/) localization for Bevy. Turn modular
+translation files into Rust accessors, request a catalog as a Bevy `Res`, and
+keep existing `Text`/`Text2d` entities up to date when the language changes.
 
-Optional typed API generation is powered by
-[fluent_typed_codegen](https://github.com/SDA-31/fluent_typed_codegen), which discovers
-modular Fluent files and generates their Rust translation tree. The companion
-`bevy_fluent_codegen_bridge` connects that tree to this runtime's resources and plugin.
+- Typed message access and arguments through [fluent-typed](https://github.com/human-solutions/fluent-typed).
+- Shared catalog resources for the whole translation tree, a folder or one file.
+- Atomic reloads that preserve the last working translation if an edit is invalid.
+- Optional API generation with [fluent_typed_codegen](https://github.com/SDA-31/fluent_typed_codegen), or your own `FluentCatalog` provider.
+
+Your application chooses message keys, languages, fonts and controls. The runtime
+handles asset loading, language selection and text bindings.
+
+[API documentation](https://docs.rs/bevy_fluent_typed/latest/bevy_fluent_typed/) ·
+[Guide](GUIDE.md) · [Runnable examples](#minimal-examples) ·
+[Companion bridge](codegen_bridge/README.md)
+
+## Contents
+
+- [Compatibility and features](#compatibility-and-features)
+- [Getting started](#getting-started)
+- [Minimal examples](#minimal-examples)
+- [Runtime integration](#runtime-integration)
+- [Decimal numbers, plurals and RTL](#decimal-numbers-plurals-and-rtl)
+- [Reload and provider boundaries](#reload-and-provider-boundaries)
+- [Verification](#verification) and [continuous integration](#continuous-integration)
+- [License](#license)
+
+## Compatibility and features
 
 Choose exactly one backend: `bevy-0-19` (default), `bevy-0-18`, `bevy-0-17` or `bevy-0-16`.
 Each accepts patches in its own minor, not arbitrary future versions. The minimum
@@ -35,33 +52,42 @@ The `bevy-0-16` backend and `CatalogUpdateReader` alias are available starting w
 0.1.2; version 0.1.1 supports Bevy 0.17–0.19. Bevy release candidates are not covered by
 the stable compatibility promise.
 
-[API documentation](https://docs.rs/bevy_fluent_typed/latest/bevy_fluent_typed/) ·
-[Guide](GUIDE.md) · [Codegen example](examples/codegen) · [No-codegen example](examples/no_codegen) ·
-[Optional bridge](codegen_bridge/README.md)
+Compiler and engine support are separate decisions: a Rust minimum increase does
+not by itself remove a Bevy backend. When support for a compiler or backend is
+dropped, the last compatible release will be documented. Older releases remain
+available, without a promise of indefinite maintenance.
 
-The crate's Rustdoc landing page contains a self-contained asset-to-resource
-quick start. Its `texts::presentation::Hud` / `Res` sample is included from the
-[runnable typed-resource example](docs/typed_resources.rs), not
-maintained as a separate code copy. Read it on
-[docs.rs](https://docs.rs/bevy_fluent_typed/latest/bevy_fluent_typed/)
-or build it locally with `cargo doc`.
-
-## Optional generation
-
-Without `codegen` this package is a standalone runtime for a `FluentCatalog`
-provider. Enable `codegen` for the generated-provider integration and
-`translations!`; enable `watch` for Bevy's file watcher. Only `bevy-0-19` is on by default.
+| Feature | Purpose |
+| --- | --- |
+| `bevy-0-19` (default), `bevy-0-18`, `bevy-0-17`, `bevy-0-16` | Select exactly one Bevy backend |
+| `codegen` | Generated-provider integration and the `translations!` macro |
+| `watch` | Bevy's filesystem watcher for live edits |
+| `build` | Explicit generation from the consumer's build script |
+| `runtime` | Runtime APIs; enabled automatically by each backend |
 
 For an older engine, set `default-features = false` and enable its backend, for
 example `features = ["bevy-0-17", "codegen", "watch"]`. Your application's own Bevy
 dependency must use the same minor. The build-only facade needs no engine flag:
 generated resources use the runtime's selected backend. Runtime use requires exactly
 one backend; `default-features = false, features = ["build"]` needs none.
-Do not use `--all-features` for this package.
+**Do not use `--all-features` for this package:** it selects incompatible backends.
+
+Without `codegen`, use a handwritten `FluentCatalog` provider as shown in the
+[no-codegen example](examples/no_codegen). Without either `codegen` or `build`,
+the runtime compiles neither the companion bridge nor the generator.
+
+<a id="optional-generation"></a>
+
+## Getting started
+
+This setup adds generated catalogs to an existing Bevy application. For a complete
+consumer you can run immediately, start with [examples/codegen](examples/codegen).
+
+### 1. Add dependencies and source paths
 
 The setup below uses the public build facade introduced in **0.1.1**. Both
 dependency entries use this same crate; 0.1.0 consumers should upgrade to use it.
-Repository examples deliberately use local paths to test their checkout.
+Add these entries to your application's `Cargo.toml`:
 
 ```toml
 [dependencies]
@@ -75,11 +101,16 @@ asset-root = "assets"
 catalog = "localizations/localization.toml"
 ```
 
-Both dependency entries refer to the same public crate. Its `build` feature
-exposes explicit generation; `codegen` exposes the runtime integration. The bridge
-is an internal adapter, not a required name in application manifests or build.rs.
-Use Cargo resolver 2 or 3: build-only use compiles no Bevy, while normal use
-compiles no generator. Disable defaults on the build-dependency.
+Use Cargo resolver 2 or 3 to keep build and runtime features separate. The build
+dependency disables defaults so it compiles no Bevy; normal runtime use compiles
+no generator. The companion bridge is an internal adapter, so application
+manifests and `build.rs` use only the public `bevy_fluent_typed` facade.
+
+Select engine features directly on the normal dependency. Forwarding them through
+application features to the shared dependency name also enables them in the host
+graph. Renaming the dependency is supported; use the same alias in both sections.
+
+### 2. Generate during the build
 
 In `build.rs`:
 
@@ -89,37 +120,25 @@ fn main() -> std::process::ExitCode {
 }
 ```
 
-This is the **explicit generation phase**. `translations!` only includes its
-output; expanding the macro never invokes a generator or writes files. A normal
-dependency feature cannot supply dependencies to the consumer's build.rs, so this
-build-dependency is intentional. Cargo tracks catalog files and directories through
-the bridge's build-script rerun directives.
+This explicit call generates the API under Cargo's `OUT_DIR` and registers
+catalog files and directories for build-script reruns. `translations!` only
+includes the prepared output; macro expansion never runs the generator or writes
+files. A normal dependency cannot supply dependencies to your `build.rs`.
 
-Select engine features directly on the normal dependency. Forwarding them through
-application features to the shared dependency name also enables them in the host
-graph. After an asset edit, upstream's watched staging timestamps can cause one
+After an asset edit, upstream's watched staging timestamps can cause one
 additional build-script run; subsequent unchanged checks are verified to stay fresh.
 
-## Minimal examples
+<a id="source-assets-and-generated-tree"></a>
 
-- [With codegen](examples/codegen): one FTL module per language, the explicit
-  build call above, generated `texts::ui::Greeting` and EN/ES/RU switching.
-- [Without codegen](examples/no_codegen): no build.rs or build-dependencies;
-  a small handwritten `FluentCatalog` and automatic updates to a Bevy `Text`.
-- [Integration suite](examples/minimal): typed arguments, resource scopes,
-  filesystem watching and contract regression tests.
-- [ICU formatters](examples/icu): application-owned Decimal and percentage
-  services, shared Bevy resources and EN/ES/RU/AR text updates.
+### 3. Create the translation assets
 
-```sh
-cargo run --manifest-path examples/codegen/Cargo.toml
-cargo run --manifest-path examples/no_codegen/Cargo.toml
-cargo run --manifest-path examples/icu/Cargo.toml
+```text
+assets/localizations/
+  localization.toml
+  translations/
+    en/presentation/hud.ftl
+    es/presentation/hud.ftl
 ```
-
-## Source assets and generated tree
-
-Continue the generated setup with the source assets below.
 
 In `assets/localizations/localization.toml`:
 
@@ -129,15 +148,32 @@ source-language = "en"
 default-language = "en"
 ```
 
-Add matching modular FTL trees below
-`assets/localizations/translations/{en,es,ru}/`. All locale directories are
-discovered. Both paths and the source/startup languages are configurable.
-The example starts in English and includes Spanish and Russian translations.
-Omit `translations-directory` when language folders sit beside the TOML file;
-the default is `"."`. `languages-directory` remains a legacy alias, but do not set
-both names. Renaming the key without changing its value, or replacing an omitted
-directory with explicit `"."`, preserves the reload contract. Changing the resolved
-directory requires regeneration.
+In `en/presentation/hud.ftl`:
+
+```ftl
+title = Flight HUD
+# $name (String) - Pilot name supplied by the application.
+detail = Pilot { $name }
+```
+
+In `es/presentation/hud.ftl`:
+
+```ftl
+title = Panel de vuelo
+detail = Piloto { $name }
+```
+
+Locale directories are discovered automatically. Give every language the same
+module/message contract, with type annotations in the source language. Paths and
+the source/startup languages are configurable. `asset-root` is relative to your
+package, `catalog` to the asset root, and `translations-directory` to the TOML file.
+
+Omit `translations-directory` when locale folders sit beside the TOML; the default
+is `"."`. `languages-directory` remains a legacy alias, but do not set both names.
+Renaming the key without changing its value, or spelling out the default `"."`,
+preserves the reload contract. Changing the resolved directory requires regeneration.
+
+### 4. Register the plugin and use typed messages
 
 Declare the tree without naming an output file:
 
@@ -147,20 +183,66 @@ bevy_fluent_typed::translations!(pub mod texts);
 use texts::{Locale, Translations};
 ```
 
-The facade forwards to the bridge, which owns output filenames and hygienic
-dependency aliases. Renaming the runtime dependency in Cargo is supported.
-Generated files stay under Cargo OUT_DIR; no handwritten adapter or generated
-source file belongs in the source tree. The macro does not replace build.rs or
-install the runtime plugin.
+The bridge owns output filenames and hygienic dependency aliases; no handwritten
+adapter or generated source file belongs in the source tree. The macro does not
+replace `build.rs` or install the runtime plugin.
+
+Set `AssetPlugin.file_path` to the asset root your application will use, then add
+`LocalizationPlugin::<Translations>::new(texts::CATALOG_ASSET_PATH)`.
+The plugin makes generated modules available as resources before `Startup`.
+For the files above, a system can request the HUD directly:
+
+```rust
+use bevy::prelude::*;
+use bevy_fluent_typed::LocalizedText;
+
+fn show_hud(mut commands: Commands, hud: Res<texts::presentation::Hud>) {
+    println!("{}", hud.msg_title());
+
+    commands.spawn((
+        Text::default(),
+        LocalizedText::<Translations>::new(|catalog| {
+            catalog.presentation().hud().msg_detail("Ada")
+        }),
+    ));
+}
+```
+
+Register the system in `Startup`. `LocalizedText` also works with `Text2d` and
+updates the existing component when the catalog or binding changes. Call
+`Localization<Translations>::set_locale(Locale::Es)` to switch to Spanish.
+
+The [typed-resource example](examples/minimal/src/bin/typed_resources.rs) contains
+the complete, tested application setup. For a windowed application, supply your
+normal UI hierarchy, camera and fonts. Choose a deployment asset root explicitly
+when packaging the application.
+
+## Minimal examples
+
+| Example | What it demonstrates |
+| --- | --- |
+| [With codegen](examples/codegen) | One module per language, generated `texts::ui::Greeting`, EN/ES/RU switching |
+| [Without codegen](examples/no_codegen) | A handwritten `FluentCatalog`, automatic `Text` updates, no build script or build dependencies |
+| [Typed resources](examples/minimal/src/bin/typed_resources.rs) | Chained catalog access, `Res<texts::presentation::Hud>`, localized text and language switching |
+| [Integration suite](examples/minimal) | Typed arguments, resource scopes, filesystem watching and contract regression tests |
+| [ICU formatters](examples/icu) | Shared Decimal/percentage services and EN/ES/RU/AR text updates |
+
+From a clone of this repository:
+
+```sh
+cargo run --manifest-path examples/codegen/Cargo.toml
+cargo run --manifest-path examples/no_codegen/Cargo.toml
+cargo run --manifest-path examples/icu/Cargo.toml
+```
+
+Repository examples use local paths to test their checkout. Use the registry
+dependencies in [Getting started](#getting-started) for your application.
 
 ## Runtime integration
 
-Configure `AssetPlugin.file_path`, then add
-`LocalizationPlugin::<Translations>::new(texts::CATALOG_ASSET_PATH)`.
-Use `LocalizedText<Translations>` with existing `Text`/`Text2d` components,
-and `Localization<Translations>::set_locale` to switch languages.
-`Message<Translations>` stores typed formatting and owned arguments for deferred
-rendering. Fonts, input and error presentation belong to the application.
+`Message<Translations>` stores typed formatting closures and owned arguments for
+deferred rendering. `LocalizedText<Translations>` binds a message to an existing
+`Text`/`Text2d`; the application owns fonts, input and error presentation.
 
 For `presentation/hud.ftl`, borrow `translations.presentation().hud()` as
 `&texts::presentation::Hud`, or request `Res<texts::presentation::Hud>`.

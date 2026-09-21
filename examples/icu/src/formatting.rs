@@ -1,3 +1,4 @@
+//! Application-owned ICU services and locale-aware deferred text bindings.
 use std::{collections::HashMap, sync::Arc};
 
 use bevy_fluent_typed::bevy::{ecs as bevy_ecs, prelude::*};
