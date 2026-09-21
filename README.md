@@ -293,11 +293,30 @@ matches remain supported separately. See the
 the [compiled deferred-text test](examples/minimal/src/tests/plurals.rs) for
 automatic updates when the active language changes.
 
-Capture the raw Decimal and reusable per-locale formatters in deferred messages,
-not a formatted string prepared for an old language. Select the formatter from
-the current catalog's locale each time the closure renders. Replace the binding
-when the numeric value or formatting policy changes. A change to an arbitrary
-Bevy resource is not an automatic invalidation signal for captured `Arc`s.
+For example, in a system with `mut commands: Commands` and
+`formats: Res<NumberFormats>` from the [ICU example](examples/icu/src/formatting.rs):
+
+```rust
+let amount = Decimal::from(12_345);
+let formats = Arc::clone(&formats.0);
+let binding = LocalizedText::new(move |catalog: &Translations| {
+    let text = formats[&catalog.locale()].decimal.format_to_string(&amount);
+
+    catalog.presentation().hud().msg_damage(text)
+});
+
+commands.spawn((Text::default(), binding));
+```
+
+Here `Decimal` is `icu_decimal::input::Decimal`; `NumberFormats` is the example's
+application-owned resource sharing a per-locale formatter map through `Arc`.
+The closure keeps the number, not a preformatted string, and selects the current
+locale's formatter when the label refreshes. Language changes need no new binding.
+
+When the amount or formatter settings change, replace the `LocalizedText`
+component with a new binding. Replacing the formatter resource alone neither
+updates the captured `Arc` nor triggers a text refresh; the
+[example's tests](examples/icu/src/tests.rs) demonstrate this distinction.
 
 Arabic digits and grammatical rules do not provide complete RTL UI support.
 Preserve Fluent's bidi isolation; glyph shaping, visual bidi ordering, fonts,
