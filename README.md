@@ -26,6 +26,7 @@ handles asset loading, language selection and text bindings.
 
 - [Getting started](#getting-started)
 - [Compatibility and features](#compatibility-and-features)
+- [Comparison with bevy_fluent](#comparison-with-bevy_fluent)
 - [Minimal examples](#minimal-examples)
 - [Runtime integration](#runtime-integration)
 - [Decimal numbers, plurals and RTL](#decimal-numbers-plurals-and-rtl)
@@ -226,6 +227,25 @@ one backend; `default-features = false, features = ["build"]` needs none.
 Without `codegen`, use a handwritten `FluentCatalog` provider as shown in the
 [no-codegen example](examples/no_codegen). Without either `codegen` or `build`,
 the runtime compiles neither the companion bridge nor the generator.
+
+## Comparison with bevy_fluent
+
+[bevy_fluent](https://github.com/kgv/bevy_fluent/blob/main/doc/en-US.md) provides
+Fluent asset loading, message lookup by string identifiers, and locale fallback
+chains.
+
+`bevy_fluent_typed` focuses on typed message access and arguments through
+[fluent-typed](https://github.com/human-solutions/fluent-typed). Its optional
+generator builds Rust accessors from FTL files, while the Bevy integration
+exposes catalog resources through `Res` and provides bindings that refresh
+existing `Text` and `Text2d` components when translations or the active language
+change.
+
+The generated workflow requires an explicit `build.rs` step and a shared message
+and argument contract across translations. Translation text can be hot-reloaded
+within that contract; changes to the generated Rust API require rebuilding.
+Applications can alternatively provide their own `FluentCatalog` implementation
+without using the generator.
 
 ## Minimal examples
 
