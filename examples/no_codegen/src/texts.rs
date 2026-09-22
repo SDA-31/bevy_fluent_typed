@@ -82,6 +82,3 @@ impl FluentCatalog for Texts {
 		Ok(Self { hello })
 	}
 }
-
-#[cfg(test)]
-mod tests;

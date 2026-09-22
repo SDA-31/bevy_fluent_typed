@@ -1,10 +1,17 @@
-use super::{Locale, Translations};
-use localization_runtime::{FluentCatalog, Localization, Message};
+localization_runtime::translations!(pub mod texts);
 
+use localization_runtime::{FluentCatalog, Localization, Message};
+use texts::{Locale, Translations};
+
+#[path = "catalog/contracts.rs"]
 mod contracts;
+#[path = "catalog/macros.rs"]
 mod macros;
+#[path = "catalog/plurals.rs"]
 mod plurals;
+#[path = "catalog/reload.rs"]
 mod reload;
+#[path = "catalog/resources.rs"]
 mod resources;
 
 fn newline_variants(source: &str) -> [String; 2] {

@@ -257,7 +257,7 @@ without using the generator.
 | [Typed resources](examples/minimal/src/bin/typed_resources.rs) | Chained catalog access, `Res<texts::presentation::Hud>`, localized text and language switching |
 | [Integration suite](examples/minimal) | Typed arguments, resource scopes, filesystem watching and contract regression tests |
 | [ICU formatters](examples/icu) | Shared Decimal/percentage services and EN/ES/RU/AR text updates |
-| [Custom asset source](examples/asset_source) | Virtual files, generated resources, text bindings and explicit reloads without a watcher |
+| [Custom asset source](examples/asset_source) | Codegen with a named asset source; reload and text-binding checks in `tests/` |
 
 From a clone of this repository:
 
@@ -331,7 +331,7 @@ Fluent matches String selectors to literal `[one]`, `[few]`, etc., with the
 starred branch as fallback. Native numeric selectors and exact `[0]`/`[1]`
 matches remain supported separately. See the
 [plural guide](GUIDE.md#decimal-and-plural-arguments) for the FTL contract and
-the [compiled deferred-text test](examples/minimal/src/tests/plurals.rs) for
+the [compiled deferred-text test](examples/minimal/tests/catalog/plurals.rs) for
 automatic updates when the active language changes.
 
 For example, in a system with `mut commands: Commands` and
@@ -357,7 +357,7 @@ locale's formatter when the label refreshes. Language changes need no new bindin
 When the amount or formatter settings change, replace the `LocalizedText`
 component with a new binding. Replacing the formatter resource alone neither
 updates the captured `Arc` nor triggers a text refresh; the
-[example's tests](examples/icu/src/tests.rs) demonstrate this distinction.
+[example's tests](examples/icu/tests/formatting.rs) demonstrate this distinction.
 
 Arabic digits and grammatical rules do not provide complete RTL UI support.
 Preserve Fluent's bidi isolation; glyph shaping, visual bidi ordering, fonts,

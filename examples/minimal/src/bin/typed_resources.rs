@@ -28,7 +28,7 @@ fn main() {
 	let translations: &texts::Translations = app.world().resource();
 	let presentation: &texts::Presentation = translations.presentation();
 	let hud: &texts::presentation::Hud = presentation.hud();
-	assert_eq!(hud.msg_title(), "Flight HUD");
+	println!("{}", hud.msg_title());
 
 	app.world_mut()
 		.resource_mut::<Localization<texts::Translations>>()
@@ -37,12 +37,11 @@ fn main() {
 
 	// Direct resources and existing text bindings follow the same language switch.
 	let hud: &texts::presentation::Hud = app.world().resource();
-	assert_eq!(hud.msg_title(), "Panel de vuelo");
 	println!("{}", hud.msg_title());
 
 	let mut labels = app.world_mut().query::<&Text>();
 	let label = labels.single(app.world()).expect("one localized label");
-	assert!(label.0.contains("Piloto"));
+	println!("{}", label.0);
 }
 
 fn show_hud(mut commands: Commands, hud: Res<texts::presentation::Hud>) {
@@ -54,9 +53,4 @@ fn show_hud(mut commands: Commands, hud: Res<texts::presentation::Hud>) {
 			catalog.presentation().hud().msg_detail("Ada")
 		}),
 	));
-}
-
-#[test]
-fn typed_resources_quickstart_runs() {
-	main();
 }

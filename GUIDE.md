@@ -113,7 +113,7 @@ For `Message` / `LocalizedText`, keep the Decimal and reusable formatters owned
 by the closure, select a formatter using the current catalog's `locale()`, then
 prepare the two strings. Capturing an already-localized number would preserve
 the old language after a switch. The
-[compiled regression](examples/minimal/src/tests/plurals.rs) checks the actual
+[compiled regression](examples/minimal/tests/catalog/plurals.rs) checks the actual
 Bevy text after each switch. Its input is bounded test data; applications should
 validate ICU's input/operand limits according to their numeric-domain policy.
 

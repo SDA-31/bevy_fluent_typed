@@ -8,10 +8,6 @@ repository = "https://github.com/SDA-31/bevy_fluent_typed"
 license = "MIT"
 publish = false
 
-[[test]]
-name = "raw_catalog"
-path = "src/tests/raw_root.rs"
-
 [package.metadata.localization]
 asset-root = "assets"
 catalog = "localizations/localization.toml"

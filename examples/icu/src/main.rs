@@ -7,26 +7,7 @@ bevy_fluent_typed::translations!(mod texts);
 
 mod formatting;
 
-#[cfg(test)]
-mod tests;
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-	let mut app = example_app()?;
-
-	for &locale in texts::Translations::locales() {
-		app.world_mut()
-			.resource_mut::<Localization<texts::Translations>>()
-			.set_locale(locale);
-		app.update();
-		let (damage, chance) = labels(&app);
-		println!("{locale}: {damage} | {chance}");
-	}
-
-	Ok(())
-}
-
-/// Build the app once; embedded catalogs make the example deterministic without waiting on I/O.
-fn example_app() -> Result<App, Box<dyn std::error::Error>> {
 	let assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(texts::ASSET_ROOT);
 	let mut app = App::new();
 	app.add_plugins((
@@ -43,14 +24,18 @@ fn example_app() -> Result<App, Box<dyn std::error::Error>> {
 	app.cleanup();
 	app.update();
 
-	Ok(app)
-}
+	// Reuse the same formatters and text entities across language changes.
+	// Embedded catalogs are available immediately; this example does not wait for I/O.
+	for &locale in texts::Translations::locales() {
+		app.world_mut()
+			.resource_mut::<Localization<texts::Translations>>()
+			.set_locale(locale);
+		app.update();
+		let labels = app.world().resource::<formatting::Labels>();
+		let damage = &app.world().get::<Text>(labels.damage).unwrap().0;
+		let chance = &app.world().get::<Text2d>(labels.chance).unwrap().0;
+		println!("{locale}: {damage} | {chance}");
+	}
 
-/// Read actual Bevy UI/world text, not strings formatted through a separate demonstration path.
-fn labels(app: &App) -> (&str, &str) {
-	let labels = app.world().resource::<formatting::Labels>();
-	let damage = &app.world().get::<Text>(labels.damage).unwrap().0;
-	let chance = &app.world().get::<Text2d>(labels.chance).unwrap().0;
-
-	(damage, chance)
+	Ok(())
 }

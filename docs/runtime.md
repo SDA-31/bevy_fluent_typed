@@ -60,7 +60,7 @@ choose the formatter from the current catalog's locale when rendering. Capturing
 an already formatted string would keep the old language's digits and
 grammar. Replace a binding when its numeric input or precision policy changes.
 The [plural guide and FTL contract](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md#decimal-and-plural-arguments)
-and [compiled text-switch regression](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/minimal/src/tests/plurals.rs)
+and [compiled text-switch regression](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/minimal/tests/catalog/plurals.rs)
 show the two String arguments and their lifecycle.
 
 Arabic number formatting is separate from visual RTL: preserve Fluent's default

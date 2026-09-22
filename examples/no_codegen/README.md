@@ -24,7 +24,9 @@ The provider eagerly resolves its entire API before accepting a snapshot. Missin
 modules/messages, unresolved references and missing variables are rejected. Extra
 unused messages are permitted by this provider; expanding its API requires extending
 validation. It is intentionally not a generic replacement for generated contracts.
-Tests validate all embedded locales and rejected external candidates.
+[tests/provider.rs](tests/provider.rs) validates embedded locales and rejected
+external candidates; [tests/output.rs](tests/output.rs) checks the executable's
+three greetings. The application itself contains no test assertions.
 
 The example stores text at `assets/localizations/translations/{en,es,ru}/ui/greeting.ftl`.
 Its TOML accepts only `translations-directory = "translations"`; the handwritten

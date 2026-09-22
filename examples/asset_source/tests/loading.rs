@@ -1,7 +1,11 @@
-use crate::{
-	application::{self, Outcomes},
-	texts,
-};
+bevy_fluent_typed::translations!(mod texts);
+
+#[path = "support/application.rs"]
+mod application;
+#[path = "../src/source.rs"]
+mod source;
+
+use application::Outcomes;
 use bevy_fluent_typed::{
 	FluentCatalog, Localization, ReloadCatalogs,
 	bevy::{asset::io::memory::Dir, prelude::*},
@@ -39,7 +43,7 @@ fn reload(app: &mut App) {
 
 #[test]
 fn named_source_publishes_generated_resources_and_existing_text_without_watching() {
-	let files = application::source_files();
+	let files = source::files();
 	files.insert_asset_text(Path::new(HUD), "title = External HUD\n");
 	files.insert_asset_text(Path::new(PANEL), "title = External panel\n");
 	let mut app = app(files.clone());
@@ -65,7 +69,7 @@ fn named_source_publishes_generated_resources_and_existing_text_without_watching
 		&**app.world().resource::<texts::ui::Hud>()
 	));
 
-	files.insert_asset_text(Path::new(HUD), include_str!("../updates/en/hud.ftl"));
+	files.insert_asset_text(Path::new(HUD), include_str!("fixtures/en/hud.ftl"));
 	reload(&mut app);
 	assert_eq!(
 		app.world().resource::<texts::ui::Hud>().msg_title(),
@@ -91,7 +95,7 @@ fn named_source_publishes_generated_resources_and_existing_text_without_watching
 
 #[test]
 fn invalid_language_retains_all_its_modules_while_another_language_updates() {
-	let files = application::source_files();
+	let files = source::files();
 	files.insert_asset_text(Path::new(HUD), "title = Last good HUD\n");
 	let mut app = app(files.clone());
 	application::wait_for_load(&mut app);
@@ -181,7 +185,7 @@ fn missing_source_data_at_start_can_be_installed_and_explicitly_retried() {
 
 #[test]
 fn definition_missing_module_and_non_utf8_failures_preserve_last_good_resources() {
-	let files = application::source_files();
+	let files = source::files();
 	files.insert_asset_text(Path::new(HUD), "title = Last good HUD\n");
 	let mut app = app(files.clone());
 	application::wait_for_load(&mut app);

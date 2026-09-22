@@ -17,8 +17,9 @@ app.add_plugins(LocalizationPlugin::<texts::Translations>::new(
 ```
 
 The [runnable custom-source example](https://github.com/SDA-31/bevy_fluent_typed/tree/main/examples/asset_source)
-shows registration, generated resources, language switching and explicit reloads
-using Bevy's built-in memory reader. It requires no archive implementation.
+shows source registration and generated resources in `main.rs`, using Bevy's
+built-in memory reader. Its `tests/` directory covers language switching,
+explicit reloads and text bindings. It requires no archive implementation.
 The source name is an application-chosen identifier, not a URL protocol or a
 format selector built into this crate. Merely naming it `zip` does not read ZIPs.
 

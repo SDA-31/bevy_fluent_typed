@@ -1,4 +1,8 @@
-use super::*;
+#[path = "../src/texts.rs"]
+mod texts;
+
+use bevy_fluent_typed::{FluentCatalog, ModuleSource};
+use texts::Texts;
 
 #[test]
 fn every_embedded_language_supplies_our_api() {
@@ -42,12 +46,7 @@ fn incompatible_candidates_fail_before_publication() {
 
 #[test]
 fn definition_has_an_explicit_small_contract() {
-	assert!(
-		Texts::descriptor(include_bytes!(
-			"../../assets/localizations/localization.toml"
-		))
-		.is_ok()
-	);
+	assert!(Texts::descriptor(include_bytes!("../assets/localizations/localization.toml")).is_ok());
 	assert!(Texts::descriptor(b"translations-directory = '../outside'").is_err());
 	assert!(Texts::descriptor(b"translations-directory = 'translations'\nextra = true").is_err());
 }

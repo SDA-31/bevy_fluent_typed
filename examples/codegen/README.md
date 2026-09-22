@@ -32,4 +32,7 @@ graph, not inside the application. See [the guide](../../GUIDE.md#3-generate-and
 For a generator-free provider see [no_codegen](../no_codegen). For deferred
 messages, typed arguments and live edits see the larger [integration suite](../minimal).
 
+The application uses embedded catalogs immediately. [tests/output.rs](tests/output.rs)
+checks the executable's three greetings; there is no test collection wrapper in main.
+
 [MIT](LICENSE).

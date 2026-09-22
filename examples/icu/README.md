@@ -37,7 +37,7 @@ symbol and spacing; the FTL adds only the surrounding translated label.
   locales and reads the existing UI/world entities.
 - [formatting.rs](src/formatting.rs) owns the resource and binding implementation;
   the library's Rustdoc links here instead of embedding the example's source.
-- [tests.rs](src/tests.rs) checks real `Text` / `Text2d` output, exact large
+- [tests/formatting.rs](tests/formatting.rs) checks real `Text` / `Text2d` output, exact large
   decimals, visible zeros, ratio scaling, Arabic digits and formatter replacement.
 
 `Res<NumberFormats>` is injected into the spawning system. Bindings capture an

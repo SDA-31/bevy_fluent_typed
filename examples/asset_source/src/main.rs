@@ -1,34 +1,59 @@
-use bevy_fluent_typed::{Localization, ReloadCatalogs};
-use std::path::Path;
-
-mod application;
-
-#[cfg(test)]
-mod tests;
+//! Load a generated catalog through a named Bevy asset source, without a window.
+use bevy_fluent_typed::bevy::{
+	app::{AppExit, ScheduleRunnerPlugin},
+	asset::io::{AssetSourceBuilder, memory::MemoryAssetReader},
+	prelude::*,
+};
+use bevy_fluent_typed::{CatalogUpdate, CatalogUpdateReader, LocalizationPlugin};
+use std::time::Duration;
 
 bevy_fluent_typed::translations!(mod texts);
 
-fn main() {
-	let files = application::source_files();
-	let mut app = application::app(files.clone());
-	application::wait_for_load(&mut app);
-	println!("{}", app.world().resource::<texts::ui::Hud>().msg_title());
+mod source;
 
-	// An archive-backed source would install a complete pack here. This example
-	// changes one virtual file only after the previous load has completed.
-	files.insert_asset_text(
-		Path::new("localizations/translations/en/ui/hud.ftl"),
-		include_str!("../updates/en/hud.ftl"),
-	);
-	*app.world_mut().resource_mut::<application::Outcomes>() = Default::default();
-	app.world_mut()
-		.write_message(ReloadCatalogs::<texts::Translations>::default());
-	application::wait_for_load(&mut app);
-	println!("{}", app.world().resource::<texts::ui::Hud>().msg_title());
+fn main() -> AppExit {
+	let files = source::files();
 
-	app.world_mut()
-		.resource_mut::<Localization<texts::Translations>>()
-		.set_locale(texts::Locale::Es);
-	app.update();
-	println!("{}", app.world().resource::<texts::ui::Hud>().msg_title());
+	App::new()
+		// Register before AssetPlugin. An archive plugin can provide its reader here.
+		.register_asset_source(
+			"translations",
+			AssetSourceBuilder::new(move || {
+				Box::new(MemoryAssetReader {
+					root: files.clone(),
+				})
+			}),
+		)
+		.add_plugins((
+			MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_millis(16))),
+			AssetPlugin::default(),
+			LocalizationPlugin::<texts::Translations>::new(
+				"translations://localizations/localization.toml",
+			),
+		))
+		.add_systems(Update, show_title)
+		.run()
+}
+
+fn show_title(
+	mut updates: CatalogUpdateReader<texts::Translations>,
+	hud: Res<texts::ui::Hud>,
+	mut exit: MessageWriter<AppExit>,
+) {
+	for update in updates.read() {
+		match update {
+			// Wait for the custom source, rather than only printing the embedded fallback.
+			CatalogUpdate::Loaded {
+				locale: texts::Locale::En,
+			} => {
+				println!("{}", hud.msg_title());
+				exit.write(AppExit::Success);
+			}
+			CatalogUpdate::Rejected { error, .. } => {
+				eprintln!("{error}");
+				exit.write(AppExit::error());
+			}
+			_ => {}
+		}
+	}
 }

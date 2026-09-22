@@ -1,4 +1,11 @@
-use crate::{example_app, formatting, labels, texts};
+bevy_fluent_typed::translations!(mod texts);
+
+#[path = "support/application.rs"]
+mod application;
+#[path = "../src/formatting.rs"]
+mod formatting;
+
+use application::{example_app, labels};
 use bevy_fluent_typed::Localization;
 use bevy_fluent_typed::bevy::prelude::*;
 use icu_decimal::{input::Decimal, options::GroupingStrategy};

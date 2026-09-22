@@ -1,4 +1,4 @@
-//! Standard Bevy source registration; no archive or localization-specific I/O trait.
+//! Headless test harness: load outcomes, text bindings and bounded polling.
 use crate::texts;
 use bevy_fluent_typed::{
 	CatalogUpdate, CatalogUpdateReader, FluentCatalog, LocalizationPlugin, LocalizationSystems,
@@ -12,12 +12,9 @@ use bevy_fluent_typed::{
 		prelude::*,
 	},
 };
-use std::{
-	path::Path,
-	time::{Duration, Instant},
-};
+use std::time::{Duration, Instant};
 
-// Headless demonstration timeout and polling interval, not runtime policies.
+// Bound asynchronous test loads; these timings are not localization policy.
 const LOAD_TIMEOUT: Duration = Duration::from_secs(10);
 const POLL_INTERVAL: Duration = Duration::from_millis(5);
 
@@ -26,25 +23,6 @@ pub(super) struct Outcomes {
 	pub loaded: Vec<texts::Locale>,
 	pub rejected: Vec<Option<texts::Locale>>,
 	pub errors: Vec<String>,
-}
-
-pub(super) fn source_files() -> Dir {
-	let files = Dir::default();
-	files.insert_asset_text(Path::new(texts::CATALOG_ASSET_PATH), texts::CATALOG_CONFIG);
-
-	// Supply deterministic in-memory data without choosing an archive format.
-	// Source files are still required by build.rs to generate the typed API.
-	for (locale, path, source) in texts::MODULES {
-		files.insert_asset_text(
-			&Path::new("localizations")
-				.join(texts::LANGUAGES_DIRECTORY)
-				.join(locale)
-				.join(path),
-			source,
-		);
-	}
-
-	files
 }
 
 pub(super) fn app(files: Dir) -> App {
