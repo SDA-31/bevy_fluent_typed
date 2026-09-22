@@ -20,7 +20,7 @@ handles asset loading, language selection and text bindings.
 
 [API documentation](https://docs.rs/bevy_fluent_typed/latest/bevy_fluent_typed/) ·
 [Guide](GUIDE.md) · [Runnable examples](#minimal-examples) ·
-[Companion bridge](codegen_bridge/README.md)
+[Companion bridge](codegen_bridge/README.md) · [Changelog](CHANGELOG.md)
 
 ## Contents
 
@@ -50,10 +50,10 @@ Add these entries to your application's `Cargo.toml`:
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.1.2", features = ["codegen", "watch"] }
+bevy_fluent_typed = { version = "0.1.3", features = ["codegen", "watch"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.1.2", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.1.3", default-features = false, features = ["build"] }
 
 [package.metadata.localization]
 asset-root = "assets"
