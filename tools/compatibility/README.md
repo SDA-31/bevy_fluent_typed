@@ -3,7 +3,8 @@
 This maintainer-only Rust command creates disposable library/example workspaces,
 pins the consumer's selected official Bevy packages to the requested release, then runs:
 
-- Runtime tests, including named asset sources and actual text-detector ordering.
+- Runtime tests, including named filesystem/in-memory asset sources, explicit
+  reload and missing-module recovery, and actual text-detector ordering.
 - Generated consumer tests, including multi-file filesystem watcher reloads.
 - Both headless example binaries.
 - Separate minimal codegen/no-codegen examples, including actual resource/Text
@@ -27,6 +28,9 @@ pins the consumer's selected official Bevy packages to the requested release, th
 
 No Python, shell-script runtime, game source or game assets are required. This
 package is not a dependency of the library, bridge or example and is not published.
+The separate `examples/asset_source` generated-resource example targets the default
+Bevy 0.19 API and is tested by the CI quality job, not copied into this matrix.
+The runtime's virtual-source regression runs on every backend in this matrix.
 
 From the library repository, with a separate generator checkout:
 

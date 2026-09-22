@@ -29,6 +29,7 @@ handles asset loading, language selection and text bindings.
 - [Comparison with bevy_fluent](#comparison-with-bevy_fluent)
 - [Minimal examples](#minimal-examples)
 - [Runtime integration](#runtime-integration)
+- [Custom asset sources](#custom-asset-sources)
 - [Decimal numbers, plurals and RTL](#decimal-numbers-plurals-and-rtl)
 - [Reload and provider boundaries](#reload-and-provider-boundaries)
 - [Verification](#verification) and [continuous integration](#continuous-integration)
@@ -256,6 +257,7 @@ without using the generator.
 | [Typed resources](examples/minimal/src/bin/typed_resources.rs) | Chained catalog access, `Res<texts::presentation::Hud>`, localized text and language switching |
 | [Integration suite](examples/minimal) | Typed arguments, resource scopes, filesystem watching and contract regression tests |
 | [ICU formatters](examples/icu) | Shared Decimal/percentage services and EN/ES/RU/AR text updates |
+| [Custom asset source](examples/asset_source) | Virtual files, generated resources, text bindings and explicit reloads without a watcher |
 
 From a clone of this repository:
 
@@ -263,6 +265,7 @@ From a clone of this repository:
 cargo run --manifest-path examples/codegen/Cargo.toml
 cargo run --manifest-path examples/no_codegen/Cargo.toml
 cargo run --manifest-path examples/icu/Cargo.toml
+cargo run --manifest-path examples/asset_source/Cargo.toml
 ```
 
 Repository examples use local paths to test their checkout. Use the registry
@@ -284,6 +287,24 @@ modules. Only the central localization resource changes the active language.
 Publication runs before Startup, in PreUpdate's `LocalizationSystems::Publish`,
 and in PostUpdate before `LocalizationSystems::Refresh` text consumers.
 Unchanged reloads and inactive-language edits do not replace active resources.
+
+## Custom asset sources
+
+Translations can live in a registered Bevy asset source, including an archive
+exposed by an application or asset plugin. Register the source before
+`AssetPlugin`, then give `LocalizationPlugin` a path such as
+`"translations://localizations/localization.toml"`. The definition and all its
+FTL dependencies use that source. Generated `Res<...>`, `Text` and `Text2d`
+integration stays the same; no archive-specific dependency or feature is needed.
+
+Send `ReloadCatalogs` after installing a compatible pack to refresh without
+rebuilding the executable. Archive watching and a coherent revision throughout
+loading are the source's responsibility. Embedded translations remain a startup
+fallback; this is not a mode that removes FTL from the executable.
+
+See the [source and packaging guide](docs/asset-sources.md) and
+[runnable example](examples/asset_source). The example uses Bevy's memory reader;
+ZIP/SFS readers are supplied separately, not implemented by this crate.
 
 ## Decimal numbers, plurals and RTL
 

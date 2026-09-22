@@ -1,5 +1,6 @@
 #![cfg_attr(feature = "runtime", doc = include_str!("../docs/quickstart.md"))]
 #![cfg_attr(feature = "runtime", doc = include_str!("../docs/runtime.md"))]
+#![cfg_attr(feature = "runtime", doc = include_str!("../docs/asset-sources.md"))]
 #![cfg_attr(feature = "runtime", doc = include_str!("../docs/formatting.md"))]
 #![cfg_attr(feature = "build", doc = include_str!("../docs/build.md"))]
 #![warn(missing_docs)]

@@ -241,6 +241,14 @@ bytes, calls the provider's `descriptor`, resolves safe relative asset addresses
 and watches successfully read modules. It does not parse localization.toml.
 Named Bevy asset sources are retained for dependent loads.
 
+For archives or other virtual storage, register the application's source before
+`AssetPlugin`, then use a named path such as
+`translations://localizations/localization.toml`. The regular generated resources
+and text bindings need no changes. See [custom asset sources](docs/asset-sources.md)
+for pack layout, explicit reloads and source-consistency requirements, and the
+[memory-source example](examples/asset_source) for runnable integration code.
+Enabling `watch` does not itself add archive watching.
+
 The bridge compares parsed definition fields with compiled expected values.
 Comments, formatting and field order are accepted; changed values, unknown fields
 or invalid UTF-8/TOML reject the whole definition until repaired or rebuilt.

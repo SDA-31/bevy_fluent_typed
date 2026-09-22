@@ -105,6 +105,10 @@ pub type CatalogUpdateReader<'w, 's, C> =
 /// Requests processed together coalesce into one asynchronous reload of the
 /// definition and declared modules. Works without watching, including recovery
 /// after a module was absent during the initial load.
+/// Custom asset sources can send this after installing a compatible translation
+/// pack. Finish the installation first and keep one coherent source revision
+/// available until loading completes; this request does not snapshot an archive.
+/// Automatic watching of an archive requires support from its asset source.
 #[cfg_attr(feature = "bevy-0-16", derive(crate::bevy::prelude::Event))]
 #[cfg_attr(not(feature = "bevy-0-16"), derive(crate::bevy::prelude::Message))]
 pub struct ReloadCatalogs<C: FluentCatalog>(PhantomData<fn() -> C>);

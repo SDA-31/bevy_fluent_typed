@@ -60,13 +60,13 @@ jobs:
             bevy-quality-${{ runner.os }}-${{ runner.arch }}-${{ env.GENERATOR_REV }}-${{ hashFiles('runtime/**/Cargo.toml') }}-
       - name: Check formatting in every package
         run: |
-          for manifest in Cargo.toml codegen_bridge/Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml tools/compatibility/Cargo.toml; do
+          for manifest in Cargo.toml codegen_bridge/Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml tools/compatibility/Cargo.toml; do
             cargo fmt --manifest-path "$manifest" --all -- --check
           done
       - name: Resolve independent package graphs
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
-          for manifest in Cargo.toml codegen_bridge/Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml tools/compatibility/Cargo.toml; do
+          for manifest in Cargo.toml codegen_bridge/Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml tools/compatibility/Cargo.toml; do
             cargo generate-lockfile --manifest-path "$manifest" --config "$generator_config"
           done
       - name: Clippy
@@ -78,7 +78,7 @@ jobs:
           cargo clippy --locked --manifest-path codegen_bridge/Cargo.toml --all-targets --no-default-features --features runtime --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path examples/minimal/Cargo.toml --all-targets --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path tools/compatibility/Cargo.toml --all-targets -- -D warnings
-          for manifest in examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml; do
+          for manifest in examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml; do
             cargo clippy --locked --manifest-path "$manifest" --all-targets --config "$generator_config" -- -D warnings
           done
       - name: Test bridge and maintainer tool
@@ -97,6 +97,11 @@ jobs:
             echo 'Build-time generator dependencies leaked into the runtime-only bridge.' >&2
             exit 1
           fi
+      - name: Test custom asset source integration on the default backend
+        run: |
+          generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
+          cargo test --locked --manifest-path examples/asset_source/Cargo.toml --config "$generator_config"
+          cargo run --locked --manifest-path examples/asset_source/Cargo.toml --config "$generator_config"
       - name: Build runtime and bridge documentation
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
@@ -111,6 +116,7 @@ jobs:
           grep -Fx LICENSE "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/quickstart.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/runtime.md "$CARGO_TARGET_DIR/runtime-package.txt"
+          grep -Fx docs/asset-sources.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/build.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/formatting.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx LICENSE "$CARGO_TARGET_DIR/bridge-package.txt"

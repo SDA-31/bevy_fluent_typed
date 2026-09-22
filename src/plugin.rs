@@ -39,10 +39,16 @@ pub struct LocalizationPlugin<C: FluentCatalog> {
 }
 
 impl<C: FluentCatalog> LocalizationPlugin<C> {
-	/// Path to the provider's definition asset, relative to Bevy's asset root.
+	/// Definition asset address in the default or a named Bevy asset source.
 	///
-	/// Named Bevy asset sources are preserved for loading dependent modules. The
-	/// conventional filename is not hardcoded; the supplied path is authoritative.
+	/// Named Bevy asset sources are preserved for loading dependent modules. Register
+	/// the source before `AssetPlugin`, e.g. a custom `AssetReader` registered as
+	/// `translations` accepts `translations://localizations/localization.toml`.
+	/// No archive-specific feature is required; I/O, caching and source consistency
+	/// belong to the source implementation. Catalog resources and text bindings
+	/// behave identically for filesystem and virtual sources.
+	///
+	/// The conventional filename is not hardcoded; the supplied path is authoritative.
 	/// Its bytes are interpreted by [`FluentCatalog::descriptor`].
 	/// This constructor only stores the path. Later load failures arrive through
 	/// [`crate::CatalogUpdate`], preserving embedded or last-known-good catalogs.

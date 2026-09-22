@@ -12,6 +12,7 @@ cargo run --manifest-path examples/minimal/Cargo.toml --bin localization-example
 cargo run --manifest-path examples/codegen/Cargo.toml
 cargo run --manifest-path examples/no_codegen/Cargo.toml
 cargo run --manifest-path examples/icu/Cargo.toml
+cargo run --manifest-path examples/asset_source/Cargo.toml
 ```
 
 Use `--locked --offline` on later runs once dependencies and a lockfile exist.
