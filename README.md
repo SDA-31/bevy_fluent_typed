@@ -1,10 +1,5 @@
 # bevy_fluent_typed
 
-> **Git-only preview branch:** `compat/bevy-0.20` adds the opt-in `bevy-0-20`
-> backend for exactly **Bevy 0.20.0-rc.1** (Rust 1.96+). It is not published on
-> crates.io. The default backend and the registry quick start below remain Bevy
-> 0.19. See [preview setup and verification](docs/compat-bevy-0.20.md).
-
 [![crates.io](https://img.shields.io/crates/v/bevy_fluent_typed)](https://crates.io/crates/bevy_fluent_typed)
 [![docs.rs](https://img.shields.io/docsrs/bevy_fluent_typed)](https://docs.rs/bevy_fluent_typed/latest/bevy_fluent_typed/)
 [![CI](https://img.shields.io/github/actions/workflow/status/SDA-31/bevy_fluent_typed/ci.yml?branch=main&label=CI&logo=github)](https://github.com/SDA-31/bevy_fluent_typed/actions/workflows/ci.yml)
