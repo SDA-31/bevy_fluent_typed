@@ -73,6 +73,7 @@ jobs:
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
           cargo clippy --locked --all-targets --features codegen,watch --config "$generator_config" -- -D warnings
+          cargo clippy --locked --all-targets --no-default-features --features bevy-0-20,codegen,watch --config "$generator_config" -- -D warnings
           cargo clippy --locked --all-targets --no-default-features --features build --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path codegen_bridge/Cargo.toml --all-targets --all-features --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path codegen_bridge/Cargo.toml --all-targets --no-default-features --features runtime --config "$generator_config" -- -D warnings
@@ -106,6 +107,7 @@ jobs:
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
           cargo doc --locked --no-deps --features codegen,watch,build --config "$generator_config"
+          cargo doc --locked --no-deps --no-default-features --features bevy-0-20,codegen,watch,build --config "$generator_config"
           cargo doc --locked --no-deps --no-default-features --features build --config "$generator_config"
           cargo doc --locked --manifest-path codegen_bridge/Cargo.toml --no-deps --all-features --config "$generator_config"
       - name: Inspect library archives without uploading
@@ -158,6 +160,12 @@ jobs:
           - os: macos-latest
             rust: stable
             bevy: '0.19.0'
+          - os: ubuntu-latest
+            rust: stable
+            bevy: '0.20.0-rc.1'
+          - os: ubuntu-latest
+            rust: '1.96.0'
+            bevy: '0.20.0-rc.1'
     env:
       RUSTUP_TOOLCHAIN: ${{ matrix.rust }}
       BEVY_VERSION: ${{ matrix.bevy }}

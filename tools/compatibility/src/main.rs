@@ -37,7 +37,7 @@ impl Options {
 				"--offline" => offline = true,
 				"--help" | "-h" => {
 					println!(
-						"Usage: cargo run -p bevy-fluent-compatibility -- --generator PATH [--offline] [--target-dir PATH] 0.16.1 0.17.0 0.18.0 0.19.0"
+						"Usage: cargo run -p bevy-fluent-compatibility -- --generator PATH [--offline] [--target-dir PATH] 0.16.1 0.17.0 0.18.0 0.19.0 0.20.0-rc.1"
 					);
 					std::process::exit(0);
 				}
@@ -49,7 +49,7 @@ impl Options {
 		}
 
 		if versions.is_empty() {
-			return Err("provide at least one exact stable Bevy version".into());
+			return Err("provide at least one supported exact Bevy version".into());
 		}
 
 		for version in &versions {

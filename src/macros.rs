@@ -20,7 +20,7 @@ macro_rules! translations {
 /// Apply the selected engine's resource contract to a generated declaration.
 /// Chosen in the runtime graph, never through the consumer's cfg or build.rs.
 #[doc(hidden)]
-#[cfg(feature = "bevy-0-19")]
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 #[macro_export]
 macro_rules! __localized_resource {
 	($declaration:item) => {
@@ -32,7 +32,7 @@ macro_rules! __localized_resource {
 
 /// Older Bevy backends have resources but no ECS-level resource immutability.
 #[doc(hidden)]
-#[cfg(not(feature = "bevy-0-19"))]
+#[cfg(not(any(feature = "bevy-0-19", feature = "bevy-0-20")))]
 #[macro_export]
 macro_rules! __localized_resource {
 	($declaration:item) => {

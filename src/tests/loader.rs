@@ -191,12 +191,12 @@ fn memory_source(root: Dir) -> AssetSourceBuilder {
 			as Box<dyn crate::bevy::asset::io::ErasedAssetReader>
 	};
 
-	#[cfg(any(feature = "bevy-0-18", feature = "bevy-0-19"))]
+	#[cfg(any(feature = "bevy-0-18", feature = "bevy-0-19", feature = "bevy-0-20"))]
 	{
 		AssetSourceBuilder::new(reader)
 	}
 
-	#[cfg(not(any(feature = "bevy-0-18", feature = "bevy-0-19")))]
+	#[cfg(not(any(feature = "bevy-0-18", feature = "bevy-0-19", feature = "bevy-0-20")))]
 	{
 		AssetSourceBuilder::default().with_reader(reader)
 	}

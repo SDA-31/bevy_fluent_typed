@@ -1,6 +1,11 @@
 Typed Fluent localization for Bevy: language switching, hot-reloaded assets,
 typed module resources and automatic updates to existing `Text`/`Text2d` entities.
 
+This Git-only branch additionally offers `bevy-0-20` for exactly Bevy
+0.20.0-rc.1 with Rust 1.96+. It is not a crates.io release; the stable quick start
+below still uses Bevy 0.19. Preview consumers must use the Git dependency and
+disable defaults. See the repository's `docs/compat-bevy-0.20.md` for setup.
+
 Message access and Fluent resolution use
 [fluent-typed](https://docs.rs/fluent-typed/0.9.0/fluent_typed/).
 
@@ -32,6 +37,7 @@ compatibility promise.
 | Feature | What it adds |
 | --- | --- |
 | `bevy-0-19` (default) | Bevy 0.19.0 and compatible patches; ECS-immutable generated resources |
+| `bevy-0-20` (Git-only preview) | Exactly Bevy 0.20.0-rc.1; Rust 1.96+; ECS-immutable generated resources |
 | `bevy-0-18` | Bevy 0.18.0 and compatible patches |
 | `bevy-0-17` | Bevy 0.17.0 and compatible patches |
 | `bevy-0-16` | Bevy 0.16.1 and compatible patches; `watch` also enables its required multithreaded executor |

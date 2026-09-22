@@ -4,6 +4,11 @@ use serde_json::Value;
 use std::{collections::BTreeSet, fs, path::Path};
 
 pub(crate) fn backend(version: &str) -> Result<String> {
+	// Git-only preview: other prereleases still require an explicit audit.
+	if version == "0.20.0-rc.1" {
+		return Ok("bevy-0-20".into());
+	}
+
 	let parts: Vec<_> = version.split('.').collect();
 
 	if parts.len() != 3
@@ -14,7 +19,7 @@ pub(crate) fn backend(version: &str) -> Result<String> {
 		|| parts[2].parse::<u32>().is_err()
 		|| (parts[1] == "16" && parts[2].parse::<u32>() == Ok(0))
 	{
-		return Err(format!("unsupported exact stable release: {version}").into());
+		return Err(format!("unsupported exact Bevy release: {version}").into());
 	}
 
 	Ok(format!("bevy-0-{}", parts[1]))
@@ -140,6 +145,17 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 	fixture.success(&["test", "--locked", "-p", "localization-codegen-example"])?;
 	fixture.success(&["test", "--locked", "-p", "localization-icu-example"])?;
 	fixture.success(&["run", "--locked", "-p", "localization-icu-example"])?;
+
+	if matches!(backend.as_str(), "bevy-0-19" | "bevy-0-20") {
+		fixture.success(&[
+			"test",
+			"--locked",
+			"-p",
+			"localization-asset-source-example",
+		])?;
+		fixture.success(&["run", "--locked", "-p", "localization-asset-source-example"])?;
+	}
+
 	fixture.success(&[
 		"test",
 		"--locked",
@@ -152,7 +168,7 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 
 	crate::incremental::check(&fixture)?;
 
-	if backend == "bevy-0-19" {
+	if matches!(backend.as_str(), "bevy-0-19" | "bevy-0-20") {
 		// Verify root, group and leaf without making the consumer forward backend
 		// features to its build dependency merely to cfg-gate a test.
 		fs::write(
@@ -193,7 +209,7 @@ fn main() {
 	)?;
 	fs::write(fixture.path.join("immutability-probe.log"), &probe.stderr)?;
 	let diagnostic = String::from_utf8_lossy(&probe.stderr);
-	let valid = if backend == "bevy-0-19" {
+	let valid = if matches!(backend.as_str(), "bevy-0-19" | "bevy-0-20") {
 		!probe.status.success() && immutable_resource_error(&diagnostic)
 	} else {
 		probe.status.success()
@@ -203,11 +219,13 @@ fn main() {
 		return Err(format!("unexpected resource mutability result:\n{diagnostic}").into());
 	}
 
-	if backend == "bevy-0-19" {
+	if matches!(backend.as_str(), "bevy-0-19" | "bevy-0-20") {
+		let conflicting = format!("bevy-0-17,{backend}");
+
 		for (features, expected, log) in [
 			("", "select one Bevy backend", "missing-backend.log"),
 			(
-				"bevy-0-17,bevy-0-19",
+				conflicting.as_str(),
 				"Bevy backends are mutually exclusive",
 				"conflicting-backends.log",
 			),
@@ -367,6 +385,15 @@ fn dependency_tree(
 
 #[cfg(test)]
 mod tests {
+	#[test]
+	fn preview_backend_accepts_only_the_explicitly_pinned_rc() {
+		assert_eq!(super::backend("0.20.0-rc.1").unwrap(), "bevy-0-20");
+
+		for version in ["0.20.0-rc.2", "0.20.0-dev", "0.20.0", "0.20.0-rc.1\n"] {
+			assert!(super::backend(version).is_err());
+		}
+	}
+
 	#[test]
 	fn engine_version_validation_keeps_metadata_for_each_package_version_separate() {
 		// Cargo metadata contains optional 0.16 packages even for a 0.17 consumer.

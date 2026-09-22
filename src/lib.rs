@@ -10,7 +10,8 @@
 		feature = "bevy-0-16",
 		feature = "bevy-0-17",
 		feature = "bevy-0-18",
-		feature = "bevy-0-19"
+		feature = "bevy-0-19",
+		feature = "bevy-0-20"
 	)),
 	any(
 		not(feature = "build"),
@@ -19,7 +20,9 @@
 		feature = "watch"
 	)
 ))]
-compile_error!("select one Bevy backend: bevy-0-16, bevy-0-17, bevy-0-18 or bevy-0-19 (default)");
+compile_error!(
+	"select one Bevy backend: bevy-0-16, bevy-0-17, bevy-0-18, bevy-0-19 (default) or bevy-0-20 (experimental)"
+);
 
 #[cfg(any(
 	all(
@@ -29,9 +32,18 @@ compile_error!("select one Bevy backend: bevy-0-16, bevy-0-17, bevy-0-18 or bevy
 	all(feature = "bevy-0-17", feature = "bevy-0-18"),
 	all(feature = "bevy-0-17", feature = "bevy-0-19"),
 	all(feature = "bevy-0-18", feature = "bevy-0-19"),
+	all(
+		feature = "bevy-0-20",
+		any(
+			feature = "bevy-0-16",
+			feature = "bevy-0-17",
+			feature = "bevy-0-18",
+			feature = "bevy-0-19"
+		)
+	),
 ))]
 compile_error!(
-	"Bevy backends are mutually exclusive; disable default features to select an older backend"
+	"Bevy backends are mutually exclusive; disable default features to select another backend"
 );
 
 #[cfg(feature = "runtime")]
@@ -78,24 +90,36 @@ pub use state::Localization;
 pub use fluent_typed;
 
 /// The selected Bevy backend, also used by generated resource implementations.
-#[cfg(feature = "bevy-0-19")]
+#[cfg(feature = "bevy-0-20")]
+#[doc(hidden)]
+pub use bevy_0_20 as bevy;
+
+#[cfg(all(feature = "bevy-0-19", not(feature = "bevy-0-20")))]
 #[doc(hidden)]
 pub use bevy_0_19 as bevy;
 
-#[cfg(all(feature = "bevy-0-18", not(feature = "bevy-0-19")))]
+#[cfg(all(
+	feature = "bevy-0-18",
+	not(any(feature = "bevy-0-19", feature = "bevy-0-20"))
+))]
 #[doc(hidden)]
 pub use bevy_0_18 as bevy;
 
 #[cfg(all(
 	feature = "bevy-0-17",
-	not(any(feature = "bevy-0-18", feature = "bevy-0-19"))
+	not(any(feature = "bevy-0-18", feature = "bevy-0-19", feature = "bevy-0-20"))
 ))]
 #[doc(hidden)]
 pub use bevy_0_17 as bevy;
 
 #[cfg(all(
 	feature = "bevy-0-16",
-	not(any(feature = "bevy-0-17", feature = "bevy-0-18", feature = "bevy-0-19"))
+	not(any(
+		feature = "bevy-0-17",
+		feature = "bevy-0-18",
+		feature = "bevy-0-19",
+		feature = "bevy-0-20"
+	))
 ))]
 #[doc(hidden)]
 pub use bevy_0_16 as bevy;

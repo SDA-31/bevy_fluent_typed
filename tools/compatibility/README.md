@@ -22,15 +22,19 @@ pins the consumer's selected official Bevy packages to the requested release, th
 - Build-only facade checks: no Bevy dependency or backend feature. Cargo artifacts
   from the real generated consumer must show separate `build`-only host and
   runtime feature sets, including on unchanged checks.
-- A compile probe: generated `ResMut` is rejected on 0.19 and accepted by older ECS
+- A compile probe: generated `ResMut` is rejected on 0.19/0.20 and accepted by older ECS
   versions. The generated catalog API remains read-only on every backend.
-- Runtime-only dependency isolation; on 0.19, rejected missing/conflicting backend selections.
+- Runtime-only dependency isolation; on 0.19/0.20, rejected missing/conflicting backend selections.
 
 No Python, shell-script runtime, game source or game assets are required. This
 package is not a dependency of the library, bridge or example and is not published.
-The separate `examples/asset_source` generated-resource example targets the default
-Bevy 0.19 API and is tested by the CI quality job, not copied into this matrix.
+The `examples/asset_source` generated-resource example is additionally tested on
+0.19 and the pinned 0.20 RC, including its loading/recovery tests and executable.
 The runtime's virtual-source regression runs on every backend in this matrix.
+
+This Git-only branch also accepts exactly `0.20.0-rc.1`, not arbitrary prereleases
+or stable 0.20. Run it with Rust 1.96+; see
+[preview policy and setup](../../docs/compat-bevy-0.20.md).
 
 From the library repository, with a separate generator checkout:
 
@@ -75,6 +79,6 @@ record the selected normal/build dependency trees, and
 specific temporary directories yourself when the audit is no longer needed.
 The optional shared target directory reuses build artifacts across runs.
 Completed fixtures contain an intentional `immutable_probe` compile-fail binary
-on 0.19; create a fresh fixture through this command when repeating the suite.
+on 0.19/0.20; create a fresh fixture through this command when repeating the suite.
 
 [MIT](LICENSE), independently of any consuming application.

@@ -1,10 +1,17 @@
 # bevy_fluent_typed
 
+> **Git-only preview branch:** `compat/bevy-0.20` adds the opt-in `bevy-0-20`
+> backend for exactly **Bevy 0.20.0-rc.1** (Rust 1.96+). It is not published on
+> crates.io. The default backend and the registry quick start below remain Bevy
+> 0.19. See [preview setup and verification](docs/compat-bevy-0.20.md).
+
 [![crates.io](https://img.shields.io/crates/v/bevy_fluent_typed)](https://crates.io/crates/bevy_fluent_typed)
 [![docs.rs](https://img.shields.io/docsrs/bevy_fluent_typed)](https://docs.rs/bevy_fluent_typed/latest/bevy_fluent_typed/)
 [![CI](https://img.shields.io/github/actions/workflow/status/SDA-31/bevy_fluent_typed/ci.yml?branch=main&label=CI&logo=github)](https://github.com/SDA-31/bevy_fluent_typed/actions/workflows/ci.yml)
 [![MSRV](https://img.shields.io/crates/msrv/bevy_fluent_typed)](https://crates.io/crates/bevy_fluent_typed)
 [![License](https://img.shields.io/crates/l/bevy_fluent_typed)](LICENSE)
+
+The badges above describe the stable release, not this preview's compatibility.
 
 Typed [Fluent](https://projectfluent.org/) localization for Bevy. Turn modular
 translation files into Rust accessors, request a catalog as a Bevy `Res`, and
@@ -203,7 +210,9 @@ older compiler support would need its own dependency and CI checks.
 
 The `bevy-0-16` backend and `CatalogUpdateReader` alias are available starting with
 0.1.2; version 0.1.1 supports Bevy 0.17–0.19. Bevy release candidates are not covered by
-the stable compatibility promise.
+the stable compatibility promise. This Git branch additionally offers the
+explicitly pinned `bevy-0-20` preview; it does not promise other RCs or the final
+0.20 release before verification.
 
 Compiler and engine support are separate decisions: a Rust minimum increase does
 not by itself remove a Bevy backend. When support for a compiler or backend is
