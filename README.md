@@ -3,7 +3,7 @@
 Typed Fluent messages for Bevy. Generate typed accessors in `build.rs`, then read
 translations through Bevy's asset system or explicitly embed them.
 
-[Migrate from 0.1.3](docs/migration-0.2.md) · [Changelog](CHANGELOG.md)
+[Migrate from 0.1.3](docs/migration-0.2.md) · [Resource waiting in 0.2.1](docs/migration-0.2.1.md) · [Changelog](CHANGELOG.md)
 
 ## Contents
 
@@ -30,17 +30,17 @@ edition = "2024"
 
 [dependencies]
 bevy = { version = "0.19", default-features = false, features = ["std", "async_executor", "multi_threaded", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }
-bevy_fluent_typed = { version = "0.2.0", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.2.1", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.2.0", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.2.1", default-features = false, features = ["build"] }
 
 [package.metadata.localization]
 asset-root = "assets"
 catalog = "localizations/localization.toml"
 ```
 
-The runtime resolves the matching bridge and generator from crates.io; no patch
+Runtime 0.2.1 uses the compatible 0.2.0 bridge and generator from crates.io; no patch
 is needed. Edition 2024 uses Cargo resolver 3; an explicit workspace must use
 resolver 2 or 3. Keep the same crate name in both dependency sections. Enable
 the Bevy backend only on the normal dependency, and `build` only on the build-dependency.
@@ -117,7 +117,7 @@ use bevy::{
     prelude::*,
 };
 use bevy_fluent_typed::{
-    Localization, LocalizationManifest, LocalizationPlugin, ModuleStatus,
+    Localization, LocalizationAppExt, LocalizationManifest, LocalizationPlugin, ModuleStatus,
 };
 use std::{path::Path, time::Duration};
 
@@ -140,19 +140,24 @@ fn main() -> AppExit {
             },
             LocalizationPlugin::<texts::Translations>::new(manifest),
         ))
-        .add_systems(Update, show_title)
+        .add_localized_startup_systems(show_title)
+        .add_systems(Update, report_failure)
         .run()
 }
 
 fn show_title(
-    hud: Option<Res<texts::presentation::Hud>>,
+    hud: Res<texts::presentation::Hud>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    println!("{}", hud.msg_title());
+    exit.write(AppExit::Success);
+}
+
+fn report_failure(
     localization: Res<Localization<texts::Translations>>,
     mut exit: MessageWriter<AppExit>,
 ) {
-    if let Some(hud) = hud {
-        println!("{}", hud.msg_title());
-        exit.write(AppExit::Success);
-    } else if let ModuleStatus::Failed(error) = localization.status::<texts::presentation::Hud>() {
+    if let ModuleStatus::Failed(error) = localization.status::<texts::presentation::Hud>() {
         eprintln!("{error}");
         exit.write(AppExit::error());
     }
@@ -163,7 +168,8 @@ Run `cargo run`. The first build downloads dependencies. Commit the resulting
 `Cargo.lock` for an application; later runs can use `cargo run --locked`.
 
 The plugin defaults to **Full**: it requests all modules for the selected
-language. `Option<Res<Hud>>` handles the time before that module is ready.
+language. `add_localized_startup_systems` waits for the required `Res<Hud>`
+and runs the function once after loading. The frame keeps running while it waits.
 A normal application keeps running and can also read the independent pause
 resource when it arrives. See the loading guide for **Lazy**, which requests
 nothing until your code calls `load::<Scope>()`.
@@ -239,13 +245,13 @@ optional normal-dependency feature for filesystem change notifications.
 | --- | --- |
 | `translations!` cannot find generated output | Add the shown build-dependency and return `bevy_fluent_typed::build()` from `build.rs`. |
 | Types or methods are missing | Add the corresponding FTL module/message in every language and rebuild. File edits at runtime cannot change the compiled schema. |
-| A typed `embed_manifest!(module = ...)` selector is rejected | Use version 0.2.0 from [Setup](#setup) in both dependency sections and remove old overrides. Pass a generated path or `use` alias, not a string or `type` alias. |
-| The resource is absent | File loading is asynchronous. Use `Option<Res<_>>` or a `resource_exists` run condition. In Lazy, explicitly request the scope first. |
+| A typed `embed_manifest!(module = ...)` selector is rejected | Use version 0.2.1 from [Setup](#setup) in both dependency sections and remove old overrides. Pass a generated path or `use` alias, not a string or `type` alias. |
+| The resource is absent | Use `add_localized_systems` with native `Res<_>` to wait, or `Option<Res<_>>` to keep running without it. In Lazy, request the scope first. |
 | A bound label stays empty | Check `localization.status::<YourLeaf>()`. Its module must be requested and pass validation. A root binding waits for the whole tree. |
 | Files are not found | The manifest origin is relative to Bevy's asset root. Do not prefix it with `assets/` when `AssetPlugin` already points there. |
 | Editing the TOML has no runtime effect | The plugin receives a parsed contract and does not reload TOML. Rebuild this quickstart or construct a new contract during application setup. |
 | Cargo reports incompatible engine APIs | Select one matching Bevy backend, on the normal dependency only. Do not enable all features. |
-| A published release rejects these calls | Follow the [0.1.3 → 0.2.0 migration](docs/migration-0.2.md); 0.1.3 has the previous API. |
+| A release rejects these calls | Loading changed in [0.2.0](docs/migration-0.2.md); resource-waiting helpers require [0.2.1](docs/migration-0.2.1.md). Keep both dependency versions aligned. |
 
 ## Known limits
 

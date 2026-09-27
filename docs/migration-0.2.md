@@ -1,6 +1,7 @@
 # Migrate from bevy_fluent_typed 0.1.3 to 0.2.0
 
 This guide upgrades runtime and bridge 0.1.3 to 0.2.0.
+For the optional resource-waiting addition, see [0.2.0 → 0.2.1](migration-0.2.1.md).
 
 Start with **Full**, the default mode. It keeps all modules of the selected
 language requested, so you can retain existing full-tree message closures.

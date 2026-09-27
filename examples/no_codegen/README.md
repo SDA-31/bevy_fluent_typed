@@ -4,7 +4,7 @@ No `codegen` feature, no build script, no build-dependencies. The program create
 a localized Bevy `Text`, switches English → Spanish → Russian, prints each
 greeting and exits. It runs headlessly, without a window or GPU.
 
-These commands build the current 0.2.0 development checkout. Manifest support
+These commands build the current checkout. Manifest support
 still requires the generator package's runtime-only API, even without codegen.
 For local generator development, use the [local generator patch](../../docs/build.md#work-on-local-checkouts).
 
@@ -36,7 +36,8 @@ The example stores text at `assets/localizations/translations/{en,es,ru}/ui/gree
 Its TOML declares source/default language and the translations directory.
 Locale names and the checked leaf parser are explicit because there is no
 discovery/generator. The single `Texts` type is both root and leaf: use
-`Option<Res<Texts>>`, `Localization<Texts>::catalog()` or `LocalizedText<Texts>`.
+`Res<Texts>` with `add_localized_systems`, `Option<Res<Texts>>`,
+`Localization<Texts>::catalog()` or `LocalizedText<Texts>`.
 Files load asynchronously through AssetServer; the example waits for readiness.
 
 For automatic discovery, typed accessors and module resources use [codegen](../codegen).

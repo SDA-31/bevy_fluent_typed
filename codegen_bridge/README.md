@@ -1,6 +1,6 @@
 # bevy_fluent_codegen_bridge
 
-Companion for runtime 0.2.0. Follow the [runtime setup](../README.md#setup)
+Companion for runtime 0.2.x. Follow the [runtime setup](../README.md#setup)
 for installation. The [migration guide](../docs/migration-0.2.md#7-handwritten-providers-and-direct-bridge-users)
 covers provider changes; bridge release notes live in the shared
 [changelog](../CHANGELOG.md).

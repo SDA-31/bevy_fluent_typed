@@ -370,6 +370,57 @@ fn cancelled_pending_load_releases_owned_assets_and_explicit_retry_recovers() {
 }
 
 #[test]
+fn required_system_waits_through_io_failure_and_retry_without_blocking_optional_system() {
+	use crate::LocalizationAppExt;
+	use std::sync::atomic::AtomicUsize;
+
+	let (mut app, gate, files) = asynchronous_app();
+	let required_runs = Arc::new(AtomicUsize::new(0));
+	let optional_runs = Arc::new(AtomicUsize::new(0));
+	let required_counter = required_runs.clone();
+	let optional_counter = optional_runs.clone();
+	app.add_localized_systems(
+		Update,
+		(
+			move |_: Res<TestCatalog>| {
+				required_counter.fetch_add(1, Ordering::Relaxed);
+			},
+			move |_: Option<Res<TestCatalog>>| {
+				optional_counter.fetch_add(1, Ordering::Relaxed);
+			},
+		),
+	);
+	files.remove_asset(Path::new("nested/data/ja/ui.ftl"));
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.load::<TestCatalog>();
+	pump(&mut app, |_| !gate.state.lock().unwrap().1.is_empty());
+	assert_eq!(required_runs.load(Ordering::Relaxed), 0);
+	assert!(optional_runs.load(Ordering::Relaxed) > 0);
+	gate.release();
+	pump(&mut app, |world| {
+		matches!(
+			world
+				.resource::<Localization<TestCatalog, Lazy>>()
+				.status::<TestCatalog>(),
+			ModuleStatus::Failed(_)
+		)
+	});
+	assert_eq!(required_runs.load(Ordering::Relaxed), 0);
+	files.insert_asset_text(Path::new("nested/data/ja/ui.ftl"), "repaired");
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.load::<TestCatalog>();
+	pump(&mut app, |_| required_runs.load(Ordering::Relaxed) > 0);
+	let before = required_runs.load(Ordering::Relaxed);
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.unload::<TestCatalog>();
+	app.update();
+	assert_eq!(required_runs.load(Ordering::Relaxed), before);
+}
+
+#[test]
 fn malformed_source_contract_is_rejected_without_panicking() {
 	for (source, default, origin) in [
 		("ja", "unknown", "manifest.toml"),

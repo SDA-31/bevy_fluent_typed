@@ -130,6 +130,7 @@ impl<C: FluentCatalog> ModuleStore<C> {
 /// Provider integrations construct these with `new`; applications use typed resources.
 pub struct ScopeRegistration<C: FluentCatalog> {
 	pub(crate) id: TypeId,
+	pub(crate) parameter: TypeId,
 	pub(crate) paths: &'static [&'static str],
 	pub(crate) assemble: fn(&ModuleStore<C>) -> Option<SharedScope>,
 	pub(crate) publish: fn(&SharedScope, &mut World),
@@ -143,6 +144,7 @@ impl<C: FluentCatalog> ScopeRegistration<C> {
 	pub fn new<S: FluentScope<Catalog = C>>() -> Self {
 		Self {
 			id: TypeId::of::<S>(),
+			parameter: TypeId::of::<Res<'static, S>>(),
 			paths: S::module_paths(),
 			assemble: |store| S::assemble(store).map(|scope| Arc::new(scope) as SharedScope),
 			publish: |scope, world| {

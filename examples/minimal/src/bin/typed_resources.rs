@@ -2,7 +2,7 @@
 extern crate localization_runtime as bevy_fluent_typed;
 
 use bevy_fluent_typed::bevy::{asset::AssetPlugin, prelude::*};
-use bevy_fluent_typed::{Localization, LocalizationPlugin, LocalizedText};
+use bevy_fluent_typed::{Localization, LocalizationAppExt, LocalizationPlugin, LocalizedText};
 
 bevy_fluent_typed::translations!(pub mod texts);
 
@@ -19,12 +19,7 @@ fn main() {
 	.add_plugins(LocalizationPlugin::<texts::Translations>::new(
 		texts::embed_manifest!(),
 	))
-	.add_systems(
-		Update,
-		show_hud
-			.run_if(resource_exists::<texts::presentation::Hud>)
-			.run_if(run_once),
-	);
+	.add_localized_startup_systems(show_hud);
 	app.finish();
 	app.cleanup();
 	app.update();

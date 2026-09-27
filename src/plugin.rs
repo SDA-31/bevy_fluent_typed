@@ -6,6 +6,7 @@ use crate::{
 	compatibility,
 	loading::{CatalogSource, reconcile, reload_catalogs, report_failures},
 	resources,
+	systems::CatalogReadiness,
 };
 use std::marker::PhantomData;
 
@@ -86,6 +87,7 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 		compatibility::register_notifications::<C>(app);
 
 		for scope in C::scopes() {
+			CatalogReadiness::register::<C, M>(app.world_mut(), &scope);
 			(scope.bindings)(app);
 		}
 

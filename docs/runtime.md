@@ -27,7 +27,7 @@ use bevy::{
     prelude::*,
 };
 use bevy_fluent_typed::{
-    Lazy, Localization, LocalizationManifest, LocalizationPlugin, ModuleStatus,
+    Lazy, Localization, LocalizationAppExt, LocalizationManifest, LocalizationPlugin, ModuleStatus,
 };
 use std::{path::Path, time::Duration};
 
@@ -52,7 +52,8 @@ fn main() -> AppExit {
             LocalizationPlugin::<texts::Translations, Lazy>::new(manifest),
         ))
         .add_systems(Startup, request_hud)
-        .add_systems(Update, show_title)
+        .add_localized_startup_systems(show_title)
+        .add_systems(Update, report_failure)
         .run()
 }
 
@@ -61,14 +62,18 @@ fn request_hud(mut localization: ResMut<AppLocalization>) {
 }
 
 fn show_title(
-    hud: Option<Res<texts::presentation::Hud>>,
+    hud: Res<texts::presentation::Hud>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    println!("{}", hud.msg_title());
+    exit.write(AppExit::Success);
+}
+
+fn report_failure(
     localization: Res<AppLocalization>,
     mut exit: MessageWriter<AppExit>,
 ) {
-    if let Some(hud) = hud {
-        println!("{}", hud.msg_title());
-        exit.write(AppExit::Success);
-    } else if let ModuleStatus::Failed(error) = localization.status::<texts::presentation::Hud>() {
+    if let ModuleStatus::Failed(error) = localization.status::<texts::presentation::Hud>() {
         eprintln!("{error}");
         exit.write(AppExit::error());
     }
@@ -133,41 +138,88 @@ implicit fallback.
 
 ## Read resources and handle readiness
 
-The plugin publishes each ready leaf as a Bevy resource. A parent resource exists
-only when all its children are ready; `Translations` exists only when the whole
-tree is ready. A HUD resource does not depend on the pause module.
-
-For a system that should keep running while text loads, use an optional resource:
+Use native `Res<Scope>` when a system needs ready translations on every run:
 
 ```rust,ignore
-fn use_hud(hud: Option<Res<texts::presentation::Hud>>) {
-    let Some(hud) = hud else {
-        return;
-    };
+use bevy_fluent_typed::LocalizationAppExt;
 
-    println!("{}", hud.msg_title());
-}
-```
-
-For a system that needs the resource on every run, guard its registration:
-
-```rust,ignore
-fn use_hud(hud: Res<texts::presentation::Hud>) {
+fn update_hud(hud: Res<texts::presentation::Hud>) {
     println!("{}", hud.msg_title());
 }
 
-// In your App setup:
-app.add_systems(Update, use_hud.run_if(resource_exists::<texts::presentation::Hud>));
+app.add_localized_systems(Update, update_hud);
 ```
 
-Do not require loaded resources in `Startup`. Even embedded translations are
-parsed during updates. `Localization::new(locale)` and `Default` create a
-controller, not a ready catalog.
+The library infers the required catalog types from direct `Res<Scope>` parameters.
+Before loading, after unloading and during a locale transition, the system waits
+without blocking the frame. It resumes when its catalogs are ready. A complete
+parent waits for all its children; a HUD leaf does not wait for the pause module.
+In Lazy mode, keep the explicit `load::<Scope>()` and `unload::<Scope>()` calls:
+registering a system does not request or retain a module.
 
+Functions and tuples are supported; tuple members wait independently. To add
+normal Bevy scheduling configuration, wrap functions before configuring them:
+
+```rust,ignore
+use bevy_fluent_typed::localized;
+
+app.add_systems(Update, localized(update_hud).run_if(screen_is_open));
+```
+
+For initialization that must happen once after loading:
+
+```rust,ignore
+app.add_localized_startup_systems(setup_hud);
+
+fn setup_hud(mut commands: Commands, hud: Res<texts::presentation::Hud>) {
+    commands.spawn(Text::new(hud.msg_title()));
+}
+```
+
+This helper runs in `Update`, remembers actual invocation and applies normal
+Bevy deferred commands. It does not rerun after unloading or language changes;
+use `LocalizedText` for text that must stay live. A function returning an error
+still counts as invoked, and Bevy handles that error normally. These functions
+have no ordering relationship with ordinary `Startup` systems beyond running
+later. Tuple members are independent. This helper wraps each function, so
+`.before(setup_hud)` / `.after(setup_hud)` do not target the deferred wrapper.
+Combine dependent initialization steps in one function, or use recurring
+`localized(...)` systems with application-owned initialization state and ordering.
+
+If a system should keep working before its translations arrive, keep `Option`:
+
+```rust,ignore
+fn observe_hud(hud: Option<Res<texts::presentation::Hud>>) {
+    if let Some(hud) = hud {
+        println!("{}", hud.msg_title());
+    }
+}
+
+app.add_systems(Update, observe_hud);
+```
+
+Optional parameters never delay a system, including when used beside a required
+catalog in `add_localized_systems`. Missing ordinary resources retain Bevy's
+normal validation behavior; the helper does not suppress unrelated errors.
+
+Readiness inference supports direct native `Res<Scope>` parameters of functions
+and closures. Custom derived `SystemParam`s, `ParamSet` and nested parameter tuples
+are not inspected: expose each required catalog as a direct parameter or retain
+explicit conditions for those advanced forms. Apply configuration after
+`localized`; already configured systems have erased their parameter types.
+
+The ordinary `add_systems` API is unchanged. The new helper requires a recurring
+schedule, such as `Update`, to retry waiting systems. Ordinary `Startup`, `OnEnter`
+and other one-shot schedules do not retry; use deferred initialization above when
+needed. `add_localized_systems` rejects the three built-in startup schedules to
+avoid silently losing an initialization step.
+
+`Localization::new(locale)` and `Default` create a controller, not a ready catalog.
 Use `status::<Scope>()` to distinguish `Unloaded`, `Loading`, `Ready` and
-`Failed(error)`. An invalid same-language reload preserves the last good value:
-its resource can be available while the latest attempt has status `Failed`.
-Repeated `load::<Scope>()` on a failed request retries its failed leaves.
+`Failed(error)`. A separate observer can report load errors while required systems
+wait. An invalid same-language reload preserves the last good value, so its
+consumers can run while the latest attempt has status `Failed`. Repeating
+`load::<Scope>()` retries failed leaves.
 
 ## Navigate from the root or a parent
 
@@ -197,7 +249,7 @@ fn inspect_complete(presentation: Res<texts::Presentation>) {
 }
 ```
 
-Guard that system with `resource_exists::<texts::Presentation>` too.
+Register that system with `app.add_localized_systems(Update, inspect_complete)`.
 `localization.catalog()` returns `Option<&texts::Translations>`; it is normally
 `None` in an application that intentionally leaves some modules unloaded.
 

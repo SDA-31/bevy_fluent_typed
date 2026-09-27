@@ -9,6 +9,7 @@ mod documentation;
 mod lazy;
 mod loader;
 mod scheduling;
+mod waiting;
 
 #[derive(Resource, Clone)]
 struct TestCatalog(String);

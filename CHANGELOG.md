@@ -7,6 +7,18 @@ before 1.0, a minor release can introduce incompatible API changes.
 
 ## [Unreleased]
 
+### Added
+
+- `LocalizationAppExt::add_localized_systems` infers readiness from native,
+  direct `Res<Scope>` parameters and waits without blocking the frame.
+  `Option<Res<Scope>>` retains its existing behavior; Lazy requests remain explicit.
+- `localized` applies the same readiness behavior before normal Bevy scheduling
+  configuration; tuples wait independently.
+- `add_localized_startup_systems` runs deferred initialization once after its
+  catalogs are ready, preserving commands and ordinary error handling.
+- [Optional adoption from 0.2.0](docs/migration-0.2.1.md), including startup,
+  scheduling and parameter-shape limitations. Existing 0.2.0 code remains valid.
+
 ## [0.2.0] - 2026-09-28
 
 This release updates runtime and bridge to 0.2.0. Follow the
