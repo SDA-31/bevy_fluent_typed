@@ -14,7 +14,7 @@ use std::{fmt, marker::PhantomData, sync::Arc};
 /// Use dedicated [ICU4X](https://docs.rs/icu/) or
 /// [ICU](https://unicode-org.github.io/icu/userguide/format_parse/) formatters;
 /// pass their output as ordinary String arguments. The
-/// [ICU resource example](https://github.com/SDA-31/bevy_fluent_typed/tree/feat/runtime-module-loading/examples/icu)
+/// [ICU resource example](https://github.com/SDA-31/bevy_fluent_typed/tree/main/examples/icu)
 /// shares application-owned formatters through a resource and `Arc`.
 /// Changing another resource does not invalidate captured values automatically;
 /// replace the binding when its value or formatter settings change.

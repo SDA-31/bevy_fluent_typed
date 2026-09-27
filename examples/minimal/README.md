@@ -1,5 +1,3 @@
-**Unreleased loading API:** use the matching Git dependencies and generator patch in [the root README](../../README.md#development-setup).
-
 # Typed resources, text bindings and live edits
 
 For the smallest starting points, use [codegen](../codegen) or
@@ -11,19 +9,15 @@ or GPU. English, Spanish and Russian catalogs are included.
 
 From this repository:
 
-These commands build this 0.2.0 checkout with the matching generator from Git;
-no separate generator checkout is needed. If your workspace already patches
-that generator, omit both `--config` arguments. To set up a new application,
-use the
-[root quickstart](../../README.md#development-setup).
+These commands build this checkout and resolve generator 0.2.0 from crates.io.
+For local generator development, use the [local generator patch](../../docs/build.md#work-on-local-checkouts).
+For a new application, follow the [root quickstart](../../README.md#setup).
 
 ```sh
-localization_generator_git='patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen"'
-localization_generator_rev='patch.crates-io.fluent_typed_codegen.rev="b6d4f29589ce52d6f873f98ea82bd94d1b919345"'
-cargo run --manifest-path examples/minimal/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
-cargo run --manifest-path examples/minimal/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev" -- --watch
-cargo run --manifest-path examples/minimal/Cargo.toml --bin typed_resources --config "$localization_generator_git" --config "$localization_generator_rev"
-cargo test --manifest-path examples/minimal/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
+cargo run --manifest-path examples/minimal/Cargo.toml
+cargo run --manifest-path examples/minimal/Cargo.toml -- --watch
+cargo run --manifest-path examples/minimal/Cargo.toml --bin typed_resources
+cargo test --manifest-path examples/minimal/Cargo.toml
 ```
 
 In an enclosing workspace, the package is `localization-example`; add
@@ -59,7 +53,7 @@ the example's files.
 `codegen` and `watch`; the same crate's build-dependency disables defaults and
 enables only `build`. The bridge is an implementation detail. This public build
 facade is available since 0.1.1. Repository-local paths test this checkout;
-external applications use the [unreleased Git setup](../../README.md#development-setup).
+external applications use the [registry setup](../../README.md#setup).
 
 The normal dependency selects Bevy 0.19 by default. To use 0.16, 0.17 or 0.18,
 disable its defaults and select the corresponding backend feature; leave the

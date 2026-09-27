@@ -1,6 +1,6 @@
-//! Unreleased examples must resolve matching source revisions without sibling paths.
+//! Public recipes must keep runtime and build dependency versions aligned.
 #[test]
-fn development_setup_pins_matching_generator_in_both_dependency_graphs() {
+fn registry_setup_uses_matching_versions_without_source_overrides() {
 	for (name, source) in [
 		("README", include_str!("../../README.md")),
 		("Rustdoc", include_str!("../../docs/quickstart.md")),
@@ -10,14 +10,17 @@ fn development_setup_pins_matching_generator_in_both_dependency_graphs() {
 			.filter(|line| line.starts_with("bevy_fluent_typed ="))
 			.collect();
 		assert_eq!(dependencies.len(), 2, "{name}");
+
 		for dependency in dependencies {
 			assert!(
-				dependency.contains("feat/runtime-module-loading"),
+				dependency.contains(concat!("version = \"", env!("CARGO_PKG_VERSION"), "\"")),
 				"{name}: {dependency}"
 			);
-			assert!(!dependency.contains("path ="));
+			assert!(!dependency.contains("path ="), "{name}: {dependency}");
+			assert!(!dependency.contains("git ="), "{name}: {dependency}");
 		}
-		assert!(source.contains("b6d4f29589ce52d6f873f98ea82bd94d1b919345"));
-		assert!(source.contains("Unreleased"));
+
+		assert!(!source.contains("[patch.crates-io]"), "{name}");
+		assert!(source.contains("migration-0.2.md"), "{name}");
 	}
 }

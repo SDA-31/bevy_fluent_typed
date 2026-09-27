@@ -29,7 +29,7 @@ demanded FTL. Keep a coherent source revision while loading several files:
 schema validation cannot recognize mixed but otherwise valid prose revisions.
 There is no whole-language transaction or implicit embedded rollback.
 
-The [memory-source example](https://github.com/SDA-31/bevy_fluent_typed/tree/feat/runtime-module-loading/examples/asset_source)
+The [memory-source example](https://github.com/SDA-31/bevy_fluent_typed/tree/main/examples/asset_source)
 provides virtual files and tests missing data, rejected edits and recovery.
 It explicitly embeds sample bytes only to seed its demonstration reader.
 Downloading, signatures, installations and persistent rollback belong to the app.

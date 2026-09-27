@@ -1,7 +1,7 @@
 ## Explicit build-script API
 
 For a complete Cargo.toml, files and application, follow the
-[quickstart](https://github.com/SDA-31/bevy_fluent_typed/blob/feat/runtime-module-loading/README.md#development-setup).
+[quickstart](https://github.com/SDA-31/bevy_fluent_typed/blob/main/README.md#setup).
 This section explains the optional custom build entrypoints.
 
 The `build` feature exposes `build()`, `from_cargo()`, `generate()` and
@@ -55,13 +55,12 @@ optional: the application can pass another compatible source contract and choose
 another asset root. No generated FTL payload is embedded unless the application
 explicitly invokes `embed_manifest!()`.
 
-## Use the current local 0.2.0 checkout
+## Work on local checkouts
 
-The quickstart's pinned Git revisions support the complete 0.2.0 API, including
-typed embedded selection. Local paths are an alternative when editing the
-libraries themselves. Replace the quickstart's runtime/build entries and
-generator patch with these paths; keep its other dependencies, metadata,
-`build.rs` and source files. Set both paths to your 0.2.0 checkouts:
+Local paths are for editing and testing the libraries together.
+Replace the quickstart's runtime/build entries and add a generator patch as
+shown below. Keep its other dependencies, metadata, `build.rs` and source files.
+Set both paths to your checkouts:
 
 ```toml
 [dependencies]
@@ -76,4 +75,11 @@ fluent_typed_codegen = { path = "/absolute/path/to/fluent_typed_codegen" }
 
 The runtime checkout supplies its own companion bridge. Put the patch in the
 workspace root when the consumer belongs to a workspace. This is development
-wiring, not a registry installation command; 0.2.0 is not published yet.
+wiring; normal released consumers use the registry quickstart.
+
+For repository examples using a local generator, provide this same
+patch on the command line (replace the path with your generator checkout):
+
+```sh
+cargo run --manifest-path examples/codegen/Cargo.toml --config 'patch.crates-io.fluent_typed_codegen.path="/absolute/path/to/fluent_typed_codegen"'
+```

@@ -3,14 +3,11 @@
 Typed Fluent messages for Bevy. Generate typed accessors in `build.rs`, then read
 translations through Bevy's asset system or explicitly embed them.
 
-**0.2.0 (Unreleased):** this guide describes `feat/runtime-module-loading`. The
-published runtime/bridge 0.1.3 and generator 0.1.4 have a different loading API.
-The Git revisions below provide the 0.2.0 API, including typed embedded selection.
-Version 0.2.0 is not published on crates.io; use these matching source revisions.
+[Migrate from 0.1.3](docs/migration-0.2.md) · [Changelog](CHANGELOG.md)
 
 ## Contents
 
-- [Quickstart: create a project](#development-setup)
+- [Quickstart: create a project](#setup)
 - [Add translations](#add-the-translations)
 - [Run the application](#run-a-complete-application)
 - [Embed translations](#explicit-embedding)
@@ -20,7 +17,7 @@ Version 0.2.0 is not published on crates.io; use these matching source revisions
 - [Known limits](#known-limits)
 - [Examples and further reading](#where-to-go-next)
 
-## Development setup
+## Setup
 
 Start with `cargo new localized-app`, then work inside `localized-app`.
 Use Rust 1.95 or newer. Replace `Cargo.toml` with:
@@ -33,24 +30,20 @@ edition = "2024"
 
 [dependencies]
 bevy = { version = "0.19", default-features = false, features = ["std", "async_executor", "multi_threaded", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }
-bevy_fluent_typed = { git = "https://github.com/SDA-31/bevy_fluent_typed", rev = "6286f85b809b61e2786308535ad005b53857125e", features = ["codegen"] } # feat/runtime-module-loading
+bevy_fluent_typed = { version = "0.2.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { git = "https://github.com/SDA-31/bevy_fluent_typed", rev = "6286f85b809b61e2786308535ad005b53857125e", default-features = false, features = ["build"] } # feat/runtime-module-loading
-
-[patch.crates-io]
-fluent_typed_codegen = { git = "https://github.com/SDA-31/fluent_typed_codegen", rev = "b6d4f29589ce52d6f873f98ea82bd94d1b919345" }
+bevy_fluent_typed = { version = "0.2.0", default-features = false, features = ["build"] }
 
 [package.metadata.localization]
 asset-root = "assets"
 catalog = "localizations/localization.toml"
 ```
 
-The patch selects the matching unreleased generator. Put it in the **workspace
-root** if this application belongs to a workspace. Edition 2024 uses Cargo
-resolver 3; an explicit workspace must use resolver 2 or 3. Keep the same crate
-name in both dependency sections. Enable the Bevy backend only on the normal
-dependency, and `build` only on the build-dependency.
+The runtime resolves the matching bridge and generator from crates.io; no patch
+is needed. Edition 2024 uses Cargo resolver 3; an explicit workspace must use
+resolver 2 or 3. Keep the same crate name in both dependency sections. Enable
+the Bevy backend only on the normal dependency, and `build` only on the build-dependency.
 
 Create `build.rs` beside `Cargo.toml`:
 
@@ -210,7 +203,7 @@ A Lazy application can select just its HUD by type:
 let manifest = texts::embed_manifest!(module = texts::presentation::Hud);
 ```
 
-The Git dependencies above support this selector. Request the same leaf through
+Request the same leaf through
 `localization.load::<texts::presentation::Hud>()`.
 The manifest contains its bytes across known languages, without the pause module.
 Select `texts::Presentation` for that group's descendants, or
@@ -246,13 +239,13 @@ optional normal-dependency feature for filesystem change notifications.
 | --- | --- |
 | `translations!` cannot find generated output | Add the shown build-dependency and return `bevy_fluent_typed::build()` from `build.rs`. |
 | Types or methods are missing | Add the corresponding FTL module/message in every language and rebuild. File edits at runtime cannot change the compiled schema. |
-| A typed `embed_manifest!(module = ...)` selector is rejected | Use all Git revisions from [Setup](#development-setup), including the generator patch. Pass a generated path or `use` alias, not a string or `type` alias. |
+| A typed `embed_manifest!(module = ...)` selector is rejected | Use version 0.2.0 from [Setup](#setup) in both dependency sections and remove old overrides. Pass a generated path or `use` alias, not a string or `type` alias. |
 | The resource is absent | File loading is asynchronous. Use `Option<Res<_>>` or a `resource_exists` run condition. In Lazy, explicitly request the scope first. |
 | A bound label stays empty | Check `localization.status::<YourLeaf>()`. Its module must be requested and pass validation. A root binding waits for the whole tree. |
 | Files are not found | The manifest origin is relative to Bevy's asset root. Do not prefix it with `assets/` when `AssetPlugin` already points there. |
 | Editing the TOML has no runtime effect | The plugin receives a parsed contract and does not reload TOML. Rebuild this quickstart or construct a new contract during application setup. |
 | Cargo reports incompatible engine APIs | Select one matching Bevy backend, on the normal dependency only. Do not enable all features. |
-| A published release rejects these calls | Use the pinned Git dependencies above. Registry 0.1.3 has the previous API. |
+| A published release rejects these calls | Follow the [0.1.3 → 0.2.0 migration](docs/migration-0.2.md); 0.1.3 has the previous API. |
 
 ## Known limits
 
@@ -273,15 +266,19 @@ transports, fonts and shaping remain application responsibilities.
   and named Bevy sources.
 - [Number formatting](docs/formatting.md): application-owned ICU4X formatters.
 - [Build API](docs/build.md): explicit generation and dependency feature isolation.
+- [Migration](docs/migration-0.2.md): update an existing 0.1.3 application.
+- [Changelog](CHANGELOG.md): notable changes grouped by release.
 
 Runnable headless examples live in [examples/codegen](examples/codegen),
 [examples/no_codegen](examples/no_codegen), [examples/minimal](examples/minimal),
 [examples/icu](examples/icu) and [examples/asset_source](examples/asset_source).
 Their README commands start from a checkout of this repository. Their local path
-dependencies test that checkout; use the Git setup above for your application.
+dependencies test that checkout; use the registry setup above for your application.
 The [compatibility runner](tools/compatibility/README.md) is for maintainers.
+CI ignores branch pushes and PRs changing only `CHANGELOG.md`; tag pushes and
+manual runs still execute checks.
 
 Message accessors and Fluent resolution use
 [fluent-typed](https://github.com/human-solutions/fluent-typed).
 [MIT](LICENSE) covers this library, its bridge and examples, not your application
-or translations. Version 0.2.0 is available from the pinned Git sources and is not published on crates.io.
+or translations.

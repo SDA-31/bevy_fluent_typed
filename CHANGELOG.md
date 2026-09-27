@@ -1,34 +1,71 @@
 # Changelog
 
-## 0.2.0 (Unreleased) — explicit module loading
+Notable changes to the runtime and its companion bridge are recorded here using
+[Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html);
+before 1.0, a minor release can introduce incompatible API changes.
 
-- Plugin constructors accept a shared immutable LocalizationManifest; generated payloads are opt-in.
-- Select embedded leaves and groups by their generated Rust paths, including
-  `use` aliases; no unselected payload is included, even in unoptimized builds.
-- Full and Lazy modes select eager selected-language loading or explicit root/group/leaf demand; overlapping requests remain independent.
-- Typed module navigation, partial resources and scoped messages support incomplete trees.
-- Unavailable bindings clear, locale changes release old-language state, and same-language reloads publish checked leaves independently.
-- Breaking provider migration: `FluentScope`, per-leaf `Module` parsers and ready-child
-  assembly replace descriptor/whole-catalog parsing. See the
-  [migration guide](GUIDE.md#migration-from-registry-013).
-- Align runtime, companion bridge and required generator at 0.2.0.
-- Build/runtime feature isolation is retained; runtime uses only the generator package's manifest support.
+## [Unreleased]
 
-## 0.1.3 — 2026-09-22
+Planned for runtime and bridge 0.2.0. Follow the
+[migration from 0.1.3](docs/migration-0.2.md) for the minimal Full-mode upgrade,
+optional Lazy loading and handwritten providers.
 
-Documentation and examples refresh; no public runtime API or behavior changes.
+### Added
+
+- `Full` and `Lazy` modes with explicit root, group and leaf requests in Lazy.
+- Typed navigation through partially loaded trees, scoped messages and
+  independently available module resources.
+- Explicit file/embedded `LocalizationManifest` sources. Embedded leaves and
+  groups are selected by generated Rust paths, with `use` aliases supported.
+  Unselected payloads stay out of unoptimized binaries.
+
+### Changed
+
+- **Breaking:** plugin constructors receive a parsed manifest contract rather
+  than a manifest path string. The plugin no longer loads/watches that TOML.
+- **Breaking:** startup and language changes require readiness handling, including
+  with embedded sources; `catalog()` returns `Option<&C>`.
+- **Breaking:** Full loads the selected language. Locale switches release previous
+  runtime-owned language data while preserving logical module requests.
+- **Breaking:** checked leaves publish independently; same-language failures retain
+  the affected leaf's last good value. There is no whole-language transaction.
+- Unavailable text bindings clear. Successful reloads publish fresh snapshots;
+  idle frames and unchanged siblings preserve resource identity.
+
+#### Bridge
+
+- **Breaking:** generated and handwritten providers use `FluentScope`, per-leaf
+  `Module` parsers and ready-child assembly instead of whole-catalog parsing and
+  provider-owned resource publication.
+- Runtime, bridge and required generator versions align at 0.2.0. The public
+  build facade and host/runtime feature isolation are retained.
+
+### Removed
+
+- **Breaking:** implicit embedded startup/fallback and all-language preloading.
+- **Breaking:** `CatalogDescriptor`, `ModuleSource`, provider `descriptor`,
+  `embedded`, `parse` and `publish_resources` contracts, and `Module::embedded`.
+  See the migration table for replacements.
+- **Breaking, bridge:** `validate_definition`; use the shared manifest contract.
+
+## [0.1.3] - 2026-09-22
+
+### Changed
 
 - Make the quick start, asset-root configuration, compatibility policy and
   comparison with bevy_fluent easier to find and follow.
 - Clarify application-owned ICU services and locale-aware deferred formatting.
-- Document and test existing support for named Bevy asset sources, pack layout,
-  explicit reloads and last-good recovery. No archive parser or dependency is added.
+- Document and test named Bevy asset sources, pack layout, explicit reloads
+  and last-good recovery. No archive parser or dependency is added.
 - Add a codegen-enabled custom-source example and separate regression tests from
   runnable application code throughout the examples.
-- Require bridge 0.1.3, whose build dependency requires generator 0.1.4 for the
-  updated generated documentation. Host/runtime dependency isolation is unchanged.
+- Require bridge 0.1.3, whose build dependency requires generator 0.1.4 for updated
+  generated documentation. Host/runtime dependency isolation is unchanged.
 
-The companion `bevy_fluent_codegen_bridge` 0.1.3 has only dependency-minimum and
-documentation updates; its generated adapter behavior and public API are unchanged.
-
+This documentation release changes no public runtime API or behavior.
+Bridge 0.1.3 changes only dependency minimums and documentation.
 Earlier releases predate this changelog; their source is retained in Git tags.
+
+[Unreleased]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.1.2...v0.1.3
