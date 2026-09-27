@@ -30,7 +30,8 @@ In an enclosing workspace, the package is `localization-example`; add
 - [typed_resources.rs](src/bin/typed_resources.rs): the shorter resource-focused
   walkthrough. It shows `Translations → Presentation → Hud`, a direct
   `Res<texts::presentation::Hud>` parameter and the same text entity after a
-  language switch. This binary explicitly embeds source bytes and parses the selected language during an update.
+  language switch. This binary explicitly embeds source bytes and parses the selected
+  language during an update.
 - [console.rs](src/console.rs): the default binary's terminal runner and load
   diagnostics. This is headless application plumbing, not a localization API.
 - [build.rs](build.rs): the explicit generation call; `translations!` only
@@ -38,7 +39,7 @@ In an enclosing workspace, the package is `localization-example`; add
 - [tests/](tests): contract, resource, watcher and formatting regressions. Start
   with [tests/README.md](tests/README.md) when looking for verification.
 
-The default binary waits for successful **external** loads, prints the bound
+The default binary waits for successful file loads, prints the bound
 text, switches through every discovered language and exits. Watch mode keeps the
 English label alive: edit `assets/localizations/translations/en/ui.ftl` **inside
 this example**. Valid edits print to the terminal; invalid edits print a diagnostic

@@ -1,7 +1,11 @@
 ## Explicit build-script API
 
-The `build` feature exposes [`build()`], [`from_cargo()`], [`generate()`] and
-[`Settings`] through the same crate used by the application. The companion bridge
+For a complete Cargo.toml, files and application, follow the
+[quickstart](https://github.com/SDA-31/bevy_fluent_typed/blob/feat/runtime-module-loading/README.md#development-setup).
+This section explains the optional custom build entrypoints.
+
+The `build` feature exposes `build()`, `from_cargo()`, `generate()` and
+`Settings` through the same crate used by the application. The companion bridge
 is an implementation detail; consumers do not need to name it in Cargo.toml.
 Discovery and the typed module tree come from
 [fluent_typed_codegen](https://docs.rs/fluent_typed_codegen/); message accessors
@@ -35,3 +39,18 @@ renaming the crate, use that alias in both, as in the integration example.
 The public facade is available since **0.1.1**. Version 0.1.0 required a separate
 bridge build-dependency. Number formatting and plural-category preparation are
 application runtime work, not part of this build phase.
+
+## Manifest configuration
+
+`[package.metadata.localization]` selects the build-time `asset-root` and the
+manifest's asset-relative `catalog` path. The manifest selects `source-language`,
+`default-language` and the optional `translations-directory` (default `"."`).
+`languages-directory` is the legacy alias; do not specify both directory names.
+Languages are discovered from directories; keep their module/message contracts
+in sync. Typed annotations belong to the source language.
+
+The generated `CATALOG_CONFIG` contains the TOML contract, and `CATALOG_ASSET_PATH`
+is its build-time asset address. Reusing them at runtime is convenient, but
+optional: the application can pass another compatible source contract and choose
+another asset root. No generated FTL payload is embedded unless the application
+explicitly invokes `embed_manifest!()`.

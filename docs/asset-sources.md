@@ -1,10 +1,12 @@
 ## Custom asset sources
 
 The manifest is a prepared contract, not a catalog or live TOML asset. Register
-an application's AssetReader before AssetPlugin, then preserve its named source
+an application's `AssetReader` before `AssetPlugin`, then preserve its named source
 in the origin:
 
 ```rust,ignore
+use bevy_fluent_typed::{LocalizationManifest, LocalizationPlugin};
+
 let manifest = LocalizationManifest::parse(
     texts::CATALOG_CONFIG,
     "translations://localizations/localization.toml",
@@ -12,8 +14,9 @@ let manifest = LocalizationManifest::parse(
 app.add_plugins(LocalizationPlugin::<texts::Translations>::new(manifest));
 ```
 
-For directory `translations`, a request for English `ui/hud.ftl` reads exactly
-`translations://localizations/translations/en/ui/hud.ftl` through AssetServer.
+For directory `translations`, a request for the quickstart's English
+`presentation/hud.ftl` reads exactly
+`translations://localizations/translations/en/presentation/hud.ftl` through AssetServer.
 The TOML need not exist in that source: parsing has already supplied the contract.
 Runtime directory/origin may differ from build inputs. Source/default language
 metadata must be compatible with the compiled schema. Paths are validated and
@@ -36,4 +39,4 @@ independent watcher/direct AssetServer reloads whose reader-opening futures fini
 out of order. Bevy supplies no pre-loader request generation. Its
 `AssetLoadFailedEvent` also has no generation, including failures inside
 `read_to_end`. For strict order, disable watching and use ReloadCatalogs. See the
-[loading boundary](runtime.md#locale-changes-failures-and-ownership).
+[loading boundary](runtime.md#scheduling-and-reload-guarantees).

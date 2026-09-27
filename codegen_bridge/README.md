@@ -21,7 +21,7 @@ The bridge never depends back on the runtime. Its macro receives the runtime
 path; generated code gets shared manifest support through that runtime alias.
 Resolver 2/3 keeps features separate. No generation occurs in macro expansion.
 
-Low-level build(), from_cargo(), generate() and Settings remain available with
+Low-level `build()`, `from_cargo()`, `generate()` and `Settings` remain available with
 `build`; prefer the runtime facade. There is no sibling-path generator dependency.
 The declared registry requirement remains 0.1.4 while this development branch
 requires the README's explicit patch to the approved generator revision.
@@ -39,4 +39,4 @@ schema views; macros.rs includes prepared output. syn/quote are build-only.
 
 Application-owned ICU/ICU4X formatting supplies ordinary String arguments and
 plural keywords. Font coverage, RTL layout and shaping remain renderer concerns.
-See [GUIDE.md](../GUIDE.md#decimal-and-plural-arguments). MIT: [LICENSE](LICENSE).
+See [number formatting](../docs/formatting.md). MIT: [LICENSE](LICENSE).

@@ -117,7 +117,9 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 
 impl<C: FluentCatalog> Localization<C, Lazy> {
 	/// Request a leaf, complete group or complete root until explicitly unloaded.
-	/// Repeated requests are idempotent; a repeated failed request retries its leaves.
+	/// Repeated requests are idempotent, not reference counted: one `unload::<S>()`
+	/// releases any number of earlier `load::<S>()` calls for that scope type.
+	/// A repeated failed request retries its leaves.
 	pub fn load<S: FluentScope<Catalog = C>>(&mut self) {
 		self.requested.insert(TypeId::of::<S>(), S::module_paths());
 

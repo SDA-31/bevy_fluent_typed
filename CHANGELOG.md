@@ -1,13 +1,15 @@
-# Unreleased: explicit module loading
+# Changelog
+
+## Unreleased: explicit module loading
 
 - Plugin constructors accept a shared immutable LocalizationManifest; generated payloads are opt-in.
 - Full and Lazy modes select eager selected-language loading or explicit root/group/leaf demand; overlapping requests remain independent.
 - Typed module navigation, partial resources and scoped messages support incomplete trees.
 - Unavailable bindings clear, locale changes release old-language state, and same-language reloads publish checked leaves independently.
-- Breaking provider migration: FluentScope, per-leaf Module parsers and ready-child assembly replace descriptor/whole-catalog parsing. See docs/runtime.md.
+- Breaking provider migration: `FluentScope`, per-leaf `Module` parsers and ready-child
+  assembly replace descriptor/whole-catalog parsing. See the
+  [migration guide](GUIDE.md#migration-from-registry-013).
 - Build/runtime feature isolation is retained; runtime uses only the generator package's manifest support.
-
-# Changelog
 
 ## 0.1.3 — 2026-09-22
 

@@ -86,8 +86,8 @@ ICU payloads across Bevy threads. Formatter initialization errors are returned
 from startup. Demonstration values are bounded; validate arbitrary input and
 scaling/rounding limits according to your application's numeric domain.
 
-The app explicitly embeds source bytes, parses them during updates and does not wait for asynchronous
-asset loading. The separate [integration suite](../minimal) tests real filesystem
+The app explicitly embeds source bytes and parses them during updates. It does
+not perform asynchronous file loading. The separate [integration suite](../minimal) tests real filesystem
 hot reload. String assertions preserve Fluent isolation but do not prove visual
 RTL layout, glyph shaping, fonts or UI mirroring.
 

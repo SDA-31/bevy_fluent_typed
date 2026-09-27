@@ -6,11 +6,11 @@ Number formatting is application work. Use dedicated
 numbers, percentages, currencies and dates. Neither this runtime nor its codegen
 bridge adds an ICU dependency or a formatting feature.
 
-The [ICU example's formatting module](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/icu/src/formatting.rs)
+The [ICU example's formatting module](https://github.com/SDA-31/bevy_fluent_typed/blob/feat/runtime-module-loading/examples/icu/src/formatting.rs)
 creates reusable services per catalog locale and captures a shared map in
 deferred bindings. The system receives it through `Res`; closures
 select a formatter from the current catalog, preserving language changes without
-rebuilding the UI. The complete [runnable example](https://github.com/SDA-31/bevy_fluent_typed/tree/main/examples/icu)
+rebuilding the UI. The complete [runnable example](https://github.com/SDA-31/bevy_fluent_typed/tree/feat/runtime-module-loading/examples/icu)
 owns the implementation and tests existing Bevy UI/world text.
 
 The example's dependencies, in addition to the standard generated consumer setup:
@@ -47,8 +47,8 @@ chance = Chance: { $value }
 
 Call `app.insert_resource(NumberFormats::try_new(GroupingStrategy::Auto)?)`
 once during setup and register `spawn_labels` in `Startup`, after configuring
-Bevy and [`LocalizationPlugin`]. The example's
-[main.rs](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/icu/src/main.rs)
+Bevy and `LocalizationPlugin`. The example's
+[main.rs](https://github.com/SDA-31/bevy_fluent_typed/blob/feat/runtime-module-loading/examples/icu/src/main.rs)
 handles that wiring. Generated types and ICU dependencies belong to the example;
 the library's documentation links to its source rather than embedding it.
 

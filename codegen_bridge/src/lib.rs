@@ -20,9 +20,9 @@
 //!
 //! Declare `bevy_fluent_typed::translations!(pub mod texts)` in application source.
 //! This includes generated output; it does not generate files or install a plugin.
-//! The [complete setup and asset example](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md)
+//! The [complete setup and asset example](https://github.com/SDA-31/bevy_fluent_typed/blob/feat/runtime-module-loading/README.md)
 //! shows configuration, a build script and runtime registration. The
-//! [bridge README](https://github.com/SDA-31/bevy_fluent_typed/tree/main/codegen_bridge)
+//! [bridge README](https://github.com/SDA-31/bevy_fluent_typed/tree/feat/runtime-module-loading/codegen_bridge)
 //! describes low-level entrypoints and feature boundaries. The public build
 //! facade is available since 0.1.1; version 0.1.0 used the bridge directly.
 //!
@@ -45,7 +45,8 @@
 //! [ICU](https://unicode-org.github.io/icu/userguide/format_parse/) services pass
 //! through ordinary String parameters; the bridge has no ICU dependency or formatting
 //! policy. RTL layout, glyph shaping and fonts belong to the application's renderer.
-//! Repository links follow `main`; this reference describes the viewed version.
+//! Repository links follow the unreleased development branch; this reference
+//! describes the viewed version.
 #![warn(missing_docs)]
 
 #[cfg(feature = "build")]

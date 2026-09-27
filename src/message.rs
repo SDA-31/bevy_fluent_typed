@@ -3,17 +3,18 @@ use crate::bevy::{ecs as bevy_ecs, prelude::Component};
 use crate::{FluentCatalog, FluentScope};
 use std::{fmt, marker::PhantomData, sync::Arc};
 
-/// Cloneable deferred typed formatting, evaluated against the current catalog.
+/// Cloneable deferred formatting for a leaf, group or complete catalog.
 ///
 /// Capture owned argument values, not an already translated string. This allows
-/// stored notices to follow later language switches and hot reloads.
+/// stored notices to follow later language switches and hot reloads. Creating a
+/// message does not load its scope; render it only after that scope is available.
 /// For Decimal displays, capture the raw value and reusable per-locale formatters,
 /// then select the formatter using the catalog passed to the closure. A captured
 /// preformatted number would keep the old language's digits and plural category.
 /// Use dedicated [ICU4X](https://docs.rs/icu/) or
 /// [ICU](https://unicode-org.github.io/icu/userguide/format_parse/) formatters;
 /// pass their output as ordinary String arguments. The
-/// [ICU resource example](https://github.com/SDA-31/bevy_fluent_typed/tree/main/examples/icu)
+/// [ICU resource example](https://github.com/SDA-31/bevy_fluent_typed/tree/feat/runtime-module-loading/examples/icu)
 /// shares application-owned formatters through a resource and `Arc`.
 /// Changing another resource does not invalidate captured values automatically;
 /// replace the binding when its value or formatter settings change.
@@ -49,11 +50,14 @@ impl<C: FluentScope> fmt::Debug for Message<C> {
 }
 
 #[derive(Component)]
-/// Bind an existing Bevy `Text` or `Text2d` to a deferred message.
+/// Bind an existing Bevy `Text` or `Text2d` to a leaf, group or root message.
 ///
 /// The plugin changes text in place when the catalog or binding changes. It does
-/// not spawn/despawn the entity. Bound text contents are replaced, so keep editable
-/// drafts separate; this binding does not manage or preserve text-editor state.
+/// not spawn/despawn the entity or request a module. An unavailable scope clears
+/// bound text until that scope becomes ready. Prefer the smallest scope the
+/// message needs, so unrelated modules do not delay it.
+/// Bound text contents are replaced, so keep editable drafts separate; this
+/// binding does not manage or preserve text-editor state.
 /// Number formatting belongs to the closure (see [`Message`]); shaping, visual
 /// bidi ordering and font coverage belong to the renderer, not this component.
 pub struct LocalizedText<C: FluentScope>(pub(crate) Message<C>);
