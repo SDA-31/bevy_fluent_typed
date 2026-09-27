@@ -1,4 +1,4 @@
-use localization_runtime::FluentCatalog;
+use localization_runtime::LocalizationManifest;
 
 mod fixture {
 	use localization_runtime::translations;
@@ -20,9 +20,13 @@ mod fixture {
 
 #[test]
 fn macro_resolves_the_renamed_runtime_and_consumer_build_output() {
-	let translated: fixture::texts::Translations = fixture::texts::Locale::En.load();
+	let translated: fixture::texts::Translations = fixture::texts::Translations::from_manifest(
+		fixture::texts::Locale::En,
+		&fixture::texts::embed_manifest!(),
+	)
+	.unwrap();
 	let hud: &fixture::texts::presentation::Hud = translated.presentation().hud();
-	let expected = crate::texts::Locale::En.load();
+	let expected = super::load(crate::texts::Locale::En);
 
 	assert_eq!(
 		translated.ui().msg_example_greeting("Ada"),
@@ -30,12 +34,14 @@ fn macro_resolves_the_renamed_runtime_and_consumer_build_output() {
 	);
 	assert_eq!(hud.prompt().s0, expected.presentation().hud().prompt().s0);
 	assert_eq!(
-		fixture::texts::Translations::descriptor(fixture::texts::CATALOG_CONFIG.as_bytes())
+		LocalizationManifest::parse(fixture::texts::CATALOG_CONFIG, "catalog.toml")
 			.unwrap()
-			.modules_directory,
-		crate::texts::Translations::descriptor(crate::texts::CATALOG_CONFIG.as_bytes())
+			.config()
+			.languages_directory,
+		LocalizationManifest::parse(crate::texts::CATALOG_CONFIG, "catalog.toml")
 			.unwrap()
-			.modules_directory
+			.config()
+			.languages_directory
 	);
 	assert_eq!(fixture::texts::MODULES, crate::texts::MODULES);
 }

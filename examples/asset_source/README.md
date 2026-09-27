@@ -1,3 +1,5 @@
+**Unreleased loading API:** use the matching Git dependencies and generator patch in [the root README](../../README.md#development-setup).
+
 # Custom asset source with codegen
 
 Load a generated `texts::ui::Hud` resource through a named Bevy asset source.
@@ -10,8 +12,10 @@ the default Bevy 0.19 backend and adds no archive dependency.
 From this repository:
 
 ```sh
-cargo run --manifest-path examples/asset_source/Cargo.toml
-cargo test --manifest-path examples/asset_source/Cargo.toml
+localization_generator_git='patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen"'
+localization_generator_rev='patch.crates-io.fluent_typed_codegen.rev="0e5ed447cc08553818a240fc6cfe736aa67fb4b3"'
+cargo run --manifest-path examples/asset_source/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
+cargo test --manifest-path examples/asset_source/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
 ```
 
 ## Start here
@@ -25,13 +29,14 @@ cargo test --manifest-path examples/asset_source/Cargo.toml
    example. A real archive source supplies its own bytes instead.
 
 The application registers `"translations"` **before** `AssetPlugin`, then passes
-`"translations://localizations/localization.toml"` to the localization plugin.
+`LocalizationManifest::parse(texts::CATALOG_CONFIG,
+"translations://localizations/localization.toml")?` to the localization plugin.
 This is Bevy's ordinary `source://path` syntax; `translations` is a name chosen by
 the application, not a built-in protocol or archive format. The TOML and its FTL
 modules are all read through that source.
 
 `show_title` waits for `CatalogUpdate::Loaded` so it demonstrates a real load
-through the reader, not just the embedded fallback available at startup.
+through the reader after asynchronous loading; no fallback is installed.
 It prints the typed HUD message and exits. The headless schedule runner replaces
 a window's event loop; no manual polling or test bookkeeping is needed in main.
 
@@ -39,7 +44,7 @@ a window's event loop; no manual polling or test bookkeeping is needed in main.
 
 Replace the reader factory in `main.rs` with your asset plugin's reader.
 The localization plugin and generated resources do not change. Build-time FTL
-files still define the API and embedded fallback; code generation does not read
+files define the API. This demonstration explicitly embeds them to seed its reader; code generation does not read
 the runtime archive.
 
 After installing an updated pack, send `ReloadCatalogs::<texts::Translations>`.

@@ -45,13 +45,21 @@ mod catalog;
 #[cfg(feature = "runtime")]
 mod compatibility;
 #[cfg(feature = "runtime")]
+mod loading;
+#[cfg(feature = "runtime")]
 mod message;
+#[cfg(feature = "runtime")]
+mod mode;
 #[cfg(feature = "runtime")]
 mod plugin;
 #[cfg(feature = "runtime")]
 mod resources;
 #[cfg(feature = "runtime")]
+mod scope;
+#[cfg(feature = "runtime")]
 mod state;
+#[cfg(feature = "runtime")]
+mod status;
 
 #[cfg(all(feature = "codegen", feature = "runtime"))]
 mod macros;
@@ -65,13 +73,24 @@ pub use bevy_fluent_codegen_bridge as __codegen;
 pub use bevy_fluent_codegen_bridge::{Settings, build, from_cargo, generate};
 
 #[cfg(feature = "runtime")]
-pub use catalog::{CatalogDescriptor, FluentCatalog, Module, ModuleSource};
+pub use catalog::{FluentCatalog, FluentScope, Module};
+#[cfg(feature = "runtime")]
+#[doc(hidden)]
+pub use fluent_typed_codegen as __fluent_codegen;
+#[cfg(feature = "runtime")]
+pub use fluent_typed_codegen::{CatalogConfig, LocalizationManifest, ManifestError};
 #[cfg(feature = "runtime")]
 pub use message::{CatalogUpdate, CatalogUpdateReader, LocalizedText, Message, ReloadCatalogs};
 #[cfg(feature = "runtime")]
+pub use mode::{Full, Lazy, LoadingMode};
+#[cfg(feature = "runtime")]
 pub use plugin::{LocalizationPlugin, LocalizationSystems};
 #[cfg(feature = "runtime")]
+pub use scope::{ModuleStore, ScopeRegistration};
+#[cfg(feature = "runtime")]
 pub use state::Localization;
+#[cfg(feature = "runtime")]
+pub use status::{ModuleError, ModuleStatus};
 
 /// Compatible upstream runtime used by generated accessors; no separate dependency needed.
 #[cfg(feature = "runtime")]

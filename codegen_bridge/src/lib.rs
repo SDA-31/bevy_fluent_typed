@@ -14,7 +14,7 @@
 //!   the host graph. Consumers normally enable `bevy_fluent_typed/build` with
 //!   defaults disabled and call `bevy_fluent_typed::build()` in `build.rs`.
 //!   It emits the additional provider/resource tree into `OUT_DIR`.
-//! - **`runtime`:** output inclusion and checked definition parsing. The runtime's
+//! - **`runtime`:** output inclusion and Fluent validation dependencies. The runtime's
 //!   `codegen` feature enables this and exposes its `translations!` facade.
 //! - **No features (default):** no adapter code or dependencies.
 //!
@@ -29,16 +29,16 @@
 //! # Dependency and reload boundaries
 //!
 //! With Cargo resolver 2/3, build-only use compiles no Bevy and runtime-only use
-//! compiles no generator. The bridge never depends on `bevy_fluent_typed`:
+//! compiles no generation code. The bridge never depends on `bevy_fluent_typed`:
 //! its macro receives the facade's runtime path, avoiding a dependency cycle.
 //! The declared minimum Rust version is 1.95.
 //! Engine backend selection belongs to the runtime, not this build dependency.
 //! Generated declarations use its macro to preserve ECS-immutable resources on
-//! Bevy 0.19 while supporting ordinary resources on 0.17/0.18.
+//! Bevy 0.19 while supporting ordinary resources on 0.16–0.18.
 //!
-//! The generated provider checks complete catalogs and immutable configuration.
-//! Compatible prose edits can reload; changes to configuration, languages, modules
-//! or typed contracts require generation and restart. The bridge does not watch
+//! The generated provider checks individual leaves and assembles ready scopes.
+//! Compatible prose edits reload independently; schema changes require regeneration.
+//! Runtime source contracts may relocate assets without rebuilding. The bridge does not watch
 //! files or publish resources itself: it emits the provider used by the runtime.
 //! Native numeric selectors remain available. Number text and plural keywords
 //! from application-owned [ICU4X](https://docs.rs/icu/) or
@@ -52,10 +52,11 @@
 mod generation;
 
 #[cfg(feature = "build")]
+mod navigation;
+#[cfg(feature = "build")]
 mod provider;
-
-#[cfg(feature = "runtime")]
-mod definition;
+#[cfg(feature = "build")]
+mod scopes;
 
 #[cfg(feature = "runtime")]
 mod macros;
@@ -71,7 +72,3 @@ pub use fluent_typed_codegen::Settings;
 #[doc(hidden)]
 #[cfg(feature = "runtime")]
 pub use fluent_syntax;
-
-#[doc(hidden)]
-#[cfg(feature = "runtime")]
-pub use definition::validate_definition;

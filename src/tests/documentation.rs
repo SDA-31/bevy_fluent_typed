@@ -1,27 +1,23 @@
-//! Public installation examples must track the package version, not local paths.
-
+//! Unreleased examples must resolve matching source revisions without sibling paths.
 #[test]
-fn registry_examples_use_the_manifest_version_in_both_dependency_sections() {
-	let version = env!("CARGO_PKG_VERSION");
-	let expected = format!("bevy_fluent_typed = {{ version = \"{version}\",");
-
+fn development_setup_pins_matching_generator_in_both_dependency_graphs() {
 	for (name, source) in [
 		("README", include_str!("../../README.md")),
-		(
-			"Rustdoc quickstart",
-			include_str!("../../docs/quickstart.md"),
-		),
+		("Rustdoc", include_str!("../../docs/quickstart.md")),
 	] {
 		let dependencies: Vec<_> = source
 			.lines()
-			.map(str::trim)
 			.filter(|line| line.starts_with("bevy_fluent_typed ="))
 			.collect();
-		assert_eq!(dependencies.len(), 2, "{name}: runtime and build entries");
-
+		assert_eq!(dependencies.len(), 2, "{name}");
 		for dependency in dependencies {
-			assert!(dependency.starts_with(&expected), "{name}: {dependency}");
-			assert!(!dependency.contains("path ="), "{name}: {dependency}");
+			assert!(
+				dependency.contains("feat/runtime-module-loading"),
+				"{name}: {dependency}"
+			);
+			assert!(!dependency.contains("path ="));
 		}
+		assert!(source.contains("0e5ed447cc08553818a240fc6cfe736aa67fb4b3"));
+		assert!(source.contains("Unreleased"));
 	}
 }

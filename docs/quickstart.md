@@ -1,89 +1,37 @@
-Typed Fluent localization for Bevy: language switching, hot-reloaded assets,
-typed module resources and automatic updates to existing `Text`/`Text2d` entities.
+Typed Fluent localization for Bevy with explicit module loading and typed resources.
 
-Message access and Fluent resolution use
-[fluent-typed](https://docs.rs/fluent-typed/0.9.0/fluent_typed/).
+**Unreleased API on `feat/runtime-module-loading`.** Registry runtime/bridge 0.1.3
+and generator 0.1.4 use the previous loading API. No release has been published.
+Message accessors and resolution use [fluent-typed](https://github.com/human-solutions/fluent-typed).
 
-Optional typed API generation is powered by
-[fluent_typed_codegen](https://docs.rs/fluent_typed_codegen/0.1.4/fluent_typed_codegen/),
-which discovers modular Fluent files and generates their Rust translation tree.
-The companion
-[bevy_fluent_codegen_bridge](https://docs.rs/bevy_fluent_codegen_bridge/0.1.3/bevy_fluent_codegen_bridge/)
-connects that tree to this runtime's resources and plugin.
+## Development setup
 
-Turn `presentation/hud.ftl` into `texts::presentation::Hud`. Borrow it through
-chained accessors or request it directly as a Bevy `Res` — no string keys or
-handwritten catalog adapter.
-
-Bevy **0.16, 0.17, 0.18 and 0.19** are supported with explicit backends, not arbitrary
-future Bevy releases. The declared minimum Rust version is **1.95 stable**;
-nightly is not required. This matches
-[Bevy 0.19's own minimum](https://github.com/bevyengine/bevy/blob/v0.19.0/Cargo.toml).
-Older backends currently retain the same crate-level MSRV; they do not promise
-compatibility with older Rust compilers. Fonts, glyph coverage, layout and window
-setup belong to your app.
-
-Support for 0.16 and the `CatalogUpdateReader` alias starts with 0.1.2;
-version 0.1.1 supports 0.17–0.19. Release candidates are outside the stable
-compatibility promise.
-
-## Features
-
-| Feature | What it adds |
-| --- | --- |
-| `bevy-0-19` (default) | Bevy 0.19.0 and compatible patches; ECS-immutable generated resources |
-| `bevy-0-18` | Bevy 0.18.0 and compatible patches |
-| `bevy-0-17` | Bevy 0.17.0 and compatible patches |
-| `bevy-0-16` | Bevy 0.16.1 and compatible patches; `watch` also enables its required multithreaded executor |
-| `codegen` | The `translations!` macro and companion generated-provider integration |
-| `watch` | Bevy's filesystem watcher for live text edits |
-| `build` | Explicit build-script generation; disable defaults for an engine-free host build |
-| `runtime` | Runtime APIs, enabled automatically by each Bevy backend |
-
-The generator runs in the consuming application's build script, not every frame.
-Without `codegen` or `build`, this runtime does not compile the bridge or generator.
-
-Select **exactly one** engine backend. For 0.16, 0.17 or 0.18, set
-`default-features = false` and enable the matching feature alongside any optional
-`codegen`/`watch` features. Your direct Bevy dependency must use the same minor.
-Build-only use (`default-features = false, features = ["build"]`) needs no backend.
-`--all-features` is intentionally
-invalid for this runtime because it selects incompatible backends together.
-
-All backends expose read-only catalog snapshots. Only Bevy 0.19 can enforce
-resource immutability in ECS: `ResMut<texts::presentation::Hud>` is rejected there.
-On older backends, use `Res` by convention; do not replace individual modules.
-`ResMut<Localization<Translations>>` remains supported on every backend for
-language selection. Changing a `LocalizedText` binding does not need a mutable catalog.
-
-## Quick start: from assets to typed resources
-
-### 1. Dependencies and source paths
-
-This setup uses the public build facade introduced in **0.1.1**. Upgrade both
-dependency entries together from 0.1.0. The runnable repository examples use
-path dependencies only to test their checkout.
-
-In your application's Cargo.toml:
+This temporary Git setup selects the matching generator revision. After a future
+release, ordinary registry consumers will not need this development patch.
 
 ```toml
 [dependencies]
-bevy = { version = "0.19.0", default-features = false, features = ["std", "async_executor", "multi_threaded", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }
-bevy_fluent_typed = { version = "0.1.3", features = ["codegen", "watch"] }
+bevy = { version = "0.19", default-features = false, features = ["std", "async_executor", "multi_threaded", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }
+bevy_fluent_typed = { git = "https://github.com/SDA-31/bevy_fluent_typed", branch = "feat/runtime-module-loading", features = ["codegen", "watch"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.1.3", default-features = false, features = ["build"] }
+bevy_fluent_typed = { git = "https://github.com/SDA-31/bevy_fluent_typed", branch = "feat/runtime-module-loading", default-features = false, features = ["build"] }
+
+[patch.crates-io]
+fluent_typed_codegen = { git = "https://github.com/SDA-31/fluent_typed_codegen", rev = "0e5ed447cc08553818a240fc6cfe736aa67fb4b3" }
 
 [package.metadata.localization]
 asset-root = "assets"
 catalog = "localizations/localization.toml"
 ```
 
-Use resolver 2 or 3 to keep build and runtime features separate. Cargo.lock pins
-the resolved versions. The bridge is an implementation detail; application code
-and both dependency entries use `bevy_fluent_typed`. No registry patch is required.
+Use Cargo resolver 2/3. Select a backend only on the normal dependency; keep the
+same dependency alias in both sections. Do not forward backend features through a
+consumer feature to the shared dependency name: that also enables the host graph.
+The bridge remains an implementation detail. Runtime support uses the generator
+package's small manifest module, without its `build` feature or generation dependencies.
 
-In `build.rs`:
+Your explicit `build.rs`:
 
 ```rust,ignore
 fn main() -> std::process::ExitCode {
@@ -91,91 +39,81 @@ fn main() -> std::process::ExitCode {
 }
 ```
 
-Generation runs during `cargo check` and rust-analyzer's build-script indexing.
-Output stays in Cargo's `OUT_DIR` under target/, never beside translation assets.
-The explicit build.rs call performs all generation and registers source tracking.
-`translations!` only includes the prepared output; macro expansion does not invoke
-the generator or write files. A normal dependency feature cannot declare build
-dependencies for the consuming package.
+The build step discovers schemas and generates Rust into `OUT_DIR`.
+`translations!` only includes prepared output; it never generates or writes files.
 
-Small, complete consumers are available separately:
-[with codegen](https://github.com/SDA-31/bevy_fluent_typed/tree/main/examples/codegen)
-and [without codegen](https://github.com/SDA-31/bevy_fluent_typed/tree/main/examples/no_codegen).
-The latter has no build.rs and implements a one-message `FluentCatalog` by hand.
-
-### 2. Create the assets
+## Source contract and generated types
 
 ```text
-assets/
-  localizations/
-    localization.toml
-    translations/
-      en/presentation/hud.ftl
-      es/presentation/hud.ftl
+assets/localizations/localization.toml
+assets/localizations/translations/en/presentation/hud.ftl
+assets/localizations/translations/es/presentation/hud.ftl
 ```
-
-`assets/localizations/localization.toml`:
 
 ```toml
-translations-directory = "translations"
 source-language = "en"
 default-language = "en"
+translations-directory = "translations"
 ```
 
-`translations-directory` is optional and relative to this TOML. Omit it when
-locale folders (`en/`, `es/`, etc.) sit beside the file; its default is `"."`.
-The legacy `languages-directory` alias is accepted, but do not set both names.
+The optional directory defaults to `"."`; `languages-directory` is its legacy
+alias, and both names together are rejected. Build languages must share module,
+message, argument and reference contracts. Typed annotations belong to the source
+language. `presentation/hud.ftl` generates `texts::presentation::Hud`, its folder
+becomes `texts::Presentation`, and the root is `texts::Translations`.
 
-`en/presentation/hud.ftl`:
+```rust,ignore
+bevy_fluent_typed::translations!(pub mod texts);
+use bevy_fluent_typed::{LocalizationManifest, LocalizationPlugin};
 
-```ftl
-title = Flight HUD
-# $name (String) - Pilot name supplied by the application.
-detail = Pilot { $name }
+let manifest = LocalizationManifest::parse(
+    texts::CATALOG_CONFIG,
+    "localizations/localization.toml",
+)?;
+app.add_plugins(LocalizationPlugin::<texts::Translations>::new(manifest));
 ```
 
-`es/presentation/hud.ftl`:
+Register after Bevy's `AssetPlugin`. `parse` constructs an immutable source
+contract without reading FTL. Its origin is an asset address chosen by the app;
+runtime storage may differ from build storage. `from_config` accepts an already
+prepared config. `from_file` reads only TOML using the native filesystem, so its
+origin is not automatically relative to Bevy's asset root. Prefer `parse` with an
+explicit asset origin for Bevy, or prepare `from_config` yourself.
 
-```ftl
-title = Panel de vuelo
-detail = Piloto { $name }
+For a small application that wants all selected-language modules in memory, use
+Full mode above and ordinary `Res<texts::presentation::Hud>`. Resources appear
+when their modules are ready. Use `Option<Res<Hud>>` or a `resource_exists::<Hud>`
+run condition while loading; an unconditional missing `Res` follows Bevy's system
+validation behavior. Do not require asynchronously loaded resources in Startup.
+
+## Explicit embedding
+
+```rust,ignore
+app.add_plugins(LocalizationPlugin::<texts::Translations>::new(texts::embed_manifest!()));
 ```
 
-Languages and modules are discovered automatically. All languages must provide
-the same module/message contract; type annotations belong to the source language.
-The language directory is relative to the TOML, whose path is relative to the
-asset root. The asset root is relative to the consuming package at build time.
+This explicit invocation expands deferred `include_bytes!` recipes. Without an
+invocation, generated Rust does not reference FTL payloads; no linker stripping
+assumption is needed. The no-argument form includes all raw source bytes across
+languages; selected-language resources are parsed during plugin updates. Static
+embedded bytes themselves remain for the executable's lifetime.
+`texts::embed_manifest!(module = "presentation/hud.ftl")` includes only that leaf
+across languages and can serve a Lazy request for it. Group selection is not
+provided. The generated embedding macro is crate-local even in `pub mod texts`;
+a library may expose a function returning its chosen embedded manifest.
+No compressor/decompressor or implicit embedded fallback is installed.
 
-### 3. Use the generated names
+## Supported engines
 
-| Source | Generated Rust API |
+| Feature | Supported release family |
 | --- | --- |
-| Whole translation tree | `texts::Translations` |
-| `presentation/` folder | `texts::Presentation` and namespace `texts::presentation` |
-| `presentation/hud.ftl` file | `texts::presentation::Hud` |
-| `title` in that file | `hud.msg_title()` |
-| `detail` with `$name (String)` | `hud.msg_detail("Ada")` |
+| `bevy-0-19` (default) | 0.19.0 and compatible patches; generated ECS-immutable resources |
+| `bevy-0-18` | 0.18.0 and compatible patches |
+| `bevy-0-17` | 0.17.0 and compatible patches |
+| `bevy-0-16` | 0.16.1 and compatible patches; watch enables the required executor |
 
-A file is a **leaf type**, not another public module: there is no
-`texts::presentation::hud`. Identically named messages in different files remain
-independent. For example, another `ui/menu.ftl` becomes `texts::ui::Menu`.
-
-### 4. Register the plugin and request a module
-
-Configure Bevy's asset root and add
-`LocalizationPlugin::<texts::Translations>::new(texts::CATALOG_ASSET_PATH)` after
-Bevy's `AssetPlugin`. Register your UI system in `Startup`; its
-`Res<texts::presentation::Hud>` parameter receives the generated module resource.
-
-The complete [headless example](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/minimal/src/bin/typed_resources.rs)
-shows asset configuration, the
-`Translations → Presentation → Hud` chain, `Res<texts::presentation::Hud>`, a
-localized Bevy text entity and switching to Spanish. With a window, use your
-normal Bevy plugins and UI hierarchy; localization bindings work the same way.
-
-The executable source and its test live together in
-`examples/minimal/src/bin/typed_resources.rs`, not in this library's documentation.
-The example requires the consumer's build script and FTL files above; the bundled
-consumer also includes Russian and more test modules.
-The source-tree asset path is convenient for development; choose a deployment
-asset root explicitly when packaging your application.
+Rust minimum: **1.95 stable**. Select exactly one engine backend; disable defaults
+for an older backend. Never use runtime/workspace `--all-features`. Older engines
+retain read-only APIs without the 0.19 ECS immutability guarantee. The `build`
+feature with defaults disabled needs no backend. `codegen` adds the declaration
+macro, `watch` adds filesystem watching, and backends enable `runtime`.

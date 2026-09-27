@@ -17,9 +17,14 @@ fn main() {
 		},
 	))
 	.add_plugins(LocalizationPlugin::<texts::Translations>::new(
-		texts::CATALOG_ASSET_PATH,
+		texts::embed_manifest!(),
 	))
-	.add_systems(Startup, show_hud);
+	.add_systems(
+		Update,
+		show_hud
+			.run_if(resource_exists::<texts::presentation::Hud>)
+			.run_if(run_once),
+	);
 	app.finish();
 	app.cleanup();
 	app.update();

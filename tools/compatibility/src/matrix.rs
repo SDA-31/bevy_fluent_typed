@@ -88,7 +88,7 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 			"--prefix",
 			"none",
 			"--format",
-			"{p}",
+			"{p} features=[{f}]",
 		],
 		true,
 	)?;
@@ -102,9 +102,19 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 	let target_graph = String::from_utf8(target_graph.stdout)?;
 
 	for line in target_graph.lines() {
+		if line.starts_with("fluent_typed_codegen ")
+			&& line.split("features=[").nth(1).is_some_and(|features| {
+				features
+					.trim_end_matches(']')
+					.split(',')
+					.any(|feature| feature == "build")
+			}) {
+			return Err(format!("generation feature entered target graph: {line}").into());
+		}
+
 		if matches!(
 			line.split_whitespace().next(),
-			Some("fluent_typed_codegen" | "prettyplease" | "tempfile")
+			Some("prettyplease" | "tempfile")
 		) {
 			return Err(
 				format!("host-only generator dependency entered target graph: {line}").into(),
@@ -112,13 +122,13 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 		}
 	}
 
-	if runtime.iter().any(|(name, _)| {
-		matches!(
-			name.as_str(),
-			"bevy_fluent_codegen_bridge" | "fluent_typed_codegen"
-		)
-	}) {
-		return Err("runtime without codegen unexpectedly depends on the bridge/generator".into());
+	if runtime
+		.iter()
+		.any(|(name, _)| matches!(name.as_str(), "bevy_fluent_codegen_bridge" | "prettyplease"))
+	{
+		return Err(
+			"runtime without codegen unexpectedly depends on the bridge/generation code".into(),
+		);
 	}
 
 	fixture.success(&[

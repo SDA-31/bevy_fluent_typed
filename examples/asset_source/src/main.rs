@@ -28,7 +28,11 @@ fn main() -> AppExit {
 			MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_millis(16))),
 			AssetPlugin::default(),
 			LocalizationPlugin::<texts::Translations>::new(
-				"translations://localizations/localization.toml",
+				bevy_fluent_typed::LocalizationManifest::parse(
+					texts::CATALOG_CONFIG,
+					"translations://localizations/localization.toml",
+				)
+				.expect("example source contract"),
 			),
 		))
 		.add_systems(Update, show_title)
@@ -37,17 +41,22 @@ fn main() -> AppExit {
 
 fn show_title(
 	mut updates: CatalogUpdateReader<texts::Translations>,
-	hud: Res<texts::ui::Hud>,
+	hud: Option<Res<texts::ui::Hud>>,
 	mut exit: MessageWriter<AppExit>,
 ) {
 	for update in updates.read() {
 		match update {
-			// Wait for the custom source, rather than only printing the embedded fallback.
+			// A successful module event makes the corresponding typed resource available.
 			CatalogUpdate::Loaded {
 				locale: texts::Locale::En,
+				..
 			} => {
+				let Some(hud) = &hud else {
+					continue;
+				};
 				println!("{}", hud.msg_title());
 				exit.write(AppExit::Success);
+				return;
 			}
 			CatalogUpdate::Rejected { error, .. } => {
 				eprintln!("{error}");

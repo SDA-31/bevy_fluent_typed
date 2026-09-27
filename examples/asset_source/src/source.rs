@@ -8,13 +8,13 @@ pub(super) fn files() -> Dir {
 	files.insert_asset_text(Path::new(texts::CATALOG_ASSET_PATH), texts::CATALOG_CONFIG);
 
 	// Reuse build-time sources only to avoid adding an archive dependency to this example.
-	for (locale, path, source) in texts::MODULES {
+	for (locale, path, source) in texts::embed_manifest!().embedded_modules().unwrap() {
 		files.insert_asset_text(
 			&Path::new("localizations")
 				.join(texts::LANGUAGES_DIRECTORY)
 				.join(locale)
 				.join(path),
-			source,
+			std::str::from_utf8(source).unwrap(),
 		);
 	}
 

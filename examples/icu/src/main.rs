@@ -16,7 +16,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 			file_path: assets.to_string_lossy().into_owned(),
 			..default()
 		},
-		LocalizationPlugin::<texts::Translations>::new(texts::CATALOG_ASSET_PATH),
+		LocalizationPlugin::<texts::Translations>::new(texts::embed_manifest!()),
 	))
 	.insert_resource(formatting::NumberFormats::try_new(GroupingStrategy::Auto)?)
 	.add_systems(Startup, formatting::spawn_labels);
@@ -25,7 +25,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 	app.update();
 
 	// Reuse the same formatters and text entities across language changes.
-	// Embedded catalogs are available immediately; this example does not wait for I/O.
+	// Explicit embedded sources are parsed on demand without external I/O.
 	for &locale in texts::Translations::locales() {
 		app.world_mut()
 			.resource_mut::<Localization<texts::Translations>>()

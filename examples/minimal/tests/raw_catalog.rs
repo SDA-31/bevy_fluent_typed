@@ -3,13 +3,14 @@
 // The generated validator accesses this dependency through its parent scope.
 #[allow(clippy::single_component_path_imports)]
 use fluent_syntax;
-use localization_runtime::fluent_typed;
+use localization_runtime::{__fluent_codegen, fluent_typed};
 
 include!(concat!(env!("OUT_DIR"), "/translations.rs"));
 
 #[test]
 fn raw_root_include_and_standard_library_names_do_not_collide() {
-	let catalog: Translations = Locale::En.load();
+	let catalog: Translations =
+		Translations::from_manifest(Locale::En, &embed_manifest!()).unwrap();
 	let presentation: &Presentation = catalog.presentation();
 	let hud: &presentation::Hud = presentation.hud();
 	assert_eq!(hud.msg_title(), "Flight HUD");
@@ -24,7 +25,8 @@ fn raw_root_include_and_standard_library_names_do_not_collide() {
 
 #[test]
 fn translations_root_leaves_catalog_available_as_a_domain_module() {
-	let translations: Translations = Locale::En.load();
+	let translations: Translations =
+		Translations::from_manifest(Locale::En, &embed_manifest!()).unwrap();
 	let catalog: &Catalog = translations.catalog();
 	assert_eq!(catalog.msg_title(), "Product catalog");
 }

@@ -1,64 +1,43 @@
-//! Runtime trait implementation for the generated immutable translation tree.
-use fluent_typed_codegen::syn::{Item, parse_quote};
+//! Root provider descriptors carry schema and parsers, never embedded source text.
+use fluent_typed_codegen::{
+	Scope,
+	syn::{Expr, Item, parse_quote},
+};
 
-pub(super) fn implementation() -> Item {
+pub(super) fn implementation(scopes: &[Scope]) -> Item {
+	let modules: Vec<Expr> = scopes
+		.iter()
+		.filter_map(|scope| {
+			let path = scope.module_path.as_deref()?;
+			let ty = &scope.type_path;
+			Some(
+				parse_quote!(__fluent_runtime::Module::new::<#ty>(#path, |locale, bytes| {
+					#ty::new(locale, bytes).map_err(|error| error.to_string())
+				})),
+			)
+		})
+		.collect();
+	let types = scopes.iter().map(|scope| &scope.type_path);
+
 	parse_quote! {
 		impl __fluent_runtime::FluentCatalog for Translations {
 			type Locale = Locale;
+			type Modules<'a> = __bevy_views::Scope0<'a>;
 
-			fn locales() -> &'static [Locale] {
-				Locale::iter().as_slice()
+			fn locales() -> &'static [Locale] { Locale::iter().as_slice() }
+
+			fn default_locale() -> Locale { DEFAULT_LANGUAGE.parse().expect("build-validated default locale") }
+
+			fn source_locale() -> Locale { SOURCE_LANGUAGE.parse().expect("build-validated source locale") }
+
+			fn modules() -> ::std::vec::Vec<__fluent_runtime::Module<Self>> { ::std::vec![#(#modules,)*] }
+
+			fn scopes() -> ::std::vec::Vec<__fluent_runtime::ScopeRegistration<Self>> {
+				::std::vec![#(__fluent_runtime::ScopeRegistration::new::<#types>(),)*]
 			}
 
-			fn default_locale() -> Locale {
-				DEFAULT_LANGUAGE
-					.parse()
-					.expect("build-validated default locale")
-			}
-
-			fn descriptor(
-				definition: &[u8],
-			) -> ::std::result::Result<__fluent_runtime::CatalogDescriptor, ::std::string::String> {
-				__fluent_bridge::validate_definition(definition, &[
-					("translations-directory", LANGUAGES_DIRECTORY),
-					("source-language", SOURCE_LANGUAGE),
-					("default-language", DEFAULT_LANGUAGE),
-				])?;
-
-				::std::result::Result::Ok(__fluent_runtime::CatalogDescriptor {
-					modules_directory: LANGUAGES_DIRECTORY.into(),
-				})
-			}
-
-			fn embedded(locale: Locale) -> Self {
-				Self::embedded(locale)
-			}
-
-			fn modules(locale: Locale) -> ::std::vec::Vec<__fluent_runtime::Module> {
-				let code: &str = locale.as_ref();
-
-				MODULES
-					.iter()
-					.filter_map(|&(language, path, embedded)| {
-						(language == code).then_some(__fluent_runtime::Module { path, embedded })
-					})
-					.collect()
-			}
-
-			fn parse(
-				locale: Locale,
-				sources: &[__fluent_runtime::ModuleSource<'_>],
-			) -> ::std::result::Result<Self, ::std::string::String> {
-				let modules: ::std::vec::Vec<_> = sources
-					.iter()
-					.map(|module| (module.path, module.source))
-					.collect();
-
-				Self::from_modules(locale, &modules)
-			}
-
-			fn publish_resources(&self, world: &mut __fluent_runtime::bevy::prelude::World) {
-				self.__publish(world);
+			fn view(modules: &__fluent_runtime::ModuleStore<Self>) -> Self::Modules<'_> {
+				__bevy_views::Scope0 { modules }
 			}
 		}
 	}

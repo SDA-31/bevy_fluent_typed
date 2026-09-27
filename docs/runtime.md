@@ -1,124 +1,145 @@
-The example uses embedded catalogs immediately. External asset loading is
-asynchronous; this short example does not wait for it to finish. The separate
-`localization-example` binary waits for external catalogs and supports `--watch`.
+## Full, Lazy and hybrid loading
 
-## Running the examples
+`Localization<C, Full>` and `LocalizationPlugin<C, Full>` use Full by default.
+Full requests every module of the selected locale. It exposes no load/unload API.
+Lazy starts without demand:
 
-From a checkout of [the repository](https://github.com/SDA-31/bevy_fluent_typed):
+```rust,ignore
+use bevy_fluent_typed::{Lazy, Localization, LocalizationPlugin};
+app.add_plugins(LocalizationPlugin::<texts::Translations, Lazy>::new(manifest));
+// Equivalent initializer:
+// LocalizationPlugin::<texts::Translations>::new_lazy(manifest)
 
-```sh
-cargo run --manifest-path examples/minimal/Cargo.toml --bin typed_resources
-cargo run --manifest-path examples/minimal/Cargo.toml --bin localization-example -- --watch
-cargo run --manifest-path examples/codegen/Cargo.toml
-cargo run --manifest-path examples/no_codegen/Cargo.toml
-cargo run --manifest-path examples/icu/Cargo.toml
-cargo run --manifest-path examples/asset_source/Cargo.toml
+fn enter(mut localization: ResMut<Localization<texts::Translations, Lazy>>) {
+    localization.load::<texts::Presentation>();
+    localization.load::<texts::presentation::Hud>();
+}
+
+fn leave(mut localization: ResMut<Localization<texts::Translations, Lazy>>) {
+    localization.unload::<texts::Presentation>(); // Hud's independent request remains.
+}
 ```
 
-Use `--locked --offline` on later runs once dependencies and a lockfile exist.
-All examples run headlessly, without a GPU or window. `codegen` is the smallest
-generated consumer with an explicit build.rs; `no_codegen` has a handwritten
-provider and no build script. The larger `minimal` remains the integration suite.
+Requests are idempotent per scope type. Root requests need every leaf; group
+requests need descendants. Overlap is the union of outstanding requests. Hybrid
+loading means retaining a base scope request and loading other scopes as needed.
+A repeated failed `load` retries; accessors themselves never initiate loading.
+`Full` and `Lazy` implement the sealed `LoadingMode` trait.
 
-## Direct resources or deferred text?
+```compile_fail,E0599
+use bevy_fluent_typed::{FluentCatalog, Full, Localization};
+fn request<C: FluentCatalog>(state: &mut Localization<C, Full>) {
+    state.load::<C>();
+}
+```
 
-- **Direct module resource:** `Res<texts::presentation::Hud>` gives a system only
-  its own module's typed methods, suitable for immediate-mode UI or explicit
-  formatting. Root, folder and file resources share immutable catalogs via `Arc`.
-- **Chained borrow:** pass `&texts::Presentation` or `&texts::presentation::Hud`
-  to an ordinary function without exposing the whole translation tree.
-- **[`LocalizedText`]:** attach a deferred formatter to an existing Bevy `Text`
-  or `Text2d`. The plugin updates it after language changes and accepted reloads.
-  Capture owned arguments, not a previously translated string; replace the
-  component when its arguments change.
-- **[`Message`]:** keep deferred formatting without binding a text entity.
+```compile_fail,E0599
+use bevy_fluent_typed::{FluentCatalog, Full, Localization};
+fn release<C: FluentCatalog>(state: &mut Localization<C, Full>) {
+    state.unload::<C>();
+}
+```
 
-Change language through [`Localization::set_locale`], not individual module
-resources. Initialize `Localization::<Translations>::new(Locale::Es)` **before**
-adding the plugin to override startup language.
+```compile_fail
+use bevy_fluent_typed::{FluentCatalog, FluentScope, Lazy, Localization};
+fn wrong_root<C: FluentCatalog, S: FluentScope>(state: &mut Localization<C, Lazy>) {
+    state.load::<S>(); // S::Catalog must be C.
+}
+```
 
-Catalog immutability does not freeze displayed text. Replace a `LocalizedText`
-binding to choose another message, change captured arguments or transform its
-formatted result. Editable user drafts should use separate text components:
-direct edits to a bound `Text`/`Text2d` can be overwritten by the next binding or
-catalog refresh. In-memory editing of shared FTL templates is not currently a
-public runtime API; it would need checked, whole-catalog publication.
+```compile_fail
+use bevy_fluent_typed::LoadingMode;
+struct Other;
+impl LoadingMode for Other { const FULL: bool = false; }
+```
 
-## Decimal values and plural selection
+## Resources, navigation and bindings
 
-Use dedicated [ICU4X](https://docs.rs/icu/) or
-[ICU](https://unicode-org.github.io/icu/userguide/format_parse/) components for
-numbers, percentages, currencies and dates; their APIs and stability differ.
-ICU4X DecimalFormatter and PluralRules can supply text and a plural-category keyword
-to two generated String arguments. Prepare display precision once for both; Fluent
-matches the keyword to literal branches such as `[one]` or `[few]`. Native numeric
-selectors remain available, including exact `[0]` / `[1]` matches. The runtime
-does not add an ICU dependency or require a numeric-formatting feature.
+Complete root/group/leaf scopes are published as shared immutable resources.
+A leaf can exist while its parent/root is incomplete. `localization.catalog()`
+returns `Option<&C>`. Schema navigation remains available while unloaded:
 
-For deferred messages, capture a Decimal and reusable per-locale formatters;
-choose the formatter from the current catalog's locale when rendering. Capturing
-an already formatted string would keep the old language's digits and
-grammar. Replace a binding when its numeric input or precision policy changes.
-The [plural guide and FTL contract](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md#decimal-and-plural-arguments)
-and [compiled text-switch regression](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/minimal/tests/catalog/plurals.rs)
-show the two String arguments and their lifecycle.
+```rust,ignore
+let hud = localization.modules().presentation().hud()?;
+// `hud` borrows the controller's store, not a temporary view.
+let title = hud.msg_title();
+let message = Message::new(|hud: &texts::presentation::Hud| hud.msg_title());
+let binding = LocalizedText::<texts::presentation::Hud>::new(|hud| hud.msg_title());
+```
 
-Arabic number formatting is separate from visual RTL: preserve Fluent's default
-bidi isolation, and provide glyph shaping, bidi layout, fonts and UI mirroring
-through your rendering stack. These headless examples verify strings, not pixels.
+Group navigation returns another view. Leaf access returns `Result<&Leaf,
+ModuleError>` with locale, logical path and latest loading status. `status::<S>()`
+reports Unloaded/Loading/Ready/Failed. A failed reload can still have an available
+previous valid same-language value; availability and last-attempt status differ.
+`Message<S>`/`LocalizedText<S>` support leaf, group and root with no mode generic.
+Bindings update existing Text/Text2d entities, clearing text when their scope is
+unavailable and refreshing when inserted. They never request modules. Keep
+editable drafts separate and replace bindings when captured arguments change.
 
-## Hot reload and failures
+## Locale changes, failures and ownership
 
-Enable `watch` and Bevy's asset watcher. For the generated provider, compatible
-FTL prose edits reload without restarting. Changes to languages, modules, keys,
-references, argument contracts or configuration need regeneration and restart.
-Custom providers define their own compatibility policy. IDE regeneration and
-runtime hot reload are separate operations.
+`set_locale` keeps requests but clears previous-language state and handles.
+No automatic fallback or language cache exists. Startup follows the manifest's
+known default language unless a controller was inserted before the plugin.
+A mismatching source language or unknown default is rejected explicitly.
+Only one plugin mode may own a given root provider in an App.
 
-A valid **whole-language** snapshot replaces its last-known-good catalog. Invalid
-or unchanged edits leave that snapshot intact. One language may update while
-another fails validation; separate file saves are not one transaction. Embedded
-catalogs remain usable if external assets are absent or unreadable.
+Successful checked leaves publish independently. A same-language invalid reload
+retains that leaf's last good value; valid siblings can still update. Switching
+languages cannot reuse that old value as fallback. Every successful reload
+produces a fresh snapshot, including identical text. Idle frames and unchanged
+siblings keep resource identity and Bevy change ticks.
 
-Read [`CatalogUpdate`] after [`LocalizationSystems::Publish`] for success or
-failure details using [`CatalogUpdateReader`] and its `.read()` iterator. This is
-a Bevy `EventReader` on 0.16 and a `MessageReader` on newer backends, not another
-queue or an extra processing step. A `Rejected` event with `locale: None` means
-the definition or aggregate load failed; a locale identifies a rejected language candidate.
-`Loaded` does not necessarily mean the catalog changed.
+`CatalogUpdate::Loaded { locale, path }` and `Rejected { locale, path, error }`
+identify individual module attempts. Observe via `CatalogUpdateReader` after
+`LocalizationSystems::Publish`. Send `ReloadCatalogs` to retry demanded FTL,
+including initially missing files. It does not reread TOML: the supplied manifest
+is an immutable contract. Bevy 0.16 uses EventWriter/send_event; newer backends
+use MessageWriter/write_message. A read-but-invalid file remains watched and may
+recover automatically when `watch` and its source support watching.
 
-Send [`ReloadCatalogs`] to retry manually, including without file watching. A file
-that was read but rejected stays watched and can recover after correction. An
-initially missing file needs an explicit reload after it is created.
-On 0.16, send it through `EventWriter` / `World::send_event`; on newer backends,
-use `MessageWriter` / `World::write_message`.
+Localization-owned reloads are serialized per module, including requests queued
+while the initial read is pending; repeated pending retries coalesce. Loader
+revisions also prevent an earlier loader from replacing a later accepted result
+when their `read_to_end` futures complete in reverse order.
 
-## Schedule and ownership
+Automatic watcher reloads and direct application `AssetServer::reload` calls are
+outside that queue. Bevy opens an `AssetReader` before invoking the loader and
+exposes no request generation at that boundary. If an older reader-opening
+future completes after a newer one, chronology cannot be recovered by this
+integration. `AssetLoadFailedEvent` likewise carries no request generation,
+including failures inside the loader's `read_to_end`. Strict ordering therefore
+requires disabling automatic watching and routing reloads through `ReloadCatalogs`;
+custom sources must also
+provide coherent data. This crate does not wrap the application's reader or
+perform a second I/O pass to infer freshness.
 
-The plugin publishes embedded module resources immediately, before Startup.
-[`LocalizationSystems::Publish`] runs in PreUpdate, and publication also precedes
-PostUpdate's [`LocalizationSystems::Refresh`] text update.
+Publication occurs in PreUpdate's Publish and again before PostUpdate's Refresh.
+Even embedded parsing starts during an update, not plugin initialization. Update
+language changes reach resources in PostUpdate; order consumers after Refresh
+for synchronized text. The controller itself changes immediately, so earlier
+same-frame direct resources can still represent the preceding publication.
 
-If Update systems need newly selected module resources, select the language in
-PreUpdate before Publish. A switch during Update reaches direct module resources
-during PostUpdate's Refresh set; order PostUpdate consumers with
-`.after(LocalizationSystems::Refresh)` to observe the synchronized resources and
-text. The central `Localization` may be newer during that Update.
-Unchanged snapshots do not replace the direct module resources.
+Unloading the final request drops runtime strong handles, leaves and ancestor
+snapshots at synchronization; Bevy may finish retiring assets on later updates.
+Caller-owned clones can intentionally retain parsed resources. Embedded static
+source bytes cannot be freed. File-backed Lazy mode reads and retains only demand;
+choose reasonably sized FTL leaves when a language contains gigabytes of text.
+No hidden source String copy is retained just to compare reloads.
 
-The runtime owns asset loading, language state, publication and text bindings.
-It does not interpret the directory generator's TOML. The optional bridge owns
-that adapter; without it, implement [`FluentCatalog`] with your own checked parser,
-definition format and compatibility policy. The application owns fonts, layout,
-input, numeric formatting and how errors are presented to users.
+## Migration from registry 0.1.3
 
-## More detail
+Pass a `LocalizationManifest` instead of a path string to the plugin. Choose an
+explicit source, and replace implicit embedded startup assumptions with resource
+availability checks. `Locale::load`, `Translations::embedded`, provider
+`descriptor` and whole-language `parse` hooks are removed. Core accessors and
+Arc-backed scope types remain; direct bytes use `Leaf::new` or root
+`Translations::from_modules`, both checked by default. Safe `_unchecked` core
+constructors skip schema validation only, still checking UTF-8 and Fluent syntax.
+Separate validation methods permit checking data before loading it.
 
-- [Full guide: configuration, contracts, custom providers and scheduling](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md)
-- [Headless examples and their assets](https://github.com/SDA-31/bevy_fluent_typed/tree/main/examples/minimal)
-- [Optional codegen bridge](https://github.com/SDA-31/bevy_fluent_typed/tree/main/codegen_bridge)
-- [Independent directory generator](https://github.com/SDA-31/fluent_typed_codegen)
-
-These repository links follow `main`; the API reference on this page describes
-the crate version being viewed. MIT covers this library and its examples, not
-your application or its translation assets.
+Handwritten providers implement `FluentScope` and `FluentCatalog`, declaring
+checked `Module::new::<Leaf>` parsers and `ScopeRegistration::new::<Scope>`
+assembly hooks. Assembly shares ready children and must not reread or reparse.
+See the no_codegen example for the smallest provider. Numeric formatting,
+fonts, shaping, storage transports and error presentation remain application policy.

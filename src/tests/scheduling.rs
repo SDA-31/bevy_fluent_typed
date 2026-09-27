@@ -31,9 +31,7 @@ fn observe(ui: Query<&Text>, world: Query<&Text2d>, mut seen: ResMut<Seen>) {
 fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, AssetPlugin::default()))
-		.add_plugins(LocalizationPlugin::<TestCatalog>::new(
-			"missing-test.definition",
-		))
+		.add_plugins(LocalizationPlugin::<TestCatalog>::new(super::manifest()))
 		.init_resource::<Seen>()
 		.add_systems(Update, switch);
 

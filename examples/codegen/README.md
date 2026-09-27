@@ -1,3 +1,5 @@
+**Unreleased loading API:** use the matching Git dependencies and generator patch in [the root README](../../README.md#development-setup).
+
 # Minimal example: codegen
 
 One Fluent module, three languages, typed `texts::ui::Greeting` resources.
@@ -5,8 +7,10 @@ The program prints English, Spanish and Russian greetings, then exits. No window
 GPU, watcher loop or extra test catalogs are needed.
 
 ```sh
-cargo run --manifest-path examples/codegen/Cargo.toml
-cargo test --manifest-path examples/codegen/Cargo.toml
+localization_generator_git='patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen"'
+localization_generator_rev='patch.crates-io.fluent_typed_codegen.rev="0e5ed447cc08553818a240fc6cfe736aa67fb4b3"'
+cargo run --manifest-path examples/codegen/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
+cargo test --manifest-path examples/codegen/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
 ```
 
 Run these from the runtime repository. In an enclosing workspace you can also use
@@ -27,12 +31,12 @@ uses the public build facade introduced in 0.1.1; the local path tests this chec
 `texts::ui::Greeting`. Asset paths and discovery come from the manifest and TOML,
 not from a language list in build.rs. The bridge validates sources and explicitly
 registers file/directory changes with Cargo. Its generator runs in the host build
-graph, not inside the application. See [the guide](../../GUIDE.md#3-generate-and-index).
+graph, not inside the application. See [the guide](../../README.md#development-setup).
 
 For a generator-free provider see [no_codegen](../no_codegen). For deferred
 messages, typed arguments and live edits see the larger [integration suite](../minimal).
 
-The application uses embedded catalogs immediately. [tests/output.rs](tests/output.rs)
+The application explicitly embeds source bytes and parses the selected language during an update. [tests/output.rs](tests/output.rs)
 checks the executable's three greetings; there is no test collection wrapper in main.
 
 [MIT](LICENSE).
