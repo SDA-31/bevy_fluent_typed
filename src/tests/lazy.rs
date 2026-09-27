@@ -8,7 +8,7 @@ use crate::bevy::tasks::futures_lite::io::AsyncRead;
 use crate::{Full, Lazy, Localization, LocalizationPlugin, LocalizedText, ModuleStatus};
 use std::{
 	any::TypeId,
-	path::Path,
+	path::{Path, PathBuf},
 	pin::Pin,
 	sync::{
 		Arc, Mutex,
@@ -20,7 +20,7 @@ use std::{
 
 #[derive(Default)]
 struct Gate {
-	state: Mutex<(bool, Vec<String>, Vec<Waker>)>,
+	state: Mutex<(bool, Vec<PathBuf>, Vec<Waker>)>,
 	in_loader: AtomicBool,
 	pass_new_reads: AtomicBool,
 }
@@ -99,12 +99,7 @@ impl AssetReader for ControlledReader {
 	async fn read<'a>(&'a self, path: &'a Path) -> Result<impl Reader + 'a, AssetReaderError> {
 		let gated = !self.gate.pass_new_reads.load(Ordering::SeqCst);
 		let in_loader = self.gate.in_loader.load(Ordering::SeqCst);
-		self.gate
-			.state
-			.lock()
-			.unwrap()
-			.1
-			.push(path.to_string_lossy().into_owned());
+		self.gate.state.lock().unwrap().1.push(path.to_owned());
 		let reader = self.inner.read(path).await;
 
 		if gated && !in_loader {
@@ -307,7 +302,13 @@ fn no_io_until_demand_and_pending_locale_results_cannot_publish_into_current_lan
 		assert_eq!(app.world().resource::<TestCatalog>().0, "es");
 	}
 	let paths = &gate.state.lock().unwrap().1;
-	assert_eq!(paths, &["nested/data/ja/ui.ftl", "nested/data/es/ui.ftl"]);
+	assert_eq!(
+		paths,
+		&[
+			PathBuf::from("nested/data/ja/ui.ftl"),
+			PathBuf::from("nested/data/es/ui.ftl"),
+		]
+	);
 }
 
 #[test]
