@@ -1,22 +1,16 @@
-**Unreleased loading API:** use the matching Git dependencies and generator patch in [the root README](../../README.md#development-setup).
-
 # Minimal example: codegen
 
 One Fluent module, three languages, typed `texts::ui::Greeting` resources.
 The program prints English, Spanish and Russian greetings, then exits. No window,
 GPU, watcher loop or extra test catalogs are needed.
 
-These commands build this 0.2.0 checkout with the matching generator from Git;
-no separate generator checkout is needed. If your workspace already patches
-that generator, omit both `--config` arguments. To set up a new application,
-use the
-[root quickstart](../../README.md#development-setup).
+These commands build this checkout and resolve generator 0.2.0 from crates.io.
+For local generator development, use the [local generator patch](../../docs/build.md#work-on-local-checkouts).
+For a new application, follow the [root quickstart](../../README.md#setup).
 
 ```sh
-localization_generator_git='patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen"'
-localization_generator_rev='patch.crates-io.fluent_typed_codegen.rev="b6d4f29589ce52d6f873f98ea82bd94d1b919345"'
-cargo run --manifest-path examples/codegen/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
-cargo test --manifest-path examples/codegen/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
+cargo run --manifest-path examples/codegen/Cargo.toml
+cargo test --manifest-path examples/codegen/Cargo.toml
 ```
 
 Run these from the runtime repository. In an enclosing workspace you can also use
@@ -37,7 +31,7 @@ uses the public build facade introduced in 0.1.1; the local path tests this chec
 `texts::ui::Greeting`. Asset paths and discovery come from the manifest and TOML,
 not from a language list in build.rs. The bridge validates sources and explicitly
 registers file/directory changes with Cargo. Its generator runs in the host build
-graph, not inside the application. See [the guide](../../README.md#development-setup).
+graph, not inside the application. See [the guide](../../README.md#setup).
 
 For a generator-free provider see [no_codegen](../no_codegen). For deferred
 messages, typed arguments and live edits see the larger [integration suite](../minimal).

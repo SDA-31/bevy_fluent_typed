@@ -2,16 +2,12 @@
 
 From the Bevy localization repository root, run:
 
-These commands build this 0.2.0 checkout with the matching generator from Git;
-no separate generator checkout is needed. If your workspace already patches
-that generator, omit both `--config` arguments. To set up a new application,
-use the
-[root quickstart](../../../README.md#development-setup).
+The command resolves generator 0.2.0 from crates.io. For local development, use the
+[local generator patch](../../../docs/build.md#work-on-local-checkouts).
+For application setup, follow the [quickstart](../../../README.md#setup).
 
 ```sh
-localization_generator_git='patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen"'
-localization_generator_rev='patch.crates-io.fluent_typed_codegen.rev="b6d4f29589ce52d6f873f98ea82bd94d1b919345"'
-cargo test --manifest-path examples/minimal/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
+cargo test --manifest-path examples/minimal/Cargo.toml
 ```
 
 Application usage is documented in the [example README](../README.md). The tests

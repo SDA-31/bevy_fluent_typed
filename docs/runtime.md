@@ -84,8 +84,8 @@ includes `AssetPlugin`). Use your normal event loop instead of this example's
 `MinimalPlugins` and console exit system.
 
 For embedded bytes, this same program can select `texts::embed_manifest!(module = texts::presentation::Hud)` and keep its
-existing HUD request. Follow the [embedding recipe](https://github.com/SDA-31/bevy_fluent_typed/blob/feat/runtime-module-loading/README.md#explicit-embedding):
-the quickstart's Git revisions support typed selection. Embedding chooses which
+existing HUD request. Follow the [embedding recipe](https://github.com/SDA-31/bevy_fluent_typed/blob/main/README.md#explicit-embedding):
+embedding chooses which
 raw bytes enter the binary; Lazy requests choose which modules get parsed.
 Use `texts::embed_manifest!()` to include the pause screen for the next section too.
 
@@ -306,26 +306,9 @@ a custom reader must supply coherent data as well.
 
 ## Migration from registry 0.1.3
 
-| Previous usage | Unreleased API |
-| --- | --- |
-| Plugin receives a manifest path string | Pass a prepared `LocalizationManifest` |
-| Implicit embedded startup | Choose files or explicitly invoke `texts::embed_manifest!()` |
-| `Locale::load` / `Translations::embedded` | Core byte constructors or explicit manifest loading |
-| `localization.catalog()` is always ready | Handle `Option<&Translations>` or read a ready leaf resource |
-| Every message needs the root | Use `Message<Leaf>` / `LocalizedText<Leaf>` where possible |
-| Whole-language provider parsing | Per-leaf `Module` parsers and `FluentScope` assembly |
-
-Typed message accessors and Arc-backed generated scope types remain. Direct core
-constructors `Leaf::new` and `Translations::from_modules` validate by default.
-Safe `_unchecked` counterparts skip schema validation, still checking UTF-8 and
-Fluent syntax. Separate validation methods let applications check data without
-retaining a runtime scope.
-
-Handwritten providers implement `FluentScope` and `FluentCatalog` with checked
-`Module::new::<Leaf>` parsers and `ScopeRegistration::new::<Scope>` assembly.
-Assembly shares already-ready children and must not reread or reparse sources.
-See `examples/no_codegen` for a complete provider. Only one plugin/controller
-mode may own a given root type in an App.
+Follow the [0.2.0 migration guide](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) for dependency updates, before/after
+initialization, readiness handling, optional Lazy adoption and handwritten providers.
+The shortest upgrade keeps Full mode and existing typed message calls.
 
 ## Compile-time mode boundaries
 

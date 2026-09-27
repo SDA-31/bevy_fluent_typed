@@ -1,12 +1,9 @@
 Typed Fluent messages for Bevy. Generate typed accessors in `build.rs`, then read
 translations through Bevy's asset system or explicitly embed them.
 
-**0.2.0 (Unreleased):** this guide describes `feat/runtime-module-loading`. The
-published runtime/bridge 0.1.3 and generator 0.1.4 have a different loading API.
-The Git revisions below provide the 0.2.0 API, including typed embedded selection.
-Version 0.2.0 is not published on crates.io; use these matching source revisions.
+[Migrate from 0.1.3](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) · [Changelog](https://github.com/SDA-31/bevy_fluent_typed/blob/main/CHANGELOG.md)
 
-## Development setup
+## Setup
 
 Start with `cargo new localized-app`, then work inside `localized-app`.
 Use Rust 1.95 or newer. Replace `Cargo.toml` with:
@@ -19,24 +16,20 @@ edition = "2024"
 
 [dependencies]
 bevy = { version = "0.19", default-features = false, features = ["std", "async_executor", "multi_threaded", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }
-bevy_fluent_typed = { git = "https://github.com/SDA-31/bevy_fluent_typed", rev = "6286f85b809b61e2786308535ad005b53857125e", features = ["codegen"] } # feat/runtime-module-loading
+bevy_fluent_typed = { version = "0.2.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { git = "https://github.com/SDA-31/bevy_fluent_typed", rev = "6286f85b809b61e2786308535ad005b53857125e", default-features = false, features = ["build"] } # feat/runtime-module-loading
-
-[patch.crates-io]
-fluent_typed_codegen = { git = "https://github.com/SDA-31/fluent_typed_codegen", rev = "b6d4f29589ce52d6f873f98ea82bd94d1b919345" }
+bevy_fluent_typed = { version = "0.2.0", default-features = false, features = ["build"] }
 
 [package.metadata.localization]
 asset-root = "assets"
 catalog = "localizations/localization.toml"
 ```
 
-The patch selects the matching unreleased generator. Put it in the **workspace
-root** if this application belongs to a workspace. Edition 2024 uses Cargo
-resolver 3; an explicit workspace must use resolver 2 or 3. Keep the same crate
-name in both dependency sections. Enable the Bevy backend only on the normal
-dependency, and `build` only on the build-dependency.
+The runtime resolves the matching bridge and generator from crates.io; no patch
+is needed. Edition 2024 uses Cargo resolver 3; an explicit workspace must use
+resolver 2 or 3. Keep the same crate name in both dependency sections. Enable
+the Bevy backend only on the normal dependency, and `build` only on the build-dependency.
 
 Create `build.rs` beside `Cargo.toml`:
 
@@ -196,7 +189,7 @@ A Lazy application can select just its HUD by type:
 let manifest = texts::embed_manifest!(module = texts::presentation::Hud);
 ```
 
-The Git dependencies above support this selector. Request the same leaf through
+Request the same leaf through
 `localization.load::<texts::presentation::Hud>()`.
 The manifest contains its bytes across known languages, without the pause module.
 Select `texts::Presentation` for that group's descendants, or

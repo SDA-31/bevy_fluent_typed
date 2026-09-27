@@ -1,5 +1,3 @@
-**Unreleased loading API:** use the matching Git dependencies and generator patch in [the root README](../../README.md#development-setup).
-
 # Custom asset source with codegen
 
 Load a generated `texts::ui::Hud` resource through a named Bevy asset source.
@@ -11,17 +9,13 @@ the default Bevy 0.19 backend and adds no archive dependency.
 
 From this repository:
 
-These commands build this 0.2.0 checkout with the matching generator from Git;
-no separate generator checkout is needed. If your workspace already patches
-that generator, omit both `--config` arguments. To set up a new application,
-use the
-[root quickstart](../../README.md#development-setup).
+These commands build this checkout and resolve generator 0.2.0 from crates.io.
+For local generator development, use the [local generator patch](../../docs/build.md#work-on-local-checkouts).
+For a new application, follow the [root quickstart](../../README.md#setup).
 
 ```sh
-localization_generator_git='patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen"'
-localization_generator_rev='patch.crates-io.fluent_typed_codegen.rev="b6d4f29589ce52d6f873f98ea82bd94d1b919345"'
-cargo run --manifest-path examples/asset_source/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
-cargo test --manifest-path examples/asset_source/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
+cargo run --manifest-path examples/asset_source/Cargo.toml
+cargo test --manifest-path examples/asset_source/Cargo.toml
 ```
 
 ## Start here
@@ -72,6 +66,6 @@ fixtures. These are not additional resources or steps required by an application
 Run them with `cargo test`; `cargo run` performs no test mutations.
 
 Local path dependencies test this checkout. Public installation instructions are
-in the main [README](../../README.md#development-setup).
+in the main [README](../../README.md#setup).
 
 [MIT](LICENSE).
