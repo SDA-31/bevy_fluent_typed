@@ -45,3 +45,34 @@ fn macro_resolves_the_renamed_runtime_and_consumer_build_output() {
 	);
 	assert_eq!(fixture::texts::MODULES, crate::texts::MODULES);
 }
+
+#[test]
+fn typed_embedding_resolves_nested_modules_and_import_aliases() {
+	use fixture::texts::presentation::Hud as FlightHud;
+
+	let selected = fixture::texts::embed_manifest!(module = FlightHud);
+	let direct = fixture::texts::embed_manifest!(module = fixture::texts::presentation::Hud);
+	assert_eq!(selected.embedded_modules(), direct.embedded_modules());
+	assert!(
+		selected
+			.embedded_modules()
+			.unwrap()
+			.iter()
+			.all(|(_, path, _)| *path == "presentation/hud.ftl")
+	);
+	let hud = FlightHud::from_manifest(fixture::texts::Locale::En, &selected).unwrap();
+	assert_eq!(hud.msg_title(), "Flight HUD");
+
+	let group = fixture::texts::embed_manifest!(module = fixture::texts::Presentation);
+	assert!(
+		group
+			.embedded_modules()
+			.unwrap()
+			.iter()
+			.all(|(_, path, _)| path.starts_with("presentation/"))
+	);
+	let group_hud = FlightHud::from_manifest(fixture::texts::Locale::En, &group).unwrap();
+	fixture::texts::presentation::Panel::from_manifest(fixture::texts::Locale::En, &group).unwrap();
+	assert_eq!(group_hud.msg_title(), hud.msg_title());
+	assert!(group.read("en", "ui.ftl").is_err());
+}

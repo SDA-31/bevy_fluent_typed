@@ -3,6 +3,8 @@
 ## 0.2.0 (Unreleased) — explicit module loading
 
 - Plugin constructors accept a shared immutable LocalizationManifest; generated payloads are opt-in.
+- Select embedded leaves and groups by their generated Rust paths, including
+  `use` aliases; no unselected payload is included, even in unoptimized builds.
 - Full and Lazy modes select eager selected-language loading or explicit root/group/leaf demand; overlapping requests remain independent.
 - Typed module navigation, partial resources and scoped messages support incomplete trees.
 - Unavailable bindings clear, locale changes release old-language state, and same-language reloads publish checked leaves independently.

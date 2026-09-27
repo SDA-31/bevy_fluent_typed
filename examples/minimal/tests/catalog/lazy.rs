@@ -17,6 +17,46 @@ fn app() -> App {
 	app
 }
 
+#[test]
+fn lazy_plugin_loads_from_a_typed_leaf_only_embedded_manifest() {
+	let mut app = App::new();
+	app.add_plugins((
+		MinimalPlugins,
+		AssetPlugin::default(),
+		LocalizationPlugin::<Translations, Lazy>::new(texts::embed_manifest!(
+			module = texts::presentation::Hud
+		)),
+	));
+	app.finish();
+	app.cleanup();
+	app.world_mut()
+		.resource_mut::<Localization<Translations, Lazy>>()
+		.load::<texts::presentation::Hud>();
+	app.update();
+	assert_eq!(
+		app.world()
+			.resource::<texts::presentation::Hud>()
+			.msg_title(),
+		"Flight HUD"
+	);
+	assert!(
+		!app.world()
+			.contains_resource::<texts::presentation::Panel>()
+	);
+	assert!(!app.world().contains_resource::<Translations>());
+
+	app.world_mut()
+		.resource_mut::<Localization<Translations, Lazy>>()
+		.set_locale(Locale::Es);
+	app.update();
+	assert_eq!(
+		app.world()
+			.resource::<texts::presentation::Hud>()
+			.msg_title(),
+		"Panel de vuelo"
+	);
+}
+
 fn assert_idle<M: LoadingMode>(mut app: App) {
 	app.add_systems(
 		Update,

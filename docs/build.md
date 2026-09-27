@@ -54,3 +54,26 @@ is its build-time asset address. Reusing them at runtime is convenient, but
 optional: the application can pass another compatible source contract and choose
 another asset root. No generated FTL payload is embedded unless the application
 explicitly invokes `embed_manifest!()`.
+
+## Use the current local 0.2.0 checkout
+
+The quickstart's pinned public Git revisions predate typed embedded selection.
+To use `texts::embed_manifest!(module = texts::presentation::Hud)` now, replace
+the quickstart's runtime/build entries and generator patch with these local
+paths. Keep its other dependencies, metadata, `build.rs` and source files.
+Replace both absolute paths with your existing 0.2.0 checkouts:
+
+```toml
+[dependencies]
+bevy_fluent_typed = { path = "/absolute/path/to/bevy_fluent_typed", features = ["codegen"] }
+
+[build-dependencies]
+bevy_fluent_typed = { path = "/absolute/path/to/bevy_fluent_typed", default-features = false, features = ["build"] }
+
+[patch.crates-io]
+fluent_typed_codegen = { path = "/absolute/path/to/fluent_typed_codegen" }
+```
+
+The runtime checkout supplies its own companion bridge. Put the patch in the
+workspace root when the consumer belongs to a workspace. This is development
+wiring, not a registry installation command; 0.2.0 is not published yet.

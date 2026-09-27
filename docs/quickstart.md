@@ -190,11 +190,24 @@ known language's raw FTL. The selected language is parsed during plugin updates,
 so readiness checks still apply. Static source bytes stay in the executable for
 its lifetime; no compressor or decompressor is involved.
 
-For a Lazy application that only needs the HUD, use
-`texts::embed_manifest!(module = "presentation/hud.ftl")` and request only that
-leaf. This embeds that file across known languages; it does not supply the pause
-module. Group selection is not supported. The macro is crate-local even when
-`texts` is public; a library can expose a function returning its chosen manifest.
+With the current **local 0.2.0 checkout**, a Lazy application can select just
+its HUD by type:
+
+```rust,ignore
+let manifest = texts::embed_manifest!(module = texts::presentation::Hud);
+```
+
+This typed selector is newer than the pinned Git snapshot above; use the
+[local checkout setup](https://github.com/SDA-31/bevy_fluent_typed/blob/feat/runtime-module-loading/docs/build.md#use-the-current-local-020-checkout)
+for this variant. Request the same leaf through `localization.load::<texts::presentation::Hud>()`.
+The manifest contains its bytes across known languages, without the pause module.
+Select `texts::Presentation` for that group's descendants, or
+`texts::Translations` for the whole tree. `use` imports, including `as` aliases,
+work; arbitrary `type` aliases and generic parameters do not select recipes.
+
+Unselected payloads are absent even in debug builds without optimization, LTO
+or linker dead-code removal. The macro is crate-local even when `texts` is public;
+a library can expose a function returning its chosen manifest.
 
 ## Supported engines
 
