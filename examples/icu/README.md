@@ -1,3 +1,5 @@
+**Unreleased loading API:** use the matching Git dependencies and generator patch in [the root README](../../README.md#development-setup).
+
 # ICU4X formatters as Bevy resources
 
 A headless application that creates Decimal and percentage formatters once per
@@ -13,15 +15,23 @@ bridge. There is no custom formatter trait to implement.
 
 From a checkout of this repository:
 
+These commands build this 0.2.0 checkout with the matching generator from Git;
+no separate generator checkout is needed. If your workspace already patches
+that generator, omit both `--config` arguments. To set up a new application,
+use the
+[root quickstart](../../README.md#development-setup).
+
 ```sh
-cargo run --manifest-path examples/icu/Cargo.toml
-cargo test --manifest-path examples/icu/Cargo.toml
+localization_generator_git='patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen"'
+localization_generator_rev='patch.crates-io.fluent_typed_codegen.rev="b6d4f29589ce52d6f873f98ea82bd94d1b919345"'
+cargo run --manifest-path examples/icu/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
+cargo test --manifest-path examples/icu/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
 ```
 
 Use `--locked --offline` after the initial dependency resolution. In the enclosing
 development workspace the package is named `localization-icu-example`.
 Repository-local paths in Cargo.toml test this checkout; external applications
-use the runtime's [versioned dependency setup](../../README.md#optional-generation).
+use the runtime's [unreleased Git setup](../../README.md#development-setup).
 The build script explicitly calls `bevy_fluent_typed::build()`.
 
 Assets are ordinary modular FTL under
@@ -82,8 +92,8 @@ ICU payloads across Bevy threads. Formatter initialization errors are returned
 from startup. Demonstration values are bounded; validate arbitrary input and
 scaling/rounding limits according to your application's numeric domain.
 
-The app immediately uses embedded catalogs and does not wait for asynchronous
-asset loading. The separate [integration suite](../minimal) tests real filesystem
+The app explicitly embeds source bytes and parses them during updates. It does
+not perform asynchronous file loading. The separate [integration suite](../minimal) tests real filesystem
 hot reload. String assertions preserve Fluent isolation but do not prove visual
 RTL layout, glyph shaping, fonts or UI mirroring.
 

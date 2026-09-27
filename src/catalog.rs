@@ -1,85 +1,85 @@
-//! Application-supplied generated API and its modular source catalogs.
-use crate::bevy::prelude::World;
-use std::path::PathBuf;
+//! Provider contracts for independently parsed leaves and complete typed scopes.
+use crate::bevy::prelude::Resource;
+use crate::{ModuleStore, ScopeRegistration};
+use std::{
+	any::{Any, TypeId},
+	sync::Arc,
+};
 
-/// Validated source layout, relative to the loaded definition asset's directory.
-///
-/// A provider interprets its own definition format. The runtime validates these
-/// asset addresses, watches declared modules and publishes checked snapshots.
-pub struct CatalogDescriptor {
-	/// Directory containing locale subdirectories; `.` means the definition's parent.
-	/// Must be a nonempty UTF-8 relative path without parent/root/prefix components,
-	/// backslashes, `#` or `:`. Modules inherit the definition's named Bevy asset source.
-	pub modules_directory: PathBuf,
-}
+pub(crate) type SharedScope = Arc<dyn Any + Send + Sync>;
+type Parser<C> =
+	dyn Fn(<C as FluentCatalog>::Locale, &[u8]) -> Result<SharedScope, String> + Send + Sync;
 
-/// One source module relative to a language directory, with its original embedded text.
-#[derive(Clone, Copy, Debug)]
-pub struct Module {
-	/// Relative UTF-8 path below a locale directory, e.g. `ui/menu.ftl`.
-	/// Must name a file, with no parent/root/prefix components, backslashes, `#` or `:`.
+/// A checked leaf parser associated with a logical FTL path.
+pub struct Module<C: FluentCatalog> {
+	/// Path below a language directory, e.g. `ui/menu.ftl`.
 	pub path: &'static str,
-	/// Original source used to recognize unchanged external modules.
-	/// Must correspond to [`FluentCatalog::embedded`]; schema validation is provider-owned.
-	pub embedded: &'static str,
+	pub(crate) scope: TypeId,
+	pub(crate) parse: Arc<Parser<C>>,
 }
 
-/// One external Fluent module, identified by path rather than input order.
-#[derive(Clone, Copy, Debug)]
-pub struct ModuleSource<'a> {
-	/// Relative path below the language directory.
-	pub path: &'a str,
-	/// Unmodified Fluent source for this module.
-	pub source: &'a str,
+impl<C: FluentCatalog> Module<C> {
+	/// Describe a leaf and its checked parser, without loading any source bytes.
+	pub fn new<S: FluentScope<Catalog = C>>(
+		path: &'static str,
+		parse: impl Fn(C::Locale, &[u8]) -> Result<S, String> + Send + Sync + 'static,
+	) -> Self {
+		Self {
+			path,
+			scope: TypeId::of::<S>(),
+			parse: Arc::new(move |locale, bytes| {
+				parse(locale, bytes).map(|value| Arc::new(value) as SharedScope)
+			}),
+		}
+	}
 }
 
-/// Runtime contract for an application's typed catalog.
+/// One generated root, directory group or independently loadable leaf.
 ///
-/// Providers supply descriptors and checked snapshots; generation and definition
-/// formats are not part of this runtime contract. The optional companion
-/// `bevy_fluent_codegen_bridge` generates an implementation for directory catalogs.
+/// Providers are immutable snapshots. Cloning should share parsed resources;
+/// generated scopes use `Arc`. Assembly must not read files or reparse Fluent.
+pub trait FluentScope: Resource + Clone {
+	/// Root provider owning this scope's locale and module schema.
+	type Catalog: FluentCatalog;
+
+	/// All logical leaves required to make this scope complete.
+	fn module_paths() -> &'static [&'static str];
+
+	/// Assemble a complete scope from ready children, or return `None`.
+	/// Leaf implementations clone their existing value from `modules`.
+	fn assemble(modules: &ModuleStore<Self::Catalog>) -> Option<Self>;
+}
+
+/// Root provider connecting compiled typed schemas to the Bevy runtime.
 ///
-/// Locale identifiers must be unique nonempty directory names. The locale list
-/// must include the default, and every locale must provide the same module/API
-/// schema. Embedded catalogs are trusted build-time-validated fallbacks.
-pub trait FluentCatalog: Send + Sync + Sized + 'static {
-	/// Stable locale identifier; `AsRef<str>` must return its directory name.
+/// Generation is optional. Handwritten providers implement the same scope and
+/// checked-leaf contracts. Sources are supplied separately through a manifest.
+pub trait FluentCatalog: FluentScope<Catalog = Self> {
+	/// Stable compiled locale code; identifiers must be unique directory names.
 	type Locale: Copy + Eq + Send + Sync + AsRef<str> + 'static;
 
-	/// All compiled locales, in a stable, nonempty order, with no duplicates.
+	/// Typed navigation over the schema, including partially loaded trees.
+	type Modules<'a>
+	where
+		Self: 'a;
+
+	/// All known locales in a stable nonempty order.
 	fn locales() -> &'static [Self::Locale];
 
-	/// Startup language, which must belong to [`Self::locales`].
+	/// Startup language, present in `locales`.
 	fn default_locale() -> Self::Locale;
 
-	/// Interpret and validate an opaque definition asset before loading its modules.
-	///
-	/// # Errors
-	/// Reject incompatible definitions without changing any published language.
-	fn descriptor(definition: &[u8]) -> Result<CatalogDescriptor, String>;
+	/// Locale whose annotations define the compiled schema.
+	fn source_locale() -> Self::Locale {
+		Self::default_locale()
+	}
 
-	/// Load a build-validated embedded catalog without filesystem access.
-	fn embedded(locale: Self::Locale) -> Self;
+	/// Checked parsers for all unique logical leaves; no source bytes or I/O.
+	fn modules() -> Vec<Module<Self>>;
 
-	/// Every source module for a locale; paths and schemas must match across locales.
-	/// Paths must be unique and iteration order stable across calls, so unchanged
-	/// ordered sources can retain their snapshot and module-resource change-detection state.
-	fn modules(locale: Self::Locale) -> Vec<Module>;
+	/// Root, groups and leaves, ordered with parents before their children.
+	fn scopes() -> Vec<ScopeRegistration<Self>>;
 
-	/// Parse external modules without discarding their namespaces.
-	///
-	/// # Errors
-	/// Return a diagnostic when any source cannot supply this catalog's typed API.
-	/// Providers must validate complete module inventory, keys, references and typed
-	/// arguments here. The runtime never publishes a partially checked candidate.
-	fn parse(locale: Self::Locale, sources: &[ModuleSource<'_>]) -> Result<Self, String>;
-
-	/// Publish immutable module resources from this complete catalog snapshot.
-	///
-	/// Called with exclusive World access at initialization and when the active
-	/// snapshot changes. Generated implementations share parsed data through `Arc`.
-	/// Publish the entire resource tree in this call; ordinary scheduled systems
-	/// cannot observe intermediate inserts.
-	/// Custom providers without module resources may keep this default.
-	fn publish_resources(&self, _world: &mut World) {}
+	/// Construct the schema-navigation view without triggering loading.
+	fn view(modules: &ModuleStore<Self>) -> Self::Modules<'_>;
 }

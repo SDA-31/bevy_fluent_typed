@@ -1,14 +1,30 @@
-//! A deliberately small handwritten provider: one argument-free Fluent message.
-//! More messages/arguments require their own validation; codegen automates that.
+//! Handwritten checked provider for one argument-free Fluent leaf/root.
+use bevy_fluent_typed::bevy::{ecs as bevy_ecs, prelude::Resource};
 use bevy_fluent_typed::fluent_typed::prelude::L10nBundle;
-use bevy_fluent_typed::{CatalogDescriptor, FluentCatalog, Module, ModuleSource};
+use bevy_fluent_typed::{
+	FluentCatalog, FluentScope, LocalizationManifest, Module, ModuleStore, ScopeRegistration,
+};
 
+#[derive(Resource, Clone)]
 pub(super) struct Texts {
 	pub(super) hello: String,
 }
 
+impl FluentScope for Texts {
+	type Catalog = Self;
+
+	fn module_paths() -> &'static [&'static str] {
+		&["ui/greeting.ftl"]
+	}
+
+	fn assemble(modules: &ModuleStore<Self>) -> Option<Self> {
+		modules.get::<Self>().ok().cloned()
+	}
+}
+
 impl FluentCatalog for Texts {
 	type Locale = &'static str;
+	type Modules<'a> = &'a ModuleStore<Self>;
 
 	fn locales() -> &'static [Self::Locale] {
 		&["en", "es", "ru"]
@@ -18,67 +34,33 @@ impl FluentCatalog for Texts {
 		"en"
 	}
 
-	fn descriptor(definition: &[u8]) -> Result<CatalogDescriptor, String> {
-		let source = std::str::from_utf8(definition).map_err(|error| error.to_string())?;
-		let document = source
-			.parse::<toml_edit::DocumentMut>()
-			.map_err(|error| error.to_string())?;
-
-		if document.len() != 1
-			|| document
-				.get("translations-directory")
-				.and_then(|item| item.as_str())
-				!= Some("translations")
-		{
-			return Err("expected only translations-directory = \"translations\"".into());
-		}
-
-		Ok(CatalogDescriptor {
-			modules_directory: "translations".into(),
-		})
+	fn modules() -> Vec<Module<Self>> {
+		vec![Module::new::<Self>("ui/greeting.ftl", Self::parse)]
 	}
 
-	fn embedded(locale: Self::Locale) -> Self {
-		let module = Self::modules(locale)[0];
-		Self::parse(
-			locale,
-			&[ModuleSource {
-				path: module.path,
-				source: module.embedded,
-			}],
-		)
-		.expect("bundled message is validated by this example's tests")
+	fn scopes() -> Vec<ScopeRegistration<Self>> {
+		vec![ScopeRegistration::new::<Self>()]
 	}
 
-	fn modules(locale: Self::Locale) -> Vec<Module> {
-		let embedded = match locale {
-			"en" => include_str!("../assets/localizations/translations/en/ui/greeting.ftl"),
-			"es" => include_str!("../assets/localizations/translations/es/ui/greeting.ftl"),
-			"ru" => include_str!("../assets/localizations/translations/ru/ui/greeting.ftl"),
-			_ => panic!("undeclared example locale"),
-		};
-		vec![Module {
-			path: "ui/greeting.ftl",
-			embedded,
-		}]
+	fn view(modules: &ModuleStore<Self>) -> Self::Modules<'_> {
+		modules
 	}
+}
 
-	fn parse(locale: Self::Locale, sources: &[ModuleSource<'_>]) -> Result<Self, String> {
-		let [source] = sources else {
-			return Err("expected exactly one module: ui/greeting.ftl".into());
-		};
-
-		if source.path != "ui/greeting.ftl" {
-			return Err("expected module ui/greeting.ftl".into());
-		}
-
-		let bundle =
-			L10nBundle::new(locale, source.source.as_bytes()).map_err(|error| error.to_string())?;
-		// Eagerly resolve our entire API with no arguments. Missing messages,
-		// variables or unresolved references reject the candidate before publication.
+impl Texts {
+	pub(super) fn parse(locale: &str, bytes: &[u8]) -> Result<Self, String> {
+		let bundle = L10nBundle::new(locale, bytes).map_err(|error| error.to_string())?;
 		let hello = bundle
 			.msg("hello", None)
 			.map_err(|error| error.to_string())?;
 		Ok(Self { hello })
 	}
+}
+
+pub(super) fn manifest() -> LocalizationManifest {
+	LocalizationManifest::parse(
+		include_str!("../assets/localizations/localization.toml"),
+		"localizations/localization.toml",
+	)
+	.expect("example source contract")
 }

@@ -14,7 +14,7 @@ concurrency:
 
 env:
   # Test a pinned generator checkout, not a game workspace or moving branch.
-  GENERATOR_REV: 2920a0a7dd214cb1027e6e905974f2d5c3d79013
+  GENERATOR_REV: b6d4f29589ce52d6f873f98ea82bd94d1b919345
   # Compile-fail probes inspect rustc diagnostics without ANSI escape sequences.
   CARGO_TERM_COLOR: never
   CARGO_INCREMENTAL: 0
@@ -93,7 +93,7 @@ jobs:
           cargo tree --locked --manifest-path codegen_bridge/Cargo.toml --no-default-features --features runtime --edges normal,build --prefix none --config "$generator_config" > "$CARGO_TARGET_DIR/bridge-dependencies.txt"
           # fluent-syntax legitimately uses derive macros through thiserror;
           # those may depend on syn/quote without importing our generator.
-          if grep -E '^(fluent_typed_codegen|prettyplease) v' "$CARGO_TARGET_DIR/bridge-dependencies.txt"; then
+          if grep -E '^(prettyplease|tempfile) v' "$CARGO_TARGET_DIR/bridge-dependencies.txt"; then
             echo 'Build-time generator dependencies leaked into the runtime-only bridge.' >&2
             exit 1
           fi

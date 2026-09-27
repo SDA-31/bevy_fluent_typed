@@ -8,8 +8,9 @@ use crate::bevy::{
 	prelude::*,
 };
 use crate::{
-	CatalogDescriptor, CatalogUpdate, CatalogUpdateReader, FluentCatalog, Localization,
-	LocalizationPlugin, LocalizationSystems, Module, ModuleSource, ReloadCatalogs,
+	CatalogConfig, CatalogUpdate, CatalogUpdateReader, FluentCatalog, FluentScope, Localization,
+	LocalizationManifest, LocalizationPlugin, LocalizationSystems, Module, ModuleStore,
+	ReloadCatalogs, ScopeRegistration,
 };
 use std::{
 	fs,
@@ -22,10 +23,23 @@ static NEXT_FIXTURE: AtomicU64 = AtomicU64::new(0);
 const DEFINITION: &[u8] = b"\xffopaque-localization-v1";
 const ASSET_PATH: &str = "test://nested/catalog.definition";
 
+#[derive(Resource, Clone)]
 struct OpaqueProvider(String);
+
+impl FluentScope for OpaqueProvider {
+	type Catalog = Self;
+	fn module_paths() -> &'static [&'static str] {
+		&["ui/title.ftl"]
+	}
+
+	fn assemble(modules: &ModuleStore<Self>) -> Option<Self> {
+		modules.get::<Self>().ok().cloned()
+	}
+}
 
 impl FluentCatalog for OpaqueProvider {
 	type Locale = &'static str;
+	type Modules<'a> = &'a ModuleStore<Self>;
 
 	fn locales() -> &'static [Self::Locale] {
 		&["en"]
@@ -35,43 +49,32 @@ impl FluentCatalog for OpaqueProvider {
 		"en"
 	}
 
-	fn descriptor(definition: &[u8]) -> Result<CatalogDescriptor, String> {
-		if definition != DEFINITION {
-			return Err("incompatible opaque definition".into());
-		}
-
-		Ok(CatalogDescriptor {
-			modules_directory: "translations".into(),
-		})
+	fn modules() -> Vec<Module<Self>> {
+		vec![Module::new::<Self>("ui/title.ftl", |_, bytes| {
+			let source = std::str::from_utf8(bytes).map_err(|error| error.to_string())?;
+			let value = source.strip_prefix("title = ").ok_or("missing title")?;
+			Ok(Self(value.trim().into()))
+		})]
 	}
 
-	fn embedded(_: Self::Locale) -> Self {
-		Self("Embedded".into())
+	fn scopes() -> Vec<ScopeRegistration<Self>> {
+		vec![ScopeRegistration::new::<Self>()]
 	}
 
-	fn modules(_: Self::Locale) -> Vec<Module> {
-		vec![Module {
-			path: "ui/title.ftl",
-			embedded: "title = Embedded\n",
-		}]
+	fn view(modules: &ModuleStore<Self>) -> Self::Modules<'_> {
+		modules
 	}
+}
 
-	fn parse(_: Self::Locale, modules: &[ModuleSource<'_>]) -> Result<Self, String> {
-		let [
-			ModuleSource {
-				path: "ui/title.ftl",
-				source,
-			},
-		] = modules
-		else {
-			return Err("unexpected module inventory".into());
-		};
-		let Some(value) = source.strip_prefix("title = ") else {
-			return Err("missing title".into());
-		};
-
-		Ok(Self(value.trim().into()))
-	}
+fn manifest() -> LocalizationManifest {
+	LocalizationManifest::from_config(
+		CatalogConfig {
+			source_language: "en".into(),
+			default_language: "en".into(),
+			languages_directory: "translations".into(),
+		},
+		ASSET_PATH,
+	)
 }
 
 struct Fixture(PathBuf);
@@ -141,7 +144,7 @@ fn request_reload(world: &mut World) {
 }
 
 #[test]
-fn opaque_definition_named_source_and_last_good_recovery_work_without_codegen() {
+fn explicit_contract_named_source_and_last_good_recovery_work_without_codegen() {
 	let fixture = Fixture::new();
 	fixture.write_definition(DEFINITION);
 	fixture.write_title("External");
@@ -158,30 +161,40 @@ fn opaque_definition_named_source_and_last_good_recovery_work_without_codegen() 
 		},
 	))
 	.init_resource::<Failures>()
-	.add_plugins(LocalizationPlugin::<OpaqueProvider>::new(ASSET_PATH))
+	.add_plugins(LocalizationPlugin::<OpaqueProvider>::new(manifest()))
 	.add_systems(PreUpdate, observe.after(LocalizationSystems::Publish));
 	app.finish();
 	app.cleanup();
 	pump_until(&mut app, |world| {
-		world.resource::<Localization<OpaqueProvider>>().catalog().0 == "External"
+		world
+			.resource::<Localization<OpaqueProvider>>()
+			.catalog()
+			.is_some_and(|catalog| catalog.0 == "External")
 	});
 
-	fixture.write_definition(b"invalid definition");
-	fixture.write_title("Not yet published");
+	fs::write(
+		fixture.0.join("nested/translations/en/ui/title.ftl"),
+		b"invalid module",
+	)
+	.unwrap();
 	request_reload(app.world_mut());
 	pump_until(&mut app, |world| world.resource::<Failures>().0 > 0);
 	assert_eq!(
 		app.world()
 			.resource::<Localization<OpaqueProvider>>()
 			.catalog()
+			.unwrap()
 			.0,
 		"External"
 	);
 
-	fixture.write_definition(DEFINITION);
+	fixture.write_title("Not yet published");
 	request_reload(app.world_mut());
 	pump_until(&mut app, |world| {
-		world.resource::<Localization<OpaqueProvider>>().catalog().0 == "Not yet published"
+		world
+			.resource::<Localization<OpaqueProvider>>()
+			.catalog()
+			.is_some_and(|catalog| catalog.0 == "Not yet published")
 	});
 }
 
@@ -220,12 +233,15 @@ fn virtual_source_without_files_or_watcher_reloads_and_recovers_from_missing_mod
 			},
 		))
 		.init_resource::<Failures>()
-		.add_plugins(LocalizationPlugin::<OpaqueProvider>::new(ASSET_PATH))
+		.add_plugins(LocalizationPlugin::<OpaqueProvider>::new(manifest()))
 		.add_systems(PreUpdate, observe.after(LocalizationSystems::Publish));
 	app.finish();
 	app.cleanup();
 	pump_until(&mut app, |world| {
-		world.resource::<Localization<OpaqueProvider>>().catalog().0 == "Virtual"
+		world
+			.resource::<Localization<OpaqueProvider>>()
+			.catalog()
+			.is_some_and(|catalog| catalog.0 == "Virtual")
 	});
 	files.remove_asset(Path::new("nested/translations/en/ui/title.ftl"));
 	request_reload(app.world_mut());
@@ -234,6 +250,7 @@ fn virtual_source_without_files_or_watcher_reloads_and_recovers_from_missing_mod
 		app.world()
 			.resource::<Localization<OpaqueProvider>>()
 			.catalog()
+			.unwrap()
 			.0,
 		"Virtual"
 	);
@@ -243,6 +260,9 @@ fn virtual_source_without_files_or_watcher_reloads_and_recovers_from_missing_mod
 	);
 	request_reload(app.world_mut());
 	pump_until(&mut app, |world| {
-		world.resource::<Localization<OpaqueProvider>>().catalog().0 == "Recovered"
+		world
+			.resource::<Localization<OpaqueProvider>>()
+			.catalog()
+			.is_some_and(|catalog| catalog.0 == "Recovered")
 	});
 }

@@ -13,7 +13,7 @@ fn main() {
 			file_path: assets.to_string_lossy().into_owned(),
 			..default()
 		},
-		LocalizationPlugin::<Texts>::new("localizations/localization.toml"),
+		LocalizationPlugin::<Texts>::new(texts::manifest()),
 	));
 	let label = app
 		.world_mut()
@@ -25,12 +25,25 @@ fn main() {
 	app.finish();
 	app.cleanup();
 
-	// The same text entity follows each language change using embedded catalogs.
+	// Files load asynchronously through AssetServer for the selected language.
 	for locale in ["en", "es", "ru"] {
 		app.world_mut()
 			.resource_mut::<Localization<Texts>>()
 			.set_locale(locale);
-		app.update();
+		let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+		while app
+			.world()
+			.resource::<Localization<Texts>>()
+			.catalog()
+			.is_none()
+		{
+			app.update();
+			assert!(
+				std::time::Instant::now() < deadline,
+				"example translation load timed out"
+			);
+			std::thread::sleep(std::time::Duration::from_millis(5));
+		}
 		println!("{}", app.world().get::<Text>(label).unwrap().0);
 	}
 }

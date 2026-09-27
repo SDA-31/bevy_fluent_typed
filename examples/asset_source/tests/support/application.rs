@@ -1,8 +1,8 @@
 //! Headless test harness: load outcomes, text bindings and bounded polling.
 use crate::texts;
 use bevy_fluent_typed::{
-	CatalogUpdate, CatalogUpdateReader, FluentCatalog, LocalizationPlugin, LocalizationSystems,
-	LocalizedText,
+	CatalogUpdate, CatalogUpdateReader, FluentScope, LocalizationManifest, LocalizationPlugin,
+	LocalizationSystems, LocalizedText,
 	bevy::{
 		asset::io::{
 			AssetSourceBuilder,
@@ -45,7 +45,11 @@ pub(super) fn app(files: Dir) -> App {
 		},
 	))
 	.add_plugins(LocalizationPlugin::<texts::Translations>::new(
-		"translations://localizations/localization.toml",
+		LocalizationManifest::parse(
+			texts::CATALOG_CONFIG,
+			"translations://localizations/localization.toml",
+		)
+		.unwrap(),
 	))
 	.init_resource::<Outcomes>()
 	.add_systems(PreUpdate, record.after(LocalizationSystems::Publish));
@@ -65,7 +69,7 @@ pub(super) fn app(files: Dir) -> App {
 fn record(mut events: CatalogUpdateReader<texts::Translations>, mut outcomes: ResMut<Outcomes>) {
 	for event in events.read() {
 		match event {
-			CatalogUpdate::Loaded { locale } => outcomes.loaded.push(*locale),
+			CatalogUpdate::Loaded { locale, .. } => outcomes.loaded.push(*locale),
 			CatalogUpdate::Rejected { locale, error, .. } => {
 				outcomes.rejected.push(*locale);
 				outcomes.errors.push(error.clone());
@@ -83,7 +87,7 @@ pub(super) fn wait_for_load(app: &mut App) {
 
 		if outcomes.rejected.contains(&None)
 			|| outcomes.loaded.len() + outcomes.rejected.len()
-				== texts::Translations::locales().len()
+				>= texts::Translations::module_paths().len()
 		{
 			return;
 		}

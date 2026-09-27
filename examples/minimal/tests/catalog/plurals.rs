@@ -44,7 +44,7 @@ fn deferred_decimal_text_and_plural_category_follow_language_switches() {
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, AssetPlugin::default()))
 		.add_plugins(LocalizationPlugin::<Translations>::new(
-			"not-loaded-in-plural-test.toml",
+			crate::texts::embed_manifest!(),
 		));
 	let entity = app
 		.world_mut()
@@ -74,7 +74,7 @@ fn deferred_decimal_text_and_plural_category_follow_language_switches() {
 
 #[test]
 fn decimal_visible_precision_and_native_numeric_selectors_remain_distinct() {
-	let english = Locale::En.load();
+	let english = super::load(Locale::En);
 
 	for (input, expected) in [("1", "1 item left"), ("1.0", "1.0 items left")] {
 		let actual = message(input.parse().unwrap()).render(&english);

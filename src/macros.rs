@@ -6,6 +6,10 @@
 /// the output layout; this facade forwards the runtime path hygienically, including
 /// when the Cargo dependency is renamed. With Cargo resolver 2/3, generation stays
 /// in the build-script dependency graph rather than the application runtime.
+/// Declaration alone embeds no FTL, including in unoptimized builds. Use
+/// `texts::embed_manifest!()` to include every leaf, or
+/// `texts::embed_manifest!(module = texts::presentation::Hud)` to select a leaf
+/// by its generated Rust path. Groups and `use` aliases are supported too.
 ///
 /// ```ignore
 /// bevy_fluent_typed::translations!(pub mod texts);

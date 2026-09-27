@@ -7,7 +7,7 @@ mod source;
 
 use application::Outcomes;
 use bevy_fluent_typed::{
-	FluentCatalog, Localization, ReloadCatalogs,
+	FluentScope, Localization, ReloadCatalogs,
 	bevy::{asset::io::memory::Dir, prelude::*},
 };
 use std::path::Path;
@@ -23,7 +23,11 @@ fn app(files: Dir) -> App {
 }
 
 fn assert_coherent(world: &mut World) {
-	let root = world.resource::<texts::Translations>();
+	let Some(root) = world.get_resource::<texts::Translations>() else {
+		assert!(world.query::<&Text>().single(world).unwrap().0.is_empty());
+		assert!(world.query::<&Text2d>().single(world).unwrap().0.is_empty());
+		return;
+	};
 	let hud = world.resource::<texts::ui::Hud>();
 	let panel = world.resource::<texts::ui::Panel>();
 	assert!(std::ptr::eq(&**hud, &**root.ui().hud()));
@@ -47,12 +51,9 @@ fn named_source_publishes_generated_resources_and_existing_text_without_watching
 	files.insert_asset_text(Path::new(HUD), "title = External HUD\n");
 	files.insert_asset_text(Path::new(PANEL), "title = External panel\n");
 	let mut app = app(files.clone());
-	assert_eq!(
-		app.world().resource::<texts::ui::Hud>().msg_title(),
-		"Ready"
-	);
+	assert!(!app.world().contains_resource::<texts::ui::Hud>());
 	application::wait_for_load(&mut app);
-	assert_eq!(app.world().resource::<Outcomes>().loaded.len(), 3);
+	assert_eq!(app.world().resource::<Outcomes>().loaded.len(), 2);
 	assert!(app.world().resource::<Outcomes>().rejected.is_empty());
 	assert_eq!(
 		app.world().resource::<texts::ui::Hud>().msg_title(),
@@ -64,7 +65,7 @@ fn named_source_publishes_generated_resources_and_existing_text_without_watching
 	);
 	let unchanged = app.world().resource::<texts::ui::Hud>().clone();
 	reload(&mut app);
-	assert!(std::ptr::eq(
+	assert!(!std::ptr::eq(
 		&*unchanged,
 		&**app.world().resource::<texts::ui::Hud>()
 	));
@@ -78,7 +79,8 @@ fn named_source_publishes_generated_resources_and_existing_text_without_watching
 	app.world_mut()
 		.resource_mut::<Localization<texts::Translations>>()
 		.set_locale(texts::Locale::Ru);
-	app.update();
+	*app.world_mut().resource_mut::<Outcomes>() = Default::default();
+	application::wait_for_load(&mut app);
 	assert_eq!(
 		app.world().resource::<texts::ui::Hud>().msg_title(),
 		"Готово"
@@ -86,7 +88,8 @@ fn named_source_publishes_generated_resources_and_existing_text_without_watching
 	app.world_mut()
 		.resource_mut::<Localization<texts::Translations>>()
 		.set_locale(texts::Locale::En);
-	app.update();
+	*app.world_mut().resource_mut::<Outcomes>() = Default::default();
+	application::wait_for_load(&mut app);
 	assert_eq!(
 		app.world().resource::<texts::ui::Hud>().msg_title(),
 		"Ready to explore"
@@ -94,7 +97,7 @@ fn named_source_publishes_generated_resources_and_existing_text_without_watching
 }
 
 #[test]
-fn invalid_language_retains_all_its_modules_while_another_language_updates() {
+fn invalid_module_retains_its_value_while_independent_siblings_publish() {
 	let files = source::files();
 	files.insert_asset_text(Path::new(HUD), "title = Last good HUD\n");
 	let mut app = app(files.clone());
@@ -111,10 +114,11 @@ fn invalid_language_retains_all_its_modules_while_another_language_updates() {
 		app.world().resource::<Outcomes>().rejected,
 		[Some(texts::Locale::En)]
 	);
-	assert!(std::ptr::eq(
-		&*previous,
-		&**app.world().resource::<texts::ui::Hud>()
-	));
+	assert_eq!(previous.msg_title(), "Last good HUD");
+	assert_eq!(
+		app.world().resource::<texts::ui::Hud>().msg_title(),
+		"Pending HUD"
+	);
 	assert_eq!(
 		app.world().resource::<texts::ui::Panel>().msg_title(),
 		"Equipment"
@@ -122,7 +126,8 @@ fn invalid_language_retains_all_its_modules_while_another_language_updates() {
 	app.world_mut()
 		.resource_mut::<Localization<texts::Translations>>()
 		.set_locale(texts::Locale::Es);
-	app.update();
+	*app.world_mut().resource_mut::<Outcomes>() = Default::default();
+	application::wait_for_load(&mut app);
 	assert_eq!(
 		app.world().resource::<texts::ui::Hud>().msg_title(),
 		"Actualizado"
@@ -138,7 +143,8 @@ fn invalid_language_retains_all_its_modules_while_another_language_updates() {
 	app.world_mut()
 		.resource_mut::<Localization<texts::Translations>>()
 		.set_locale(texts::Locale::En);
-	app.update();
+	*app.world_mut().resource_mut::<Outcomes>() = Default::default();
+	application::wait_for_load(&mut app);
 	assert_eq!(
 		app.world().resource::<texts::ui::Hud>().msg_title(),
 		"Pending HUD"
@@ -154,19 +160,16 @@ fn missing_source_data_at_start_can_be_installed_and_explicitly_retried() {
 	let files = Dir::default();
 	let mut app = app(files.clone());
 	application::wait_for_load(&mut app);
-	assert_eq!(app.world().resource::<Outcomes>().rejected, [None]);
-	assert_eq!(
-		app.world().resource::<texts::ui::Hud>().msg_title(),
-		"Ready"
-	);
+	assert_eq!(app.world().resource::<Outcomes>().rejected.len(), 2);
+	assert!(!app.world().contains_resource::<texts::ui::Hud>());
 	files.insert_asset_text(Path::new(texts::CATALOG_ASSET_PATH), texts::CATALOG_CONFIG);
 
-	for (locale, path, source) in texts::MODULES {
+	for (locale, path, source) in texts::embed_manifest!().embedded_modules().unwrap() {
 		files.insert_asset_text(
 			&Path::new("localizations/translations")
 				.join(locale)
 				.join(path),
-			source,
+			std::str::from_utf8(source).unwrap(),
 		);
 	}
 
@@ -175,7 +178,7 @@ fn missing_source_data_at_start_can_be_installed_and_explicitly_retried() {
 	assert!(app.world().resource::<Outcomes>().rejected.is_empty());
 	assert_eq!(
 		app.world().resource::<Outcomes>().loaded.len(),
-		texts::Translations::locales().len()
+		texts::Translations::module_paths().len()
 	);
 	assert_eq!(
 		app.world().resource::<texts::ui::Hud>().msg_title(),
@@ -184,14 +187,14 @@ fn missing_source_data_at_start_can_be_installed_and_explicitly_retried() {
 }
 
 #[test]
-fn definition_missing_module_and_non_utf8_failures_preserve_last_good_resources() {
+fn source_contract_is_not_reread_and_module_io_failures_preserve_last_good_values() {
 	let files = source::files();
 	files.insert_asset_text(Path::new(HUD), "title = Last good HUD\n");
 	let mut app = app(files.clone());
 	application::wait_for_load(&mut app);
 	files.insert_asset_text(Path::new(texts::CATALOG_ASSET_PATH), "invalid TOML");
 	reload(&mut app);
-	assert_eq!(app.world().resource::<Outcomes>().rejected, [None]);
+	assert!(app.world().resource::<Outcomes>().rejected.is_empty());
 	assert_eq!(
 		app.world().resource::<texts::ui::Hud>().msg_title(),
 		"Last good HUD"

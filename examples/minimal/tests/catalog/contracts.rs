@@ -1,13 +1,9 @@
 //! Checked parsing must be equally strict with or without the Bevy adapter.
 use crate::{Locale, Translations};
-use localization_runtime::FluentCatalog;
 
 #[test]
 fn plain_and_integrated_parsers_reject_changed_keys_variables_and_references() {
-	let modules: Vec<_> = Translations::modules(Locale::En)
-		.into_iter()
-		.map(|module| (module.path, module.embedded))
-		.collect();
+	let modules: Vec<_> = super::modules(Locale::En);
 	let index = modules
 		.iter()
 		.position(|(path, _)| *path == "presentation/hud.ftl")

@@ -1,9 +1,17 @@
 # Verification
 
-Run all checks with:
+From the Bevy localization repository root, run:
+
+These commands build this 0.2.0 checkout with the matching generator from Git;
+no separate generator checkout is needed. If your workspace already patches
+that generator, omit both `--config` arguments. To set up a new application,
+use the
+[root quickstart](../../../README.md#development-setup).
 
 ```sh
-cargo test --manifest-path examples/minimal/Cargo.toml
+localization_generator_git='patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen"'
+localization_generator_rev='patch.crates-io.fluent_typed_codegen.rev="b6d4f29589ce52d6f873f98ea82bd94d1b919345"'
+cargo test --manifest-path examples/minimal/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
 ```
 
 Application usage is documented in the [example README](../README.md). The tests
@@ -14,7 +22,10 @@ are separate Cargo integration targets; no test assertions run in the examples.
 - [catalog/contracts.rs](catalog/contracts.rs): strict key, argument and reference
   validation in both engine-free and Bevy-generated catalogs.
 - [catalog/macros.rs](catalog/macros.rs): renamed dependencies, caller-name
-  shadowing, nested/restricted visibility and forwarded macro attributes.
+  shadowing, nested/restricted visibility, forwarded macro attributes and typed
+  embedded leaf/group selection through paths and `use` aliases.
+- [catalog/lazy.rs](catalog/lazy.rs): independent scope demand, retained snapshots,
+  idle change ticks and a typed leaf-only embedded source across locale changes.
 - [catalog/resources.rs](catalog/resources.rs): shared root/folder/leaf snapshots,
   locale-switch scheduling, module inventory, local references and structured results.
 - [catalog/reload.rs](catalog/reload.rs): real filesystem watching, rejection,

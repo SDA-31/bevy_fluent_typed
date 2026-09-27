@@ -2,8 +2,8 @@
 use crate::{Locale, Translations, texts};
 use localization_runtime::bevy::{ecs as bevy_ecs, prelude::*};
 use localization_runtime::{
-	CatalogUpdate, CatalogUpdateReader, FluentCatalog, Localization, LocalizationPlugin,
-	LocalizationSystems, LocalizedText,
+	CatalogUpdate, CatalogUpdateReader, FluentCatalog, Localization, LocalizationManifest,
+	LocalizationPlugin, LocalizationSystems, LocalizedText,
 };
 use std::{
 	fs,
@@ -20,7 +20,7 @@ struct Outcomes {
 fn record(mut events: CatalogUpdateReader<Translations>, mut outcomes: ResMut<Outcomes>) {
 	for event in events.read() {
 		match event {
-			CatalogUpdate::Loaded { locale } => outcomes.loaded.push(*locale),
+			CatalogUpdate::Loaded { locale, .. } => outcomes.loaded.push(*locale),
 			CatalogUpdate::Rejected {
 				locale: Some(locale),
 				..
@@ -35,9 +35,9 @@ fn record(mut events: CatalogUpdateReader<Translations>, mut outcomes: ResMut<Ou
 }
 
 fn replace_title(root: &Path, locale: Locale, module: &str, title: &str) {
-	let modules = Translations::modules(locale);
-	let original = modules.iter().find(|entry| entry.path == module).unwrap();
-	let (_, rest) = original.embedded.split_once('\n').unwrap();
+	let modules = super::modules(locale);
+	let original = modules.iter().find(|entry| entry.0 == module).unwrap();
+	let (_, rest) = original.1.split_once('\n').unwrap();
 	fs::write(
 		root.join("localizations/translations")
 			.join(locale.as_ref())
@@ -48,7 +48,11 @@ fn replace_title(root: &Path, locale: Locale, module: &str, title: &str) {
 }
 
 fn assert_coherent(world: &mut World) {
-	let root = world.resource::<Translations>();
+	let Some(root) = world.get_resource::<Translations>() else {
+		assert!(world.query::<&Text>().single(world).unwrap().0.is_empty());
+		assert!(world.query::<&Text2d>().single(world).unwrap().0.is_empty());
+		return;
+	};
 	let hud = world.resource::<texts::presentation::Hud>();
 	let panel = world.resource::<texts::presentation::Panel>();
 	assert!(std::ptr::eq(&**hud, &**root.presentation().hud()));
@@ -82,7 +86,7 @@ fn pump(app: &mut App, ready: impl Fn(&World) -> bool) {
 }
 
 #[test]
-fn several_files_reload_and_invalid_languages_keep_their_last_good_snapshot() {
+fn watched_modules_publish_independently_and_locale_switch_drops_previous_snapshots() {
 	let fixture = tempfile::tempdir().unwrap();
 	let root = fixture.path();
 	// macOS /var is a symlink to /private/var. Watcher events use the physical
@@ -97,13 +101,13 @@ fn several_files_reload_and_invalid_languages_keep_their_last_good_snapshot() {
 	fs::write(root.join(texts::CATALOG_ASSET_PATH), texts::CATALOG_CONFIG).unwrap();
 
 	for &locale in Translations::locales() {
-		for module in Translations::modules(locale) {
+		for (module, source) in super::modules(locale) {
 			let path = root
 				.join("localizations/translations")
 				.join(locale.as_ref())
-				.join(module.path);
+				.join(module);
 			fs::create_dir_all(path.parent().unwrap()).unwrap();
-			fs::write(path, module.embedded).unwrap();
+			fs::write(path, source).unwrap();
 		}
 	}
 
@@ -117,7 +121,7 @@ fn several_files_reload_and_invalid_languages_keep_their_last_good_snapshot() {
 		},
 	))
 	.add_plugins(LocalizationPlugin::<Translations>::new(
-		texts::CATALOG_ASSET_PATH,
+		LocalizationManifest::parse(texts::CATALOG_CONFIG, texts::CATALOG_ASSET_PATH).unwrap(),
 	))
 	.init_resource::<Outcomes>()
 	.add_systems(PreUpdate, record.after(LocalizationSystems::Publish));
@@ -131,9 +135,7 @@ fn several_files_reload_and_invalid_languages_keep_their_last_good_snapshot() {
 	));
 	app.finish();
 	app.cleanup();
-	pump(&mut app, |world| {
-		world.resource::<Outcomes>().loaded.len() >= Translations::locales().len()
-	});
+	pump(&mut app, |world| world.contains_resource::<Translations>());
 
 	// Separate writes may publish intermediate valid snapshots; eventual convergence
 	// is required, not a fictitious multi-file filesystem transaction.
@@ -144,6 +146,11 @@ fn several_files_reload_and_invalid_languages_keep_their_last_good_snapshot() {
 			&& world.resource::<texts::presentation::Panel>().msg_title() == "Updated panel"
 	});
 	let previous = app.world().resource::<texts::presentation::Hud>().clone();
+	let untouched = app
+		.world()
+		.get_resource_ref::<texts::Ui>()
+		.unwrap()
+		.last_changed();
 	app.world_mut().resource_mut::<Outcomes>().loaded.clear();
 	app.world_mut().resource_mut::<Outcomes>().rejected.clear();
 
@@ -158,7 +165,8 @@ fn several_files_reload_and_invalid_languages_keep_their_last_good_snapshot() {
 	replace_title(root, Locale::Es, "presentation/panel.ftl", "Nuevo panel");
 	pump(&mut app, |world| {
 		let outcomes = world.resource::<Outcomes>();
-		outcomes.rejected.contains(&Locale::En) && outcomes.loaded.contains(&Locale::Es)
+		outcomes.rejected.contains(&Locale::En)
+			&& world.resource::<texts::presentation::Panel>().msg_title() == "Pending panel"
 	});
 	assert!(std::ptr::eq(
 		&**app.world().resource::<texts::presentation::Hud>(),
@@ -168,45 +176,43 @@ fn several_files_reload_and_invalid_languages_keep_their_last_good_snapshot() {
 		app.world()
 			.resource::<texts::presentation::Panel>()
 			.msg_title(),
-		"Updated panel"
+		"Pending panel"
+	);
+	assert_eq!(
+		app.world()
+			.get_resource_ref::<texts::Ui>()
+			.unwrap()
+			.last_changed(),
+		untouched
 	);
 	app.world_mut()
 		.resource_mut::<Localization<Translations>>()
 		.set_locale(Locale::Es);
 	pump(&mut app, |world| {
-		world.resource::<texts::presentation::Hud>().msg_title() == "Nuevo HUD"
-			&& world.resource::<texts::presentation::Panel>().msg_title() == "Nuevo panel"
+		world.get_resource::<Translations>().is_some_and(|root| {
+			root.locale() == Locale::Es
+				&& root.presentation().hud().msg_title() == "Nuevo HUD"
+				&& root.presentation().panel().msg_title() == "Nuevo panel"
+		})
 	});
 	app.world_mut()
 		.resource_mut::<Localization<Translations>>()
 		.set_locale(Locale::En);
-	app.update();
-	assert!(std::ptr::eq(
-		&**app.world().resource::<texts::presentation::Hud>(),
-		&*previous
-	));
-	assert_eq!(
-		app.world()
-			.resource::<texts::presentation::Panel>()
-			.msg_title(),
-		"Updated panel"
-	);
-	app.world_mut()
-		.resource_mut::<Localization<Translations>>()
-		.set_locale(Locale::Es);
-	app.update();
+
+	app.world_mut().resource_mut::<Outcomes>().rejected.clear();
+	pump(&mut app, |world| {
+		world.resource::<Outcomes>().rejected.contains(&Locale::En)
+	});
+	assert!(!app.world().contains_resource::<texts::presentation::Hud>());
+	assert!(!app.world().contains_resource::<Translations>());
+	assert_eq!(previous.msg_title(), "Updated HUD");
 
 	app.world_mut().resource_mut::<Outcomes>().loaded.clear();
 	replace_title(root, Locale::En, "presentation/hud.ftl", "Recovered HUD");
 	pump(&mut app, |world| {
-		world.resource::<Outcomes>().loaded.contains(&Locale::En)
-	});
-	assert_eq!(app.world().resource::<Translations>().locale(), Locale::Es);
-	app.world_mut()
-		.resource_mut::<Localization<Translations>>()
-		.set_locale(Locale::En);
-	pump(&mut app, |world| {
-		world.resource::<texts::presentation::Hud>().msg_title() == "Recovered HUD"
-			&& world.resource::<texts::presentation::Panel>().msg_title() == "Pending panel"
+		world.get_resource::<Translations>().is_some_and(|root| {
+			root.presentation().hud().msg_title() == "Recovered HUD"
+				&& root.presentation().panel().msg_title() == "Pending panel"
+		})
 	});
 }

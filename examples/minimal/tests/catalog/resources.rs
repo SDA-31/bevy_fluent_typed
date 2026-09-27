@@ -15,15 +15,16 @@ fn app() -> App {
 		.insert_resource(Localization::<Translations>::new(Locale::En))
 		.init_resource::<Observations>()
 		.add_plugins(LocalizationPlugin::<Translations>::new(
-			"not-loaded-in-resource-test.toml",
+			texts::embed_manifest!(),
 		));
 	app.finish();
 	app.cleanup();
+	app.update();
 	app
 }
 
 #[test]
-fn group_chain_and_direct_resources_share_data_before_startup_and_after_switch() {
+fn group_chain_and_direct_resources_share_data_after_update_and_after_switch() {
 	let mut app = app();
 	app.add_systems(Update, observe);
 
@@ -81,29 +82,28 @@ fn an_update_language_change_is_published_before_post_update_consumers() {
 
 #[test]
 fn duplicate_local_keys_have_independent_types_references_attributes_and_structured_results() {
-	let catalog = Locale::En.load();
+	let catalog = super::load(Locale::En);
 	let presentation: &texts::Presentation = catalog.presentation();
 	let hud: &texts::presentation::Hud = presentation.hud();
 	let panel: &texts::presentation::Panel = presentation.panel();
 	assert_eq!(hud.msg_title(), "Flight HUD");
 	assert_eq!(panel.msg_title(), "Settings panel");
-	assert!(hud.msg_detail("Ada").contains("Ada"));
-	assert!(panel.msg_detail(42).contains("42"));
+	assert!(hud.msg_detail("Ada").to_string().contains("Ada"));
+	assert!(panel.msg_detail(42).to_string().contains("42"));
 	assert_eq!(hud.msg_caption(), hud.msg_title());
 	assert_eq!(hud.msg_caption_hint(), "Visible HUD");
 	let prompt: texts::presentation::HudPrompt = hud.prompt();
-	assert!(prompt.s0.contains("Press"));
-	let raw = super::raw::Locale::En.load();
+	assert!(prompt.s0.to_string().contains("Press"));
+	let raw =
+		super::raw::Translations::from_manifest(super::raw::Locale::En, &texts::embed_manifest!())
+			.unwrap();
 	let raw_prompt: super::raw::presentation::HudPrompt = raw.presentation().hud().prompt();
 	assert_eq!(prompt.s0, raw_prompt.s0);
 }
 
 #[test]
 fn module_paths_are_order_independent_and_missing_extra_or_duplicate_inputs_are_rejected() {
-	let mut modules: Vec<_> = Translations::modules(Locale::En)
-		.into_iter()
-		.map(|module| (module.path, module.embedded))
-		.collect();
+	let mut modules: Vec<_> = super::modules(Locale::En);
 	modules.reverse();
 	assert_eq!(
 		Translations::from_modules(Locale::En, &modules)
@@ -118,6 +118,7 @@ fn module_paths_are_order_independent_and_missing_extra_or_duplicate_inputs_are_
 		Translations::from_modules(Locale::En, &modules)
 			.err()
 			.unwrap()
+			.to_string()
 			.contains("missing")
 	);
 	modules.push(removed);
@@ -126,6 +127,7 @@ fn module_paths_are_order_independent_and_missing_extra_or_duplicate_inputs_are_
 		Translations::from_modules(Locale::En, &modules)
 			.err()
 			.unwrap()
+			.to_string()
 			.contains("duplicate")
 	);
 	modules.pop();
@@ -134,6 +136,7 @@ fn module_paths_are_order_independent_and_missing_extra_or_duplicate_inputs_are_
 		Translations::from_modules(Locale::En, &modules)
 			.err()
 			.unwrap()
+			.to_string()
 			.contains("unexpected")
 	);
 }
