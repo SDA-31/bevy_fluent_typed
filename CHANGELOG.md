@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased: explicit module loading
+## 0.2.0 (Unreleased) — explicit module loading
 
 - Plugin constructors accept a shared immutable LocalizationManifest; generated payloads are opt-in.
 - Full and Lazy modes select eager selected-language loading or explicit root/group/leaf demand; overlapping requests remain independent.
@@ -9,6 +9,7 @@
 - Breaking provider migration: `FluentScope`, per-leaf `Module` parsers and ready-child
   assembly replace descriptor/whole-catalog parsing. See the
   [migration guide](GUIDE.md#migration-from-registry-013).
+- Align runtime, companion bridge and required generator at 0.2.0.
 - Build/runtime feature isolation is retained; runtime uses only the generator package's manifest support.
 
 ## 0.1.3 — 2026-09-22

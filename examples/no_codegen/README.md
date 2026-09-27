@@ -6,11 +6,16 @@ No `codegen` feature, no build script, no build-dependencies. The program create
 a localized Bevy `Text`, switches English → Spanish → Russian, prints each
 greeting and exits. It runs headlessly, without a window or GPU.
 
+These commands build the current 0.2.0 development checkout. Manifest support
+still requires the generator package's runtime-only API, even without codegen.
+Until 0.2.0 is published, set its local path below. Omit `--config` if the enclosing
+workspace already patches the matching generator.
+
 ```sh
-localization_generator_git='patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen"'
-localization_generator_rev='patch.crates-io.fluent_typed_codegen.rev="0e5ed447cc08553818a240fc6cfe736aa67fb4b3"'
-cargo run --manifest-path examples/no_codegen/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
-cargo test --manifest-path examples/no_codegen/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
+# Set the absolute path to your generator 0.2.0 checkout.
+localization_generator_config='patch.crates-io.fluent_typed_codegen.path="/absolute/path/to/fluent_typed_codegen"'
+cargo run --manifest-path examples/no_codegen/Cargo.toml --config "$localization_generator_config"
+cargo test --manifest-path examples/no_codegen/Cargo.toml --config "$localization_generator_config"
 ```
 
 Run from the runtime repository. In an enclosing workspace you can also use

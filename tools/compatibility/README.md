@@ -51,6 +51,8 @@ cargo run -p bevy-fluent-compatibility -- \
 ```
 
 The generator path is explicit; no sibling checkout convention is assumed.
+For the current 0.2.0 runtime, supply a generator checkout whose package version
+is also 0.2.0. The earlier pinned Git snapshots still declare 0.1.4.
 The 0.16 backend starts at 0.16.1. The earlier 0.16.0 `bevy_color` package is
 yanked and cannot be selected by a fresh exact-release fixture.
 The 0.16.1 family pins `bevy_color` to 0.16.2 because that is the published

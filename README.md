@@ -3,9 +3,10 @@
 Typed Fluent messages for Bevy. Generate typed accessors in `build.rs`, then read
 translations through Bevy's asset system or explicitly embed them.
 
-**Unreleased API:** this guide describes `feat/runtime-module-loading`. The
+**0.2.0 (Unreleased):** this guide describes `feat/runtime-module-loading`. The
 published runtime/bridge 0.1.3 and generator 0.1.4 have a different loading API.
-The Git revisions below are the tested implementation; no new version is published.
+The Git revisions below are the tested implementation, with package versions
+from before the 0.2.0 bump. Version 0.2.0 is not published.
 
 ## Contents
 

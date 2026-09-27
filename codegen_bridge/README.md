@@ -1,8 +1,9 @@
 # bevy_fluent_codegen_bridge
 
-Unreleased companion on `feat/runtime-module-loading`; registry 0.1.3 retains the
+Unreleased 0.2.0 companion on `feat/runtime-module-loading`; registry 0.1.3 retains the
 previous provider API. Follow the [runtime Git setup](../README.md#development-setup),
-including the pinned generator patch. Package versions have not changed.
+including the pinned generator patch, for the tested pre-bump snapshot.
+The current checkout and its generator dependency are both 0.2.0.
 
 This optional bridge emits Bevy resource declarations, checked per-leaf parsers,
 ready-child assembly and typed navigation. The generator owns discovery, schemas
@@ -23,8 +24,10 @@ Resolver 2/3 keeps features separate. No generation occurs in macro expansion.
 
 Low-level `build()`, `from_cargo()`, `generate()` and `Settings` remain available with
 `build`; prefer the runtime facade. There is no sibling-path generator dependency.
-The declared registry requirement remains 0.1.4 while this development branch
-requires the README's explicit patch to the approved generator revision.
+The declared registry requirement is 0.2.0. Until it is published, development
+builds of this checkout need a workspace-level patch to a matching local 0.2.0
+generator checkout; the older Git revision in the quickstart does not satisfy
+this new version requirement.
 
 Generated scope views live in a hidden namespace to avoid public message/type
 collisions. Leaves borrow the underlying store lifetime, so chained temporary

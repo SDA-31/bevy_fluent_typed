@@ -11,11 +11,17 @@ the default Bevy 0.19 backend and adds no archive dependency.
 
 From this repository:
 
+These commands build the current 0.2.0 development checkout. The matching
+generator is not published yet: set its local path below. If your workspace
+already patches that generator, omit the `--config` argument. For a public Git
+snapshot that can be copied without local library checkouts, use the
+[root quickstart](../../README.md#development-setup).
+
 ```sh
-localization_generator_git='patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen"'
-localization_generator_rev='patch.crates-io.fluent_typed_codegen.rev="0e5ed447cc08553818a240fc6cfe736aa67fb4b3"'
-cargo run --manifest-path examples/asset_source/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
-cargo test --manifest-path examples/asset_source/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
+# Set the absolute path to your generator 0.2.0 checkout.
+localization_generator_config='patch.crates-io.fluent_typed_codegen.path="/absolute/path/to/fluent_typed_codegen"'
+cargo run --manifest-path examples/asset_source/Cargo.toml --config "$localization_generator_config"
+cargo test --manifest-path examples/asset_source/Cargo.toml --config "$localization_generator_config"
 ```
 
 ## Start here
