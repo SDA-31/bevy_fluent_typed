@@ -20,6 +20,10 @@
 //!
 //! Declare `bevy_fluent_typed::translations!(pub mod texts)` in application source.
 //! This includes generated output; it does not generate files or install a plugin.
+//! It also embeds no FTL. Explicit `texts::embed_manifest!()` includes the whole
+//! tree; `module = texts::presentation::Hud` selects a generated leaf, and
+//! `module = texts::Presentation` selects a group. `use` aliases work too.
+//! Unselected payloads are absent even without optimization, LTO or stripping.
 //! The [complete setup and asset example](https://github.com/SDA-31/bevy_fluent_typed/blob/feat/runtime-module-loading/README.md)
 //! shows configuration, a build script and runtime registration. The
 //! [bridge README](https://github.com/SDA-31/bevy_fluent_typed/tree/feat/runtime-module-loading/codegen_bridge)

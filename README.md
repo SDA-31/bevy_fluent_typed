@@ -248,6 +248,7 @@ optional normal-dependency feature for filesystem change notifications.
 | --- | --- |
 | `translations!` cannot find generated output | Add the shown build-dependency and return `bevy_fluent_typed::build()` from `build.rs`. |
 | Types or methods are missing | Add the corresponding FTL module/message in every language and rebuild. File edits at runtime cannot change the compiled schema. |
+| A typed `embed_manifest!(module = ...)` selector is rejected | Use the [local 0.2.0 setup](docs/build.md#use-the-current-local-020-checkout); the pinned Git snapshot predates typed selection. Pass a generated path or `use` alias. |
 | The resource is absent | File loading is asynchronous. Use `Option<Res<_>>` or a `resource_exists` run condition. In Lazy, explicitly request the scope first. |
 | A bound label stays empty | Check `localization.status::<YourLeaf>()`. Its module must be requested and pass validation. A root binding waits for the whole tree. |
 | Files are not found | The manifest origin is relative to Bevy's asset root. Do not prefix it with `assets/` when `AssetPlugin` already points there. |

@@ -22,6 +22,13 @@ The bridge never depends back on the runtime. Its macro receives the runtime
 path; generated code gets shared manifest support through that runtime alias.
 Resolver 2/3 keeps features separate. No generation occurs in macro expansion.
 
+Declaring the generated module embeds no FTL, even in unoptimized builds.
+Explicit `texts::embed_manifest!()` includes every leaf; a selector such as
+`module = texts::presentation::Hud` or `module = texts::Presentation` includes
+only that leaf or group's descendants, across known languages. See
+[embedding and local setup](../README.md#explicit-embedding); typed selection
+requires the current local checkout, not the earlier pinned Git snapshot.
+
 Low-level `build()`, `from_cargo()`, `generate()` and `Settings` remain available with
 `build`; prefer the runtime facade. There is no sibling-path generator dependency.
 The declared registry requirement is 0.2.0. Until it is published, development

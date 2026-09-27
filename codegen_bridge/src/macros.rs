@@ -10,6 +10,9 @@
 /// The module contains `Translations`, `Locale`, named groups/leaves and asset
 /// metadata. Usually use the main runtime's `translations!` facade instead.
 /// Module attributes and Rust visibility (`pub`, `pub(crate)`, etc.) are supported.
+/// Declaration alone embeds no FTL. Explicit `texts::embed_manifest!()` includes
+/// all sources; `module = texts::presentation::Hud` selects a generated leaf,
+/// and `module = texts::Presentation` selects its group, across known languages.
 ///
 /// ```ignore
 /// bevy_fluent_codegen_bridge::translations!(runtime = bevy_fluent_typed; pub mod texts);

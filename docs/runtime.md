@@ -83,6 +83,13 @@ In a windowed application, install localization after `DefaultPlugins` (which
 includes `AssetPlugin`). Use your normal event loop instead of this example's
 `MinimalPlugins` and console exit system.
 
+For embedded bytes, the current local 0.2.0 checkout lets this same program
+select `texts::embed_manifest!(module = texts::presentation::Hud)` and keep its
+existing HUD request. Follow the [embedding recipe and local setup](https://github.com/SDA-31/bevy_fluent_typed/blob/feat/runtime-module-loading/README.md#explicit-embedding):
+the pinned Git snapshot above predates typed selection. Embedding chooses which
+raw bytes enter the binary; Lazy requests choose which modules get parsed.
+Use `texts::embed_manifest!()` to include the pause screen for the next section too.
+
 ## Load and release a screen
 
 In the same Lazy application, call these systems when the pause screen opens and
