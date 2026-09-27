@@ -17,7 +17,7 @@ fn development_setup_pins_matching_generator_in_both_dependency_graphs() {
 			);
 			assert!(!dependency.contains("path ="));
 		}
-		assert!(source.contains("0e5ed447cc08553818a240fc6cfe736aa67fb4b3"));
+		assert!(source.contains("b6d4f29589ce52d6f873f98ea82bd94d1b919345"));
 		assert!(source.contains("Unreleased"));
 	}
 }

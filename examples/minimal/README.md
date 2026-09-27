@@ -11,19 +11,19 @@ or GPU. English, Spanish and Russian catalogs are included.
 
 From this repository:
 
-These commands build the current 0.2.0 development checkout. The matching
-generator is not published yet: set its local path below. If your workspace
-already patches that generator, omit the `--config` argument. For a public Git
-snapshot that can be copied without local library checkouts, use the
+These commands build this 0.2.0 checkout with the matching generator from Git;
+no separate generator checkout is needed. If your workspace already patches
+that generator, omit both `--config` arguments. To set up a new application,
+use the
 [root quickstart](../../README.md#development-setup).
 
 ```sh
-# Set the absolute path to your generator 0.2.0 checkout.
-localization_generator_config='patch.crates-io.fluent_typed_codegen.path="/absolute/path/to/fluent_typed_codegen"'
-cargo run --manifest-path examples/minimal/Cargo.toml --config "$localization_generator_config"
-cargo run --manifest-path examples/minimal/Cargo.toml --config "$localization_generator_config" -- --watch
-cargo run --manifest-path examples/minimal/Cargo.toml --bin typed_resources --config "$localization_generator_config"
-cargo test --manifest-path examples/minimal/Cargo.toml --config "$localization_generator_config"
+localization_generator_git='patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen"'
+localization_generator_rev='patch.crates-io.fluent_typed_codegen.rev="b6d4f29589ce52d6f873f98ea82bd94d1b919345"'
+cargo run --manifest-path examples/minimal/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
+cargo run --manifest-path examples/minimal/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev" -- --watch
+cargo run --manifest-path examples/minimal/Cargo.toml --bin typed_resources --config "$localization_generator_git" --config "$localization_generator_rev"
+cargo test --manifest-path examples/minimal/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
 ```
 
 In an enclosing workspace, the package is `localization-example`; add

@@ -57,11 +57,11 @@ explicitly invokes `embed_manifest!()`.
 
 ## Use the current local 0.2.0 checkout
 
-The quickstart's pinned public Git revisions predate typed embedded selection.
-To use `texts::embed_manifest!(module = texts::presentation::Hud)` now, replace
-the quickstart's runtime/build entries and generator patch with these local
-paths. Keep its other dependencies, metadata, `build.rs` and source files.
-Replace both absolute paths with your existing 0.2.0 checkouts:
+The quickstart's pinned Git revisions support the complete 0.2.0 API, including
+typed embedded selection. Local paths are an alternative when editing the
+libraries themselves. Replace the quickstart's runtime/build entries and
+generator patch with these paths; keep its other dependencies, metadata,
+`build.rs` and source files. Set both paths to your 0.2.0 checkouts:
 
 ```toml
 [dependencies]

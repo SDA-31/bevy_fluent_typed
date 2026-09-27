@@ -8,14 +8,14 @@ greeting and exits. It runs headlessly, without a window or GPU.
 
 These commands build the current 0.2.0 development checkout. Manifest support
 still requires the generator package's runtime-only API, even without codegen.
-Until 0.2.0 is published, set its local path below. Omit `--config` if the enclosing
-workspace already patches the matching generator.
+Until 0.2.0 is published, use the matching Git source below. Omit both `--config`
+arguments if the enclosing workspace already patches the matching generator.
 
 ```sh
-# Set the absolute path to your generator 0.2.0 checkout.
-localization_generator_config='patch.crates-io.fluent_typed_codegen.path="/absolute/path/to/fluent_typed_codegen"'
-cargo run --manifest-path examples/no_codegen/Cargo.toml --config "$localization_generator_config"
-cargo test --manifest-path examples/no_codegen/Cargo.toml --config "$localization_generator_config"
+localization_generator_git='patch.crates-io.fluent_typed_codegen.git="https://github.com/SDA-31/fluent_typed_codegen"'
+localization_generator_rev='patch.crates-io.fluent_typed_codegen.rev="b6d4f29589ce52d6f873f98ea82bd94d1b919345"'
+cargo run --manifest-path examples/no_codegen/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
+cargo test --manifest-path examples/no_codegen/Cargo.toml --config "$localization_generator_git" --config "$localization_generator_rev"
 ```
 
 Run from the runtime repository. In an enclosing workspace you can also use

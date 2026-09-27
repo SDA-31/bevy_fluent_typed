@@ -2,8 +2,8 @@
 
 Unreleased 0.2.0 companion on `feat/runtime-module-loading`; registry 0.1.3 retains the
 previous provider API. Follow the [runtime Git setup](../README.md#development-setup),
-including the pinned generator patch, for the tested pre-bump snapshot.
-The current checkout and its generator dependency are both 0.2.0.
+including its matching generator patch. Those pinned Git revisions provide the
+0.2.0 API, including typed embedded selection.
 
 This optional bridge emits Bevy resource declarations, checked per-leaf parsers,
 ready-child assembly and typed navigation. The generator owns discovery, schemas
@@ -26,15 +26,13 @@ Declaring the generated module embeds no FTL, even in unoptimized builds.
 Explicit `texts::embed_manifest!()` includes every leaf; a selector such as
 `module = texts::presentation::Hud` or `module = texts::Presentation` includes
 only that leaf or group's descendants, across known languages. See
-[embedding and local setup](../README.md#explicit-embedding); typed selection
-requires the current local checkout, not the earlier pinned Git snapshot.
+[embedding](../README.md#explicit-embedding) for the public Git setup and examples.
 
 Low-level `build()`, `from_cargo()`, `generate()` and `Settings` remain available with
 `build`; prefer the runtime facade. There is no sibling-path generator dependency.
 The declared registry requirement is 0.2.0. Until it is published, development
-builds of this checkout need a workspace-level patch to a matching local 0.2.0
-generator checkout; the older Git revision in the quickstart does not satisfy
-this new version requirement.
+builds need a workspace-level patch to the generator Git revision in the
+quickstart, or to a matching local 0.2.0 checkout.
 
 Generated scope views live in a hidden namespace to avoid public message/type
 collisions. Leaves borrow the underlying store lifetime, so chained temporary

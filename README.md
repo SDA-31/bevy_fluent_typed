@@ -5,8 +5,8 @@ translations through Bevy's asset system or explicitly embed them.
 
 **0.2.0 (Unreleased):** this guide describes `feat/runtime-module-loading`. The
 published runtime/bridge 0.1.3 and generator 0.1.4 have a different loading API.
-The Git revisions below are the tested implementation, with package versions
-from before the 0.2.0 bump. Version 0.2.0 is not published.
+The Git revisions below provide the 0.2.0 API, including typed embedded selection.
+Version 0.2.0 is not published on crates.io; use these matching source revisions.
 
 ## Contents
 
@@ -33,13 +33,13 @@ edition = "2024"
 
 [dependencies]
 bevy = { version = "0.19", default-features = false, features = ["std", "async_executor", "multi_threaded", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }
-bevy_fluent_typed = { git = "https://github.com/SDA-31/bevy_fluent_typed", rev = "46a2bb962c39c74447691cf76d26bd95c92ac963", features = ["codegen"] } # feat/runtime-module-loading
+bevy_fluent_typed = { git = "https://github.com/SDA-31/bevy_fluent_typed", rev = "6286f85b809b61e2786308535ad005b53857125e", features = ["codegen"] } # feat/runtime-module-loading
 
 [build-dependencies]
-bevy_fluent_typed = { git = "https://github.com/SDA-31/bevy_fluent_typed", rev = "46a2bb962c39c74447691cf76d26bd95c92ac963", default-features = false, features = ["build"] } # feat/runtime-module-loading
+bevy_fluent_typed = { git = "https://github.com/SDA-31/bevy_fluent_typed", rev = "6286f85b809b61e2786308535ad005b53857125e", default-features = false, features = ["build"] } # feat/runtime-module-loading
 
 [patch.crates-io]
-fluent_typed_codegen = { git = "https://github.com/SDA-31/fluent_typed_codegen", rev = "0e5ed447cc08553818a240fc6cfe736aa67fb4b3" }
+fluent_typed_codegen = { git = "https://github.com/SDA-31/fluent_typed_codegen", rev = "b6d4f29589ce52d6f873f98ea82bd94d1b919345" }
 
 [package.metadata.localization]
 asset-root = "assets"
@@ -204,16 +204,14 @@ known language's raw FTL. The selected language is parsed during plugin updates,
 so readiness checks still apply. Static source bytes stay in the executable for
 its lifetime; no compressor or decompressor is involved.
 
-With the current **local 0.2.0 checkout**, a Lazy application can select just
-its HUD by type:
+A Lazy application can select just its HUD by type:
 
 ```rust,ignore
 let manifest = texts::embed_manifest!(module = texts::presentation::Hud);
 ```
 
-This typed selector is newer than the pinned Git snapshot above; use the
-[local checkout setup](https://github.com/SDA-31/bevy_fluent_typed/blob/feat/runtime-module-loading/docs/build.md#use-the-current-local-020-checkout)
-for this variant. Request the same leaf through `localization.load::<texts::presentation::Hud>()`.
+The Git dependencies above support this selector. Request the same leaf through
+`localization.load::<texts::presentation::Hud>()`.
 The manifest contains its bytes across known languages, without the pause module.
 Select `texts::Presentation` for that group's descendants, or
 `texts::Translations` for the whole tree. `use` imports, including `as` aliases,
@@ -248,7 +246,7 @@ optional normal-dependency feature for filesystem change notifications.
 | --- | --- |
 | `translations!` cannot find generated output | Add the shown build-dependency and return `bevy_fluent_typed::build()` from `build.rs`. |
 | Types or methods are missing | Add the corresponding FTL module/message in every language and rebuild. File edits at runtime cannot change the compiled schema. |
-| A typed `embed_manifest!(module = ...)` selector is rejected | Use the [local 0.2.0 setup](docs/build.md#use-the-current-local-020-checkout); the pinned Git snapshot predates typed selection. Pass a generated path or `use` alias. |
+| A typed `embed_manifest!(module = ...)` selector is rejected | Use all Git revisions from [Setup](#development-setup), including the generator patch. Pass a generated path or `use` alias, not a string or `type` alias. |
 | The resource is absent | File loading is asynchronous. Use `Option<Res<_>>` or a `resource_exists` run condition. In Lazy, explicitly request the scope first. |
 | A bound label stays empty | Check `localization.status::<YourLeaf>()`. Its module must be requested and pass validation. A root binding waits for the whole tree. |
 | Files are not found | The manifest origin is relative to Bevy's asset root. Do not prefix it with `assets/` when `AssetPlugin` already points there. |
@@ -286,4 +284,4 @@ The [compatibility runner](tools/compatibility/README.md) is for maintainers.
 Message accessors and Fluent resolution use
 [fluent-typed](https://github.com/human-solutions/fluent-typed).
 [MIT](LICENSE) covers this library, its bridge and examples, not your application
-or translations. Version 0.2.0 is in local preparation and is not published.
+or translations. Version 0.2.0 is available from the pinned Git sources and is not published on crates.io.
