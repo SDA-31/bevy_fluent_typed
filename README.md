@@ -6,8 +6,11 @@
 [![MSRV](https://img.shields.io/crates/msrv/bevy_fluent_typed)](https://crates.io/crates/bevy_fluent_typed)
 [![License](https://img.shields.io/crates/l/bevy_fluent_typed)](LICENSE)
 
-Typed Fluent messages for Bevy. Generate typed accessors in `build.rs`, then read
-translations through Bevy's asset system or explicitly embed them.
+Typed Fluent messages for Bevy, built on
+[fluent-typed](https://github.com/human-solutions/fluent-typed) and
+[fluent_typed_codegen](https://github.com/SDA-31/fluent_typed_codegen).
+Generate typed accessors in `build.rs`, then load translations through Bevy's
+asset system or explicitly embed them.
 
 ## Contents
 
@@ -232,7 +235,5 @@ The [compatibility runner](tools/compatibility/README.md) is for maintainers.
 CI ignores branch pushes and PRs changing only `CHANGELOG.md`; tag pushes and
 manual runs still execute checks.
 
-Message accessors and Fluent resolution use
-[fluent-typed](https://github.com/human-solutions/fluent-typed).
 [MIT](LICENSE) covers this library and its examples, not your application
 or translations.
