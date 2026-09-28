@@ -13,6 +13,8 @@ use std::{
 	time::{Duration, Instant},
 };
 
+mod tree;
+
 fn pump(app: &mut App, ready: impl Fn(&World) -> bool) {
 	let deadline = Instant::now() + Duration::from_secs(10);
 
