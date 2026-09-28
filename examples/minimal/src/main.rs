@@ -28,13 +28,7 @@ fn main() -> Result<(), String> {
 		},
 	))
 	.init_resource::<console::LoadStatus>()
-	.add_plugins(LocalizationPlugin::<Translations>::new(
-		localization_runtime::LocalizationManifest::parse(
-			texts::CATALOG_CONFIG,
-			texts::CATALOG_ASSET_PATH,
-		)
-		.map_err(|error| error.to_string())?,
-	))
+	.add_plugins(LocalizationPlugin::<Translations>::new(texts::manifest()))
 	.add_systems(
 		PreUpdate,
 		console::observe.after(LocalizationSystems::Publish),

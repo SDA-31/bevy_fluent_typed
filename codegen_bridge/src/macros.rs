@@ -8,7 +8,8 @@
 /// No handwritten `generated.rs`, output path or runtime dependency alias is needed.
 ///
 /// The module contains `Translations`, `Locale`, named groups/leaves and asset
-/// metadata. Usually use the main runtime's `translations!` facade instead.
+/// metadata. `manifest()` returns its build-configured file-source contract without
+/// I/O or FTL embedding. Usually use the main runtime's `translations!` facade instead.
 /// Module attributes and Rust visibility (`pub`, `pub(crate)`, etc.) are supported.
 /// Declaration alone embeds no FTL. Explicit `texts::embed_manifest!()` includes
 /// all sources; `module = texts::presentation::Hud` selects a generated leaf,

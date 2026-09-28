@@ -55,6 +55,7 @@ impl Extension for BevyExtension {
 
 	fn root_items(&self, metadata: &[Scope]) -> Vec<Item> {
 		let mut items = scopes::implementations(metadata);
+		items.push(provider::manifest());
 		items.push(provider::implementation(metadata));
 		items.push(navigation::implementation(metadata));
 		items

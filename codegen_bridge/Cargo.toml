@@ -1,6 +1,6 @@
 [package]
 name = "bevy_fluent_codegen_bridge"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 rust-version = "1.95"
 description = "Opt-in generated adapter between fluent_typed_codegen and bevy_fluent_typed"

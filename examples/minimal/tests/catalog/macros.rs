@@ -47,6 +47,29 @@ fn macro_resolves_the_renamed_runtime_and_consumer_build_output() {
 }
 
 #[test]
+fn generated_manifest_uses_build_configuration_without_loading_sources() {
+	let manifest = fixture::texts::manifest();
+
+	assert_eq!(
+		manifest.file_path(),
+		Some(std::path::Path::new(fixture::texts::CATALOG_ASSET_PATH))
+	);
+	assert_eq!(
+		manifest.config().source_language,
+		fixture::texts::SOURCE_LANGUAGE
+	);
+	assert_eq!(
+		manifest.config().default_language,
+		fixture::texts::DEFAULT_LANGUAGE
+	);
+	assert_eq!(
+		manifest.config().languages_directory,
+		std::path::Path::new(fixture::texts::LANGUAGES_DIRECTORY)
+	);
+	assert!(manifest.embedded_modules().is_none());
+}
+
+#[test]
 fn typed_embedding_resolves_nested_modules_and_import_aliases() {
 	use fixture::texts::presentation::Hud as FlightHud;
 

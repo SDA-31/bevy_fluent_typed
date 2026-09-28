@@ -7,10 +7,13 @@ before 1.0, a minor release can introduce incompatible API changes.
 
 ## [0.2.1] - 2026-09-28
 
-Runtime 0.2.1 requires generator 0.2.1 and retains the unchanged bridge 0.2.0.
+Runtime 0.2.1 requires bridge and generator 0.2.1.
 
 ### Added
 
+- Generated `texts::manifest()` supplies the build-configured file-source
+  contract without reading files or embedding FTL. Explicit runtime manifests
+  and embedded selection remain available.
 - `LocalizationAppExt::add_localized_systems` infers readiness from native,
   direct `Res<Scope>` parameters and waits without blocking the frame.
   Lazy loading and module lifetime remain controlled by explicit requests.
@@ -33,6 +36,8 @@ Runtime 0.2.1 requires generator 0.2.1 and retains the unchanged bridge 0.2.0.
 - File loading indexes exact asset addresses instead of scanning all known
   locale/module combinations. Embedded lookup uses the generator's 0.2.1 index.
 - The asset-source guide's loading-boundary link also works in published Rustdoc.
+- README and Rustdoc quickstarts use small, sequential setup blocks. Console
+  runners, process exit and failure handling live in a separate loading recipe.
 
 ## [0.2.0] - 2026-09-28
 

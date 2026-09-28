@@ -12,86 +12,70 @@ leaves, or the whole `Translations` tree. Loading a scope requests all its leave
 “Hybrid” is a way of using Lazy, not another type. Reading an accessor or creating
 a text binding never loads data. Full has no `load` or `unload` methods.
 
-The examples below use the quickstart's `presentation/hud.ftl` and
-`screens/pause.ftl`, with English and Spanish translations.
+The following examples add a pause screen and Spanish. Keep the quickstart's
+manifest and English HUD; add these files:
+
+`assets/localizations/translations/en/screens/pause.ftl`:
+
+```ftl
+title = Paused
+```
+
+`assets/localizations/translations/es/presentation/hud.ftl`:
+
+```ftl
+title = Listo
+```
+
+`assets/localizations/translations/es/screens/pause.ftl`:
+
+```ftl
+title = En pausa
+```
+
+All languages have the same module/message contract. Rebuild to generate the
+new `texts::screens::Pause` type and `texts::Locale::Es` variant.
 
 ## Fully Lazy: complete main.rs
 
-Keep the quickstart's Cargo.toml, build.rs and assets. Replace `src/main.rs` with
-this program. It requests the HUD, prints `Ready` and exits. The pause module is
-never requested, read or parsed:
+Keep the quickstart's imports, `translations!` declaration and `show_title`.
+Add the Lazy controller types:
 
 ```rust,ignore
-use bevy::{
-    app::{AppExit, ScheduleRunnerPlugin},
-    prelude::*,
-};
-use bevy_fluent_typed::{
-    Lazy, Localization, LocalizationAppExt, LocalizationManifest, LocalizationPlugin, ModuleStatus,
-};
-use std::{path::Path, time::Duration};
+use bevy_fluent_typed::{Lazy, Localization};
 
-bevy_fluent_typed::translations!(mod texts);
 type AppLocalization = Localization<texts::Translations, Lazy>;
+```
 
-fn main() -> AppExit {
-    let manifest = LocalizationManifest::parse(
-        texts::CATALOG_CONFIG,
-        texts::CATALOG_ASSET_PATH,
-    )
-    .expect("valid localization manifest");
-    let assets = Path::new(env!("CARGO_MANIFEST_DIR")).join(texts::ASSET_ROOT);
+Replace `main` with this version:
 
+```rust,ignore
+fn main() {
     App::new()
-        .add_plugins((
-            MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_millis(16))),
-            AssetPlugin {
-                file_path: assets.to_string_lossy().into_owned(),
-                ..default()
-            },
-            LocalizationPlugin::<texts::Translations, Lazy>::new(manifest),
-        ))
+        .add_plugins(DefaultPlugins)
+        .add_plugins(LocalizationPlugin::<texts::Translations, Lazy>::new(texts::manifest()))
         .add_systems(Startup, request_hud)
         .add_localized_startup_systems(show_title)
-        .add_systems(Update, report_failure)
-        .run()
-}
-
-fn request_hud(mut localization: ResMut<AppLocalization>) {
-    localization.load::<texts::presentation::Hud>();
-}
-
-fn show_title(
-    hud: Res<texts::presentation::Hud>,
-    mut exit: MessageWriter<AppExit>,
-) {
-    println!("{}", hud.msg_title());
-    exit.write(AppExit::Success);
-}
-
-fn report_failure(
-    localization: Res<AppLocalization>,
-    mut exit: MessageWriter<AppExit>,
-) {
-    if let ModuleStatus::Failed(error) = localization.status::<texts::presentation::Hud>() {
-        eprintln!("{error}");
-        exit.write(AppExit::error());
-    }
+        .run();
 }
 ```
 
-`LocalizationPlugin::<texts::Translations>::new_lazy(manifest)` is the shorter
-initializer for the same plugin type. The controller's `Lazy` type must match the
-plugin; the generated resource type is still just `texts::presentation::Hud`.
+Add the explicit HUD request:
 
-In a windowed application, install localization after `DefaultPlugins` (which
-includes `AssetPlugin`). Use your normal event loop instead of this example's
-`MinimalPlugins` and console exit system.
+```rust,ignore
+fn request_hud(mut localization: ResMut<AppLocalization>) {
+    localization.load::<texts::presentation::Hud>();
+}
+```
 
-For embedded bytes, this same program can select `texts::embed_manifest!(module = texts::presentation::Hud)` and keep its
-existing HUD request. Follow the [embedding recipe](https://github.com/SDA-31/bevy_fluent_typed/blob/main/README.md#explicit-embedding):
-embedding chooses which
-raw bytes enter the binary; Lazy requests choose which modules get parsed.
+This requests the HUD and prints `Ready` once it arrives. The pause module is
+not requested, read or parsed. The request stays active until you unload it.
+`LocalizationPlugin::<texts::Translations>::new_lazy(texts::manifest())` returns
+the same plugin type. Full and Lazy use the same `Res<texts::presentation::Hud>`.
+
+To embed only the HUD, replace `texts::manifest()` with
+`texts::embed_manifest!(module = texts::presentation::Hud)` and keep the request.
+Embedding selects raw bytes in the binary; Lazy requests select what gets parsed.
 Use `texts::embed_manifest!()` to include the pause screen for the next section too.
 
 ## Load and release a screen
@@ -194,9 +178,6 @@ are not inspected: expose each required catalog as a direct parameter or retain
 explicit conditions for those advanced forms. Apply configuration after
 `localized`; already configured systems have erased their parameter types.
 Missing ordinary resources retain Bevy's normal validation behavior.
-Install localization plugins before the schedule is first initialized or run;
-the helper registers its precise resource reads at that point. Systems may be
-registered before or after the plugin while building the `App`.
 
 The ordinary `add_systems` API is unchanged. The new helper requires a recurring
 schedule, such as `Update`, to retry waiting systems. Ordinary `Startup`, `OnEnter`
@@ -210,10 +191,6 @@ Use `status::<Scope>()` to distinguish `Unloaded`, `Loading`, `Ready` and
 wait. An invalid same-language reload preserves the last good value, so its
 consumers can run while the latest attempt has status `Failed`. Repeating
 `load::<Scope>()` retries failed leaves.
-
-`Option<Res<Scope>>` remains available for systems that must work without a
-catalog, such as clearing stale text. It neither requests loading nor keeps
-modules loaded.
 
 ## Navigate from the root or a parent
 
@@ -350,6 +327,74 @@ event, so overlapping external reloads cannot always be ordered by request time.
 If strict order matters, disable automatic watching and send `ReloadCatalogs`;
 a custom reader must supply coherent data as well.
 
+## Headless application
+
+For a console-only example, use `MinimalPlugins`, `AssetPlugin` and a repeating
+runner. Build `src/main.rs` from these three blocks; the application prints
+`Ready` and exits, or returns an error if the HUD cannot load.
+
+The imports and generated module:
+
+```rust,ignore
+use bevy::{
+    app::{AppExit, ScheduleRunnerPlugin},
+    prelude::*,
+};
+use bevy_fluent_typed::{
+    Localization, LocalizationAppExt, LocalizationPlugin, ModuleStatus,
+};
+use std::{path::Path, time::Duration};
+
+bevy_fluent_typed::translations!(mod texts);
+```
+
+The console event loop and asset root:
+
+```rust,ignore
+fn main() -> AppExit {
+    let assets = Path::new(env!("CARGO_MANIFEST_DIR")).join(texts::ASSET_ROOT);
+
+    App::new()
+        .add_plugins((
+            MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_millis(16))),
+            AssetPlugin {
+                file_path: assets.to_string_lossy().into_owned(),
+                ..default()
+            },
+            LocalizationPlugin::<texts::Translations>::new(texts::manifest()),
+        ))
+        .add_localized_startup_systems(show_title)
+        .add_systems(Update, report_failure)
+        .run()
+}
+```
+
+The output and failure handling:
+
+```rust,ignore
+fn show_title(
+    hud: Res<texts::presentation::Hud>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    println!("{}", hud.msg_title());
+    exit.write(AppExit::Success);
+}
+
+fn report_failure(
+    localization: Res<Localization<texts::Translations>>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    if let ModuleStatus::Failed(error) = localization.status::<texts::presentation::Hud>() {
+        eprintln!("{error}");
+        exit.write(AppExit::error());
+    }
+}
+```
+
+The absolute asset root here makes this standalone console executable runnable
+from another working directory. A normal Bevy application uses its existing
+asset configuration and event loop, as in the quickstart.
+
 ## Migration from registry 0.1.3
 
 Follow the [0.2.0 migration guide](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) for dependency updates, before/after
@@ -387,3 +432,9 @@ use bevy_fluent_typed::LoadingMode;
 struct Other;
 impl LoadingMode for Other { const FULL: bool = false; }
 ```
+
+## More recipes
+
+- [Custom sources](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/asset-sources.md): supply files through your own reader.
+- [Decimal and percentage arguments](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/formatting.md): reuse ICU4X formatters.
+- [Build API](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/build.md): explicit generation and feature selection.

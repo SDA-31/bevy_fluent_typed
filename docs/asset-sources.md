@@ -1,5 +1,12 @@
 ## Custom asset sources
 
+The quickstart uses `texts::manifest()` for the file-source contract prepared by
+the build configuration. To keep the same schema with different runtime storage,
+construct the contract explicitly as below. The origin is a Bevy asset address;
+`AssetPlugin` owns the asset root. `LocalizationManifest::from_file(path)` instead
+reads TOML through the native filesystem, so its origin is not automatically a
+Bevy-relative address.
+
 The manifest is a prepared contract, not a catalog or live TOML asset. Register
 an application's `AssetReader` before `AssetPlugin`, then preserve its named source
 in the origin:

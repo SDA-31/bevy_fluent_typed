@@ -20,6 +20,8 @@
 //!
 //! Declare `bevy_fluent_typed::translations!(pub mod texts)` in application source.
 //! This includes generated output; it does not generate files or install a plugin.
+//! `texts::manifest()` supplies the build-configured file-source contract without
+//! reading files or loading translations. Pass it to `LocalizationPlugin::new`.
 //! It also embeds no FTL. Explicit `texts::embed_manifest!()` includes the whole
 //! tree; `module = texts::presentation::Hud` selects a generated leaf, and
 //! `module = texts::Presentation` selects a group. `use` aliases work too.

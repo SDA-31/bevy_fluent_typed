@@ -35,6 +35,8 @@ pub struct LocalizationPlugin<C: FluentCatalog, M: LoadingMode = Full> {
 impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 	/// Configure the selected loading mode from a ready source contract.
 	/// File origins are Bevy asset addresses; named sources are preserved.
+	/// Generated consumers can pass `texts::manifest()` for their build-configured
+	/// file source, or `texts::embed_manifest!()` for explicit embedding.
 	pub fn new(manifest: LocalizationManifest) -> Self {
 		Self {
 			manifest,

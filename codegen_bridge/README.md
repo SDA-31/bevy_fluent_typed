@@ -23,6 +23,10 @@ path; generated code gets shared manifest support through that runtime alias.
 Resolver 2/3 keeps features separate. No generation occurs in macro expansion.
 
 Declaring the generated module embeds no FTL, even in unoptimized builds.
+`texts::manifest()` returns the validated build-configured file-source contract
+for `LocalizationPlugin::new`; it performs no I/O and embeds no translation text.
+Bevy still owns the asset root. Supply a different `LocalizationManifest` when
+runtime paths or storage differ from the build configuration.
 Explicit `texts::embed_manifest!()` includes every leaf; a selector such as
 `module = texts::presentation::Hud` or `module = texts::Presentation` includes
 only that leaf or group's descendants, across known languages. See

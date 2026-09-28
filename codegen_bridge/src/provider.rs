@@ -1,8 +1,23 @@
-//! Root provider descriptors carry schema and parsers, never embedded source text.
+//! Root provider descriptors and file-source contracts, without FTL payloads.
 use fluent_typed_codegen::{
 	Scope,
 	syn::{Expr, Item, parse_quote},
 };
+
+pub(super) fn manifest() -> Item {
+	parse_quote! {
+		/// Use the file-source contract configured in this application's build metadata.
+		///
+		/// This uses the validated TOML and its Bevy asset address. It reads no files,
+		/// loads no translations and includes no FTL bytes. AssetPlugin still owns
+		/// the runtime asset root. Pass a custom LocalizationManifest to the plugin
+		/// when runtime storage differs from the build configuration.
+		pub fn manifest() -> __fluent_runtime::LocalizationManifest {
+			__fluent_runtime::LocalizationManifest::parse(CATALOG_CONFIG, CATALOG_ASSET_PATH)
+				.expect("build-validated localization manifest")
+		}
+	}
+}
 
 pub(super) fn implementation(scopes: &[Scope]) -> Item {
 	let modules: Vec<Expr> = scopes

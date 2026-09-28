@@ -3,8 +3,20 @@
 Existing 0.2.0 calls, manual readiness conditions and explicit Lazy requests
 keep working. Adopt the new registration helper to infer catalog readiness.
 Update both normal and build dependencies on `bevy_fluent_typed` to `0.2.1`.
-The runtime uses the compatible 0.2.0 bridge and generator 0.2.1; no generated
+The runtime uses bridge and generator 0.2.1; no generated
 schema or manifest changes are required.
+
+## Use the build-configured file manifest
+
+The generated helper replaces manual parsing of the build metadata:
+
+```rust,ignore
+LocalizationPlugin::<texts::Translations>::new(texts::manifest())
+```
+
+It performs no file reads and includes no FTL payload. Bevy's asset root is
+unchanged. Existing explicit `LocalizationManifest` and `embed_manifest!` calls
+keep working when runtime storage differs from the build configuration.
 
 ## Wait for a required catalog
 
