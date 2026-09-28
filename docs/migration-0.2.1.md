@@ -1,7 +1,7 @@
 # Adopt resource waiting in 0.2.1
 
-This is an optional addition. Existing 0.2.0 calls, `Option<Res<Scope>>`,
-manual readiness conditions and explicit Lazy requests keep working.
+Existing 0.2.0 calls, manual readiness conditions and explicit Lazy requests
+keep working. Adopt the new registration helper to infer catalog readiness.
 Update both normal and build dependencies on `bevy_fluent_typed` to `0.2.1`.
 The runtime still uses the compatible 0.2.0 bridge and generator; no generated
 schema or manifest changes are required.
@@ -11,15 +11,14 @@ schema or manifest changes are required.
 Before:
 
 ```rust,ignore
-fn update_hud(hud: Option<Res<texts::presentation::Hud>>) {
-    let Some(hud) = hud else {
-        return;
-    };
-
+fn update_hud(hud: Res<texts::presentation::Hud>) {
     println!("{}", hud.msg_title());
 }
 
-app.add_systems(Update, update_hud);
+app.add_systems(
+    Update,
+    update_hud.run_if(resource_exists::<texts::presentation::Hud>),
+);
 ```
 
 After:
@@ -37,13 +36,12 @@ app.add_localized_systems(Update, update_hud);
 `Res` is Bevy's normal resource parameter. The registration helper infers the
 required catalog and skips the system until it is ready. It does not block the
 frame or change the behavior of ordinary `add_systems`. With several required
-catalog parameters, all must be ready. Optional catalogs never delay the system.
+catalog parameters, all must be ready.
 
-Keep `Option` when work must happen while the catalog is unavailable, such as
-clearing stale text or displaying a loading indicator. Skipping a system does
-not clear text or undo its previous effects. Load errors remain observable through
-`status` and `CatalogUpdate`; handle them in a system that does not require the
-missing catalog. Same-language reload failures retain the last good catalog.
+Skipping a system does not clear text or undo its previous effects. Use
+`LocalizedText` for labels that should clear automatically while unloaded.
+Load errors remain observable through `status` and `CatalogUpdate`; handle them
+in a system that does not require the missing catalog. Same-language reload failures retain the last good catalog.
 
 ## Preserve scheduling configuration
 
@@ -95,5 +93,5 @@ inspected. Expose required catalogs directly or retain explicit conditions for
 these forms. Missing non-catalog resources and application errors keep their
 normal Bevy behavior. No global error handler is replaced.
 
-See the [loading guide](../GUIDE.md#read-resources-and-handle-readiness) for the
-complete API alongside optional resources and typed navigation.
+See the [loading guide](../GUIDE.md#read-resources-and-handle-readiness) for
+module lifetime, loading modes and typed navigation.

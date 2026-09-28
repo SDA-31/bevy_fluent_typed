@@ -49,7 +49,7 @@ impl CatalogReadiness {
 /// Wait for the registered catalogs required by a function or tuple of functions.
 ///
 /// Functions keep native `Res<Scope>` parameters. Each function waits independently
-/// for its direct, required catalog parameters; `Option<Res<Scope>>` never gates it.
+/// for its direct, required catalog parameters.
 /// Apply Bevy configuration (`chain`, `run_if`, `in_set`, etc.) to the returned value.
 /// No loading is requested: Lazy applications retain explicit `load` / `unload`.
 ///

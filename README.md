@@ -246,7 +246,7 @@ optional normal-dependency feature for filesystem change notifications.
 | `translations!` cannot find generated output | Add the shown build-dependency and return `bevy_fluent_typed::build()` from `build.rs`. |
 | Types or methods are missing | Add the corresponding FTL module/message in every language and rebuild. File edits at runtime cannot change the compiled schema. |
 | A typed `embed_manifest!(module = ...)` selector is rejected | Use version 0.2.1 from [Setup](#setup) in both dependency sections and remove old overrides. Pass a generated path or `use` alias, not a string or `type` alias. |
-| The resource is absent | Use `add_localized_systems` with native `Res<_>` to wait, or `Option<Res<_>>` to keep running without it. In Lazy, request the scope first. |
+| The resource is absent | Use `add_localized_systems` with native `Res<_>` to wait. In Lazy, request the scope first and keep that request active while the screen needs it. |
 | A bound label stays empty | Check `localization.status::<YourLeaf>()`. Its module must be requested and pass validation. A root binding waits for the whole tree. |
 | Files are not found | The manifest origin is relative to Bevy's asset root. Do not prefix it with `assets/` when `AssetPlugin` already points there. |
 | Editing the TOML has no runtime effect | The plugin receives a parsed contract and does not reload TOML. Rebuild this quickstart or construct a new contract during application setup. |

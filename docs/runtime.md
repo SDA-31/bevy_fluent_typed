@@ -155,7 +155,9 @@ Before loading, after unloading and during a locale transition, the system waits
 without blocking the frame. It resumes when its catalogs are ready. A complete
 parent waits for all its children; a HUD leaf does not wait for the pause module.
 In Lazy mode, keep the explicit `load::<Scope>()` and `unload::<Scope>()` calls:
-registering a system does not request or retain a module.
+registering a system does not request or retain a module. Keep the loading
+request active for as long as that screen needs its translations. Full mode
+keeps all modules of the selected language loaded automatically.
 
 Functions and tuples are supported; tuple members wait independently. To add
 normal Bevy scheduling configuration, wrap functions before configuring them:
@@ -186,27 +188,12 @@ later. Tuple members are independent. This helper wraps each function, so
 Combine dependent initialization steps in one function, or use recurring
 `localized(...)` systems with application-owned initialization state and ordering.
 
-If a system should keep working before its translations arrive, keep `Option`:
-
-```rust,ignore
-fn observe_hud(hud: Option<Res<texts::presentation::Hud>>) {
-    if let Some(hud) = hud {
-        println!("{}", hud.msg_title());
-    }
-}
-
-app.add_systems(Update, observe_hud);
-```
-
-Optional parameters never delay a system, including when used beside a required
-catalog in `add_localized_systems`. Missing ordinary resources retain Bevy's
-normal validation behavior; the helper does not suppress unrelated errors.
-
 Readiness inference supports direct native `Res<Scope>` parameters of functions
 and closures. Custom derived `SystemParam`s, `ParamSet` and nested parameter tuples
 are not inspected: expose each required catalog as a direct parameter or retain
 explicit conditions for those advanced forms. Apply configuration after
 `localized`; already configured systems have erased their parameter types.
+Missing ordinary resources retain Bevy's normal validation behavior.
 
 The ordinary `add_systems` API is unchanged. The new helper requires a recurring
 schedule, such as `Update`, to retry waiting systems. Ordinary `Startup`, `OnEnter`
@@ -220,6 +207,10 @@ Use `status::<Scope>()` to distinguish `Unloaded`, `Loading`, `Ready` and
 wait. An invalid same-language reload preserves the last good value, so its
 consumers can run while the latest attempt has status `Failed`. Repeating
 `load::<Scope>()` retries failed leaves.
+
+`Option<Res<Scope>>` remains available for systems that must work without a
+catalog, such as clearing stale text. It neither requests loading nor keeps
+modules loaded.
 
 ## Navigate from the root or a parent
 

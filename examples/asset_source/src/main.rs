@@ -4,7 +4,9 @@ use bevy_fluent_typed::bevy::{
 	asset::io::{AssetSourceBuilder, memory::MemoryAssetReader},
 	prelude::*,
 };
-use bevy_fluent_typed::{CatalogUpdate, CatalogUpdateReader, LocalizationPlugin};
+use bevy_fluent_typed::{
+	CatalogUpdate, CatalogUpdateReader, LocalizationAppExt, LocalizationPlugin,
+};
 use std::time::Duration;
 
 bevy_fluent_typed::translations!(mod texts);
@@ -35,34 +37,24 @@ fn main() -> AppExit {
 				.expect("example source contract"),
 			),
 		))
-		.add_systems(Update, show_title)
+		.add_localized_startup_systems(show_title)
+		.add_systems(Update, report_failure)
 		.run()
 }
 
-fn show_title(
+fn show_title(hud: Res<texts::ui::Hud>, mut exit: MessageWriter<AppExit>) {
+	println!("{}", hud.msg_title());
+	exit.write(AppExit::Success);
+}
+
+fn report_failure(
 	mut updates: CatalogUpdateReader<texts::Translations>,
-	hud: Option<Res<texts::ui::Hud>>,
 	mut exit: MessageWriter<AppExit>,
 ) {
 	for update in updates.read() {
-		match update {
-			// A successful module event makes the corresponding typed resource available.
-			CatalogUpdate::Loaded {
-				locale: texts::Locale::En,
-				..
-			} => {
-				let Some(hud) = &hud else {
-					continue;
-				};
-				println!("{}", hud.msg_title());
-				exit.write(AppExit::Success);
-				return;
-			}
-			CatalogUpdate::Rejected { error, .. } => {
-				eprintln!("{error}");
-				exit.write(AppExit::error());
-			}
-			_ => {}
+		if let CatalogUpdate::Rejected { error, .. } = update {
+			eprintln!("{error}");
+			exit.write(AppExit::error());
 		}
 	}
 }

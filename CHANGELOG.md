@@ -11,7 +11,7 @@ before 1.0, a minor release can introduce incompatible API changes.
 
 - `LocalizationAppExt::add_localized_systems` infers readiness from native,
   direct `Res<Scope>` parameters and waits without blocking the frame.
-  `Option<Res<Scope>>` retains its existing behavior; Lazy requests remain explicit.
+  Lazy loading and module lifetime remain controlled by explicit requests.
 - `localized` applies the same readiness behavior before normal Bevy scheduling
   configuration; tuples wait independently.
 - `add_localized_startup_systems` runs deferred initialization once after its

@@ -86,9 +86,10 @@ back to implicitly embedded text. Keep `AssetPlugin` installed for both choices.
 ## 3. Wait for resources, including with embedded data
 
 Before, a system could read `Res<texts::presentation::Hud>` immediately, and
-`localization.catalog()` returned `&Translations`. In 0.2.0, use
-`Option<Res<_>>` until a scope is ready; `catalog()` returns `Option<&Translations>`.
+`localization.catalog()` returned `&Translations`. In 0.2.0, gate resource
+consumers until their scopes are ready; `catalog()` returns `Option<&Translations>`.
 This applies during startup and language changes, including in Full mode.
+Version 0.2.1 can [infer readiness from resource parameters](migration-0.2.1.md).
 
 With the [quickstart's Cargo setup and four FTL files](../README.md#setup), use
 this complete `src/main.rs`. It explicitly embeds translations, prints `Ready`
@@ -111,19 +112,27 @@ fn main() -> AppExit {
             AssetPlugin::default(),
             LocalizationPlugin::<texts::Translations>::new(texts::embed_manifest!()),
         ))
-        .add_systems(Update, show_title)
+        .add_systems(
+            Update,
+            show_title.run_if(resource_exists::<texts::presentation::Hud>),
+        )
+        .add_systems(Update, report_failure)
         .run()
 }
 
 fn show_title(
-    hud: Option<Res<texts::presentation::Hud>>,
+    hud: Res<texts::presentation::Hud>,
+    mut exit: MessageWriter<AppExit>,
+) {
+    println!("{}", hud.msg_title());
+    exit.write(AppExit::Success);
+}
+
+fn report_failure(
     localization: Res<Localization<texts::Translations>>,
     mut exit: MessageWriter<AppExit>,
 ) {
-    if let Some(hud) = hud {
-        println!("{}", hud.msg_title());
-        exit.write(AppExit::Success);
-    } else if let ModuleStatus::Failed(error) = localization.status::<texts::presentation::Hud>() {
+    if let ModuleStatus::Failed(error) = localization.status::<texts::presentation::Hud>() {
         eprintln!("{error}");
         exit.write(AppExit::error());
     }

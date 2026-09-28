@@ -36,8 +36,8 @@ The example stores text at `assets/localizations/translations/{en,es,ru}/ui/gree
 Its TOML declares source/default language and the translations directory.
 Locale names and the checked leaf parser are explicit because there is no
 discovery/generator. The single `Texts` type is both root and leaf: use
-`Res<Texts>` with `add_localized_systems`, `Option<Res<Texts>>`,
-`Localization<Texts>::catalog()` or `LocalizedText<Texts>`.
+`Res<Texts>` with `add_localized_systems` for direct access, or
+`LocalizedText<Texts>` to keep a label updated.
 Files load asynchronously through AssetServer; the example waits for readiness.
 
 For automatic discovery, typed accessors and module resources use [codegen](../codegen).
