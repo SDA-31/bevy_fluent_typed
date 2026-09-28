@@ -5,8 +5,6 @@ Notable changes to the runtime and its companion bridge are recorded here using
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html);
 before 1.0, a minor release can introduce incompatible API changes.
 
-## [Unreleased]
-
 ## [0.2.1] - 2026-09-28
 
 Runtime 0.2.1 requires generator 0.2.1 and retains the unchanged bridge 0.2.0.
@@ -98,7 +96,6 @@ This documentation release changes no public runtime API or behavior.
 Bridge 0.1.3 changes only dependency minimums and documentation.
 Earlier releases predate this changelog; their source is retained in Git tags.
 
-[Unreleased]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.2.1...HEAD
 [0.2.1]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.1.3...v0.2.0
 [0.1.3]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.1.2...v0.1.3
