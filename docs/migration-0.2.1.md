@@ -1,7 +1,7 @@
 # Adopt resource waiting in 0.2.1
 
-Existing 0.2.0 calls, manual readiness conditions and explicit Lazy requests
-keep working. Adopt the new registration helper to infer catalog readiness.
+Use native required resources with registration helpers that infer catalog
+readiness. Existing manual conditions and explicit Lazy requests keep working.
 Update both normal and build dependencies on `bevy_fluent_typed` to `0.2.1`.
 The runtime uses bridge and generator 0.2.1; no generated
 schema or manifest changes are required.

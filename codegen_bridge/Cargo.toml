@@ -21,5 +21,5 @@ build = ["dep:fluent_typed_codegen", "fluent_typed_codegen/build"]
 runtime = ["dep:fluent-syntax"]
 
 [dependencies]
-fluent_typed_codegen = { version = "0.2.0", default-features = false, optional = true }
+fluent_typed_codegen = { version = "0.2.1", default-features = false, optional = true }
 fluent-syntax = { version = "0.12", optional = true }

@@ -1,7 +1,7 @@
-# Migrate from bevy_fluent_typed 0.1.3 to 0.2.0
+# Migrate from bevy_fluent_typed 0.1.3 to 0.2.1
 
-This guide upgrades runtime and bridge 0.1.3 to 0.2.0.
-For the optional resource-waiting addition, see [0.2.0 → 0.2.1](migration-0.2.1.md).
+This guide upgrades runtime and bridge 0.1.3 to 0.2.1.
+It includes the generated manifest helper and native required-resource waiting.
 
 Start with **Full**, the default mode. It keeps all modules of the selected
 language requested, so you can retain existing full-tree message closures.
@@ -14,10 +14,10 @@ Replace the localization entries in your Cargo.toml:
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.2.0", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.2.1", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.2.0", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.2.1", default-features = false, features = ["build"] }
 ```
 
 Keep your existing Bevy dependency and localization metadata. This example uses
@@ -27,7 +27,7 @@ and the supported Bevy families are unchanged. Use Cargo resolver 2 or 3.
 
 Remove development Git/path patches for the runtime, bridge and generator when
 switching to the registry. Standard consumers do not declare a bridge or generator
-dependency; the facade resolves the matching 0.2.0 packages. If you rename the
+dependency; the facade resolves the matching 0.2.1 packages. If you rename the
 facade, use the same alias in both dependency sections.
 
 Keep your existing `build.rs`:
@@ -51,22 +51,17 @@ catalogs while external files loaded:
 LocalizationPlugin::<texts::Translations>::new(texts::CATALOG_ASSET_PATH)
 ```
 
-After, pass a parsed `LocalizationManifest`. For files through Bevy's asset system:
+After, use the generated file-source contract:
 
 ```rust
-let manifest = bevy_fluent_typed::LocalizationManifest::parse(
-    texts::CATALOG_CONFIG,
-    texts::CATALOG_ASSET_PATH,
-)?;
+let manifest = texts::manifest();
 let plugin = bevy_fluent_typed::LocalizationPlugin::<texts::Translations>::new(manifest);
 ```
 
-`parse` reads supplied TOML without I/O. The second argument is the manifest's
-**Bevy asset address**; FTL paths resolve relative to it. Keep `AssetPlugin` pointed
-at your deployment's asset root. If that root is `assets`, pass
-`localizations/localization.toml`, not `assets/localizations/localization.toml`.
-A named address such as `translations://localizations/localization.toml` preserves
-its source; register the custom reader before `AssetPlugin`.
+The helper uses the build-configured TOML and its **Bevy asset address**, without
+reading files or embedding FTL. Keep `AssetPlugin` pointed at your deployment's
+asset root. To change the runtime origin, construct a `LocalizationManifest`
+explicitly; see [custom sources](asset-sources.md).
 
 The plugin no longer loads or watches the TOML itself. To supply runtime TOML,
 obtain its readable text before constructing this contract. `from_file` uses the
@@ -85,79 +80,42 @@ back to implicitly embedded text. Keep `AssetPlugin` installed for both choices.
 
 ## 3. Wait for resources, including with embedded data
 
-Before, a system could read `Res<texts::presentation::Hud>` immediately, and
-`localization.catalog()` returned `&Translations`. In 0.2.0, gate resource
-consumers until their scopes are ready; `catalog()` returns `Option<&Translations>`.
-This applies during startup and language changes, including in Full mode.
-Version 0.2.1 can [infer readiness from resource parameters](migration-0.2.1.md).
-
-With the [quickstart's Cargo setup and four FTL files](../README.md#setup), use
-this complete `src/main.rs`. It explicitly embeds translations, prints `Ready`
-once the HUD is available, and exits without a window or GPU:
+Before, a system could read `Res<texts::presentation::Hud>` immediately.
+Keep that parameter and register recurring consumers with the readiness helper:
 
 ```rust
-use bevy::{
-    app::{AppExit, ScheduleRunnerPlugin},
-    prelude::*,
-};
-use bevy_fluent_typed::{Localization, LocalizationPlugin, ModuleStatus};
-use std::time::Duration;
+use bevy_fluent_typed::LocalizationAppExt;
 
-bevy_fluent_typed::translations!(mod texts);
+app.add_localized_systems(Update, show_title);
+```
 
-fn main() -> AppExit {
-    App::new()
-        .add_plugins((
-            MinimalPlugins.set(ScheduleRunnerPlugin::run_loop(Duration::from_millis(16))),
-            AssetPlugin::default(),
-            LocalizationPlugin::<texts::Translations>::new(texts::embed_manifest!()),
-        ))
-        .add_systems(
-            Update,
-            show_title.run_if(resource_exists::<texts::presentation::Hud>),
-        )
-        .add_systems(Update, report_failure)
-        .run()
-}
+The system itself still uses Bevy's native resource:
 
-fn show_title(
-    hud: Res<texts::presentation::Hud>,
-    mut exit: MessageWriter<AppExit>,
-) {
+```rust
+fn show_title(hud: Res<texts::presentation::Hud>) {
     println!("{}", hud.msg_title());
-    exit.write(AppExit::Success);
-}
-
-fn report_failure(
-    localization: Res<Localization<texts::Translations>>,
-    mut exit: MessageWriter<AppExit>,
-) {
-    if let ModuleStatus::Failed(error) = localization.status::<texts::presentation::Hud>() {
-        eprintln!("{error}");
-        exit.write(AppExit::error());
-    }
 }
 ```
 
-Run `cargo run`. The example uses Bevy 0.19; Bevy 0.16 uses `EventWriter`/`send`
-in place of `MessageWriter`/`write`.
+It runs only while the HUD is available. This applies to startup, language
+changes and explicit unloading, for both file and embedded sources.
+A system with several required catalog parameters waits for all of them.
 
-If a system requires the complete tree, change an unconditional catalog read to:
+For one-time initialization after loading, register it separately:
 
 ```rust
-fn show_catalog(localization: Res<Localization<texts::Translations>>) {
-    let Some(translations) = localization.catalog() else {
-        return;
-    };
-
-    println!("{}", translations.presentation().hud().msg_title());
-}
+app.add_localized_startup_systems(setup_hud);
 ```
 
-Alternatively, retain `Res<Scope>` and gate the system with
-`resource_exists::<Scope>`. Gate every required scope, or choose their common
-parent. Resource readiness follows the publication schedule; see
-[scheduling guarantees](../GUIDE.md#scheduling-and-reload-guarantees).
+This helper runs once in `Update`; ordinary `Startup` does not retry a skipped
+system. For a complete application, follow the [quickstart](../README.md#setup).
+The [resource-waiting reference](migration-0.2.1.md) covers scheduling constraints
+and parameter shapes that require explicit readiness conditions.
+
+A full-tree consumer can likewise request `Res<texts::Translations>` through the
+helper. Controller access through `localization.catalog()` instead returns
+`Option<&Translations>` because a complete tree may not be ready. Resource
+readiness follows the [publication schedule](../GUIDE.md#scheduling-and-reload-guarantees).
 
 ## 4. Keep existing messages, or narrow their scope
 
@@ -198,7 +156,7 @@ The equivalent explicit type is
 from `bevy_fluent_typed`, and update controller system parameters to the same mode:
 
 ```rust
-use bevy_fluent_typed::Lazy;
+use bevy_fluent_typed::{Lazy, Localization};
 
 fn open_hud(mut localization: ResMut<Localization<texts::Translations, Lazy>>) {
     localization.load::<texts::presentation::Hud>();
@@ -223,7 +181,7 @@ also keep parsed scopes alive. See the [complete Lazy application](../GUIDE.md#f
 
 ## 6. Account for changed reload behavior
 
-| In 0.1.3 | In 0.2.0 |
+| In 0.1.3 | In 0.2.1 |
 | --- | --- |
 | All embedded languages were initialized | Full requests only the selected language; Lazy requests selected scopes |
 | Locale changes could select a retained catalog immediately | Logical requests persist, old-language data is released and the new language loads |
@@ -258,7 +216,7 @@ all parent scopes before their children. Only one controller/plugin mode may own
 a root provider in an App.
 
 Direct bridge users must upgrade `bevy_fluent_codegen_bridge` and the generator
-to 0.2.0 together with the runtime. The old bridge `validate_definition` helper is
+to 0.2.1 together with the runtime. The old bridge `validate_definition` helper is
 removed; use the shared manifest contract. Standard consumers keep the public
 facade and need no direct bridge dependency.
 

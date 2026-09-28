@@ -196,7 +196,7 @@ optional normal-dependency feature for filesystem change notifications.
 | Files are not found | The manifest origin is relative to Bevy's asset root. Do not prefix it with `assets/` when `AssetPlugin` already points there. |
 | Editing the TOML has no runtime effect | The plugin receives a parsed contract and does not reload TOML. Rebuild this quickstart or construct a new contract during application setup. |
 | Cargo reports incompatible engine APIs | Select one matching Bevy backend, on the normal dependency only. Do not enable all features. |
-| A release rejects these calls | Loading changed in [0.2.0](docs/migration-0.2.md); resource-waiting helpers require [0.2.1](docs/migration-0.2.1.md). Keep both dependency versions aligned. |
+| These calls do not compile | Use `0.2.1` in both dependency sections, as shown in [Setup](#setup). For an existing application, follow the [migration guide](docs/migration-0.2.md). |
 
 ## Known limits
 

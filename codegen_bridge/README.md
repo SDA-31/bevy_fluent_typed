@@ -34,7 +34,7 @@ only that leaf or group's descendants, across known languages. See
 
 Low-level `build()`, `from_cargo()`, `generate()` and `Settings` remain available with
 `build`; prefer the runtime facade. There is no sibling-path generator dependency.
-The required generator version is 0.2.0. For source development, use the
+The required generator version is 0.2.1. For source development, use the
 [local generator patch](../docs/build.md#work-on-local-checkouts).
 
 Generated scope views live in a hidden namespace to avoid public message/type

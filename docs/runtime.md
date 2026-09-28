@@ -397,7 +397,7 @@ asset configuration and event loop, as in the quickstart.
 
 ## Migration from registry 0.1.3
 
-Follow the [0.2.0 migration guide](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) for dependency updates, before/after
+Follow the [migration guide to 0.2.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) for dependency updates, before/after
 initialization, readiness handling, optional Lazy adoption and handwritten providers.
 The shortest upgrade keeps Full mode and existing typed message calls.
 
