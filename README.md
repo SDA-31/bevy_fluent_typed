@@ -1,9 +1,13 @@
 # bevy_fluent_typed
 
+[![crates.io](https://img.shields.io/crates/v/bevy_fluent_typed)](https://crates.io/crates/bevy_fluent_typed)
+[![docs.rs](https://img.shields.io/docsrs/bevy_fluent_typed)](https://docs.rs/bevy_fluent_typed/latest/bevy_fluent_typed/)
+[![CI](https://img.shields.io/github/actions/workflow/status/SDA-31/bevy_fluent_typed/ci.yml?branch=main&label=CI&logo=github)](https://github.com/SDA-31/bevy_fluent_typed/actions/workflows/ci.yml)
+[![MSRV](https://img.shields.io/crates/msrv/bevy_fluent_typed)](https://crates.io/crates/bevy_fluent_typed)
+[![License](https://img.shields.io/crates/l/bevy_fluent_typed)](LICENSE)
+
 Typed Fluent messages for Bevy. Generate typed accessors in `build.rs`, then read
 translations through Bevy's asset system or explicitly embed them.
-
-[Migrate from 0.1.3](docs/migration-0.2.md) · [Resource waiting in 0.2.1](docs/migration-0.2.1.md) · [Changelog](CHANGELOG.md)
 
 ## Contents
 
@@ -273,6 +277,8 @@ transports, fonts and shaping remain application responsibilities.
 - [Number formatting](docs/formatting.md): application-owned ICU4X formatters.
 - [Build API](docs/build.md): explicit generation and dependency feature isolation.
 - [Migration](docs/migration-0.2.md): update an existing 0.1.3 application.
+- [Resource waiting](docs/migration-0.2.1.md): adopt native required resources
+  with the 0.2.1 scheduling helpers.
 - [Changelog](CHANGELOG.md): notable changes grouped by release.
 
 Runnable headless examples live in [examples/codegen](examples/codegen),
