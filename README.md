@@ -7,10 +7,10 @@
 [![License](https://img.shields.io/crates/l/bevy_fluent_typed)](LICENSE)
 
 Typed Fluent messages for Bevy, built on
-[fluent-typed](https://github.com/human-solutions/fluent-typed) and
-[fluent_typed_codegen](https://github.com/SDA-31/fluent_typed_codegen).
-Generate typed accessors in `build.rs`, then load translations through Bevy's
-asset system or explicitly embed them.
+[fluent-typed](https://github.com/human-solutions/fluent-typed).
+The optional [fluent_typed_codegen](https://github.com/SDA-31/fluent_typed_codegen)
+dependency generates typed accessors in `build.rs`. Load translations through
+Bevy's asset system or explicitly embed them.
 
 ## Contents
 
