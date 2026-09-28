@@ -1,12 +1,13 @@
 //! Deferred typed messages and catalog reload notifications.
-use crate::FluentCatalog;
 use crate::bevy::{ecs as bevy_ecs, prelude::Component};
+use crate::{FluentCatalog, FluentScope};
 use std::{fmt, marker::PhantomData, sync::Arc};
 
-/// Cloneable deferred typed formatting, evaluated against the current catalog.
+/// Cloneable deferred formatting for a leaf, group or complete catalog.
 ///
 /// Capture owned argument values, not an already translated string. This allows
-/// stored notices to follow later language switches and hot reloads.
+/// stored notices to follow later language switches and hot reloads. Creating a
+/// message does not load its scope; render it only after that scope is available.
 /// For Decimal displays, capture the raw value and reusable per-locale formatters,
 /// then select the formatter using the catalog passed to the closure. A captured
 /// preformatted number would keep the old language's digits and plural category.
@@ -17,15 +18,15 @@ use std::{fmt, marker::PhantomData, sync::Arc};
 /// shares application-owned formatters through a resource and `Arc`.
 /// Changing another resource does not invalidate captured values automatically;
 /// replace the binding when its value or formatter settings change.
-pub struct Message<C: FluentCatalog>(Arc<dyn Fn(&C) -> String + Send + Sync>);
+pub struct Message<C: FluentScope>(Arc<dyn Fn(&C) -> String + Send + Sync>);
 
-impl<C: FluentCatalog> Clone for Message<C> {
+impl<C: FluentScope> Clone for Message<C> {
 	fn clone(&self) -> Self {
 		Self(Arc::clone(&self.0))
 	}
 }
 
-impl<C: FluentCatalog> Message<C> {
+impl<C: FluentScope> Message<C> {
 	/// Store a thread-safe formatting closure; cloning shares the closure via `Arc`.
 	pub fn new(format: impl Fn(&C) -> String + Send + Sync + 'static) -> Self {
 		Self(Arc::new(format))
@@ -42,30 +43,34 @@ impl<C: FluentCatalog> Message<C> {
 	}
 }
 
-impl<C: FluentCatalog> fmt::Debug for Message<C> {
+impl<C: FluentScope> fmt::Debug for Message<C> {
 	fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
 		formatter.write_str("Message(<typed formatter>)")
 	}
 }
 
 #[derive(Component)]
-/// Bind an existing Bevy `Text` or `Text2d` to a deferred message.
+#[component(on_add = crate::bindings::added::<C>, on_remove = crate::bindings::removed::<C>)]
+/// Bind an existing Bevy `Text` or `Text2d` to a leaf, group or root message.
 ///
 /// The plugin changes text in place when the catalog or binding changes. It does
-/// not spawn/despawn the entity. Bound text contents are replaced, so keep editable
-/// drafts separate; this binding does not manage or preserve text-editor state.
+/// not spawn/despawn the entity or request a module. An unavailable scope clears
+/// bound text until that scope becomes ready. Prefer the smallest scope the
+/// message needs, so unrelated modules do not delay it.
+/// Bound text contents are replaced, so keep editable drafts separate; this
+/// binding does not manage or preserve text-editor state.
 /// Number formatting belongs to the closure (see [`Message`]); shaping, visual
 /// bidi ordering and font coverage belong to the renderer, not this component.
-pub struct LocalizedText<C: FluentCatalog>(pub(crate) Message<C>);
+pub struct LocalizedText<C: FluentScope>(pub(crate) Message<C>);
 
-impl<C: FluentCatalog> LocalizedText<C> {
+impl<C: FluentScope> LocalizedText<C> {
 	/// Construct a binding; replace the component when captured arguments change.
 	pub fn new(format: impl Fn(&C) -> String + Send + Sync + 'static) -> Self {
 		Self(Message::new(format))
 	}
 }
 
-impl<C: FluentCatalog> From<Message<C>> for LocalizedText<C> {
+impl<C: FluentScope> From<Message<C>> for LocalizedText<C> {
 	fn from(message: Message<C>) -> Self {
 		Self(message)
 	}
@@ -75,17 +80,19 @@ impl<C: FluentCatalog> From<Message<C>> for LocalizedText<C> {
 #[cfg_attr(feature = "bevy-0-16", derive(crate::bevy::prelude::Event))]
 #[cfg_attr(not(feature = "bevy-0-16"), derive(crate::bevy::prelude::Message))]
 pub enum CatalogUpdate<C: FluentCatalog> {
-	/// A complete language passed loading and validation; it need not be active.
-	/// Unchanged sources retain the existing snapshot instead of replacing it.
+	/// One requested module of the selected locale passed loading and validation.
+	/// Every successful reload publishes a fresh candidate; idle frames keep identity.
 	Loaded {
 		/// Language whose candidate was accepted, including unchanged loads.
 		locale: C::Locale,
+		/// Logical module whose checked candidate was published.
+		path: String,
 	},
-	/// A load failed; the previous catalog remains usable.
+	/// A load failed; a previous good value for this same-language leaf is retained.
 	Rejected {
-		/// Affected language, or `None` for aggregate definition/address failures.
+		/// Affected selected language; optional for application/provider diagnostics.
 		locale: Option<C::Locale>,
-		/// Bevy path of the definition asset; the diagnostic identifies failing modules.
+		/// Logical module path; source errors may also contain the concrete asset address.
 		path: String,
 		/// Human-readable validation or loading diagnostic, for host-side presentation.
 		error: String,
@@ -100,15 +107,19 @@ pub enum CatalogUpdate<C: FluentCatalog> {
 pub type CatalogUpdateReader<'w, 's, C> =
 	crate::compatibility::MessageReader<'w, 's, CatalogUpdate<C>>;
 
-/// Request one aggregate reload without exposing asset handles to application code.
+/// Retry all currently requested modules without exposing asset handles.
 ///
-/// Requests processed together coalesce into one asynchronous reload of the
-/// definition and declared modules. Works without watching, including recovery
+/// Per-module requests wait for the current localization-owned load, then coalesce
+/// into one fresh read. Works without watching, including recovery
 /// after a module was absent during the initial load.
 /// Custom asset sources can send this after installing a compatible translation
 /// pack. Finish the installation first and keep one coherent source revision
 /// available until loading completes; this request does not snapshot an archive.
 /// Automatic watching of an archive requires support from its asset source.
+/// Watcher/direct AssetServer reloads bypass this queue. Bevy exposes no request
+/// generation before opening its reader or in `AssetLoadFailedEvent` (including
+/// `read_to_end` failures), so overlapping external reloads cannot be guaranteed
+/// to publish in original request order.
 #[cfg_attr(feature = "bevy-0-16", derive(crate::bevy::prelude::Event))]
 #[cfg_attr(not(feature = "bevy-0-16"), derive(crate::bevy::prelude::Message))]
 pub struct ReloadCatalogs<C: FluentCatalog>(PhantomData<fn() -> C>);

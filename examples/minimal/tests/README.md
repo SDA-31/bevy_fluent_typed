@@ -1,6 +1,10 @@
 # Verification
 
-Run all checks with:
+From the Bevy localization repository root, run:
+
+The command resolves generator 0.2.1 from crates.io. For local development, use the
+[local generator patch](../../../docs/build.md#work-on-local-checkouts).
+For application setup, follow the [quickstart](../../../README.md#setup).
 
 ```sh
 cargo test --manifest-path examples/minimal/Cargo.toml
@@ -14,7 +18,10 @@ are separate Cargo integration targets; no test assertions run in the examples.
 - [catalog/contracts.rs](catalog/contracts.rs): strict key, argument and reference
   validation in both engine-free and Bevy-generated catalogs.
 - [catalog/macros.rs](catalog/macros.rs): renamed dependencies, caller-name
-  shadowing, nested/restricted visibility and forwarded macro attributes.
+  shadowing, nested/restricted visibility, forwarded macro attributes and typed
+  embedded leaf/group selection through paths and `use` aliases.
+- [catalog/lazy.rs](catalog/lazy.rs): independent scope demand, retained snapshots,
+  idle change ticks and a typed leaf-only embedded source across locale changes.
 - [catalog/resources.rs](catalog/resources.rs): shared root/folder/leaf snapshots,
   locale-switch scheduling, module inventory, local references and structured results.
 - [catalog/reload.rs](catalog/reload.rs): real filesystem watching, rejection,

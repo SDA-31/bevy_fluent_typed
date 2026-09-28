@@ -42,9 +42,7 @@ fn system_type<S: System + ?Sized>(system: &S) -> TypeId {
 fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, AssetPlugin::default()))
-		.add_plugins(LocalizationPlugin::<TestCatalog>::new(
-			"missing-test.definition",
-		))
+		.add_plugins(LocalizationPlugin::<TestCatalog>::new(super::manifest()))
 		.init_resource::<Seen>()
 		.add_systems(Update, switch);
 
@@ -107,21 +105,9 @@ fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 		.unwrap()
 		.map(|(_, system)| system_type(system.as_ref()))
 		.collect();
-	let ui_refresh = systems
+	let refresh = systems
 		.iter()
-		.position(|&id| {
-			id == system_type(&IntoSystem::into_system(
-				bindings::refresh_ui::<TestCatalog>,
-			))
-		})
-		.unwrap();
-	let world_refresh = systems
-		.iter()
-		.position(|&id| {
-			id == system_type(&IntoSystem::into_system(
-				bindings::refresh_world::<TestCatalog>,
-			))
-		})
+		.position(|&id| id == system_type(&IntoSystem::into_system(bindings::dispatch)))
 		.unwrap();
 	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 	let detector_types = [system_type(&IntoSystem::into_system(
@@ -146,8 +132,7 @@ fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 	let ordering = system_dependencies(schedule.graph());
 
 	for index in detectors {
-		assert!(reachable(&ordering, nodes[ui_refresh]).contains(&nodes[index]));
-		assert!(reachable(&ordering, nodes[world_refresh]).contains(&nodes[index]));
+		assert!(reachable(&ordering, nodes[refresh]).contains(&nodes[index]));
 	}
 
 	assert_eq!(

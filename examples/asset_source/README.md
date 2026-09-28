@@ -9,6 +9,10 @@ the default Bevy 0.19 backend and adds no archive dependency.
 
 From this repository:
 
+These commands build this checkout and resolve generator 0.2.1 from crates.io.
+For local generator development, use the [local generator patch](../../docs/build.md#work-on-local-checkouts).
+For a new application, follow the [root quickstart](../../README.md#setup).
+
 ```sh
 cargo run --manifest-path examples/asset_source/Cargo.toml
 cargo test --manifest-path examples/asset_source/Cargo.toml
@@ -25,29 +29,31 @@ cargo test --manifest-path examples/asset_source/Cargo.toml
    example. A real archive source supplies its own bytes instead.
 
 The application registers `"translations"` **before** `AssetPlugin`, then passes
-`"translations://localizations/localization.toml"` to the localization plugin.
+`LocalizationManifest::parse(texts::CATALOG_CONFIG,
+"translations://localizations/localization.toml")?` to the localization plugin.
 This is Bevy's ordinary `source://path` syntax; `translations` is a name chosen by
-the application, not a built-in protocol or archive format. The TOML and its FTL
-modules are all read through that source.
+the application, not a built-in protocol or archive format. Only the requested FTL modules are read through that source. `parse` already
+supplied the TOML contract; the plugin does not fetch or watch the TOML.
 
-`show_title` waits for `CatalogUpdate::Loaded` so it demonstrates a real load
-through the reader, not just the embedded fallback available at startup.
-It prints the typed HUD message and exits. The headless schedule runner replaces
+`add_localized_startup_systems(show_title)` waits until the reader has loaded
+the HUD resource, then prints its typed message and exits. A separate
+`report_failure` system handles rejected loads while the resource is unavailable. The headless schedule runner replaces
 a window's event loop; no manual polling or test bookkeeping is needed in main.
 
 ## Using another storage format
 
 Replace the reader factory in `main.rs` with your asset plugin's reader.
 The localization plugin and generated resources do not change. Build-time FTL
-files still define the API and embedded fallback; code generation does not read
-the runtime archive.
+files define the API. This demonstration explicitly embeds them to seed its
+reader; code generation does not read the runtime archive.
 
 After installing an updated pack, send `ReloadCatalogs::<texts::Translations>`.
 For pack layout, consistent revisions and watcher responsibilities, see
 [custom asset sources](../../docs/asset-sources.md).
 
-The memory source starts from generated `MODULES` solely to make this example
-self-contained. It is not an independently distributed translation pack.
+The memory source calls `texts::embed_manifest!().embedded_modules()` solely to
+seed virtual files and make this example self-contained. Generated `MODULES`
+contains metadata, not source bytes. A real pack provides its own FTL.
 Older Bevy backends have the same localization contract, but Bevy 0.16/0.17 use
 `AssetSourceBuilder::default().with_reader(...)`; Bevy 0.16 uses events instead of
 messages.
@@ -60,6 +66,6 @@ fixtures. These are not additional resources or steps required by an application
 Run them with `cargo test`; `cargo run` performs no test mutations.
 
 Local path dependencies test this checkout. Public installation instructions are
-in the main [README](../../README.md#getting-started).
+in the main [README](../../README.md#setup).
 
 [MIT](LICENSE).

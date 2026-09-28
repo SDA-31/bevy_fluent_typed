@@ -1,14 +1,25 @@
 #[path = "../src/texts.rs"]
 mod texts;
 
-use bevy_fluent_typed::{FluentCatalog, ModuleSource};
+use bevy_fluent_typed::{FluentCatalog, FluentScope};
 use texts::Texts;
 
 #[test]
-fn every_embedded_language_supplies_our_api() {
+fn every_language_supplies_our_api() {
 	for (locale, expected) in [("en", "Hello!"), ("es", "¡Hola!"), ("ru", "Привет!")] {
-		assert_eq!(Texts::embedded(locale).hello, expected);
+		let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+			.join("assets/localizations/translations")
+			.join(locale)
+			.join("ui/greeting.ftl");
+		assert_eq!(
+			Texts::parse(locale, &std::fs::read(path).unwrap())
+				.unwrap()
+				.hello,
+			expected
+		);
 	}
+	assert_eq!(Texts::locales(), &["en", "es", "ru"]);
+	assert_eq!(Texts::module_paths(), &["ui/greeting.ftl"]);
 }
 
 #[test]
@@ -18,35 +29,8 @@ fn incompatible_candidates_fail_before_publication() {
 		"hello = { missing }",
 		"other = Hello!",
 		"hello = {",
+		"",
 	] {
-		assert!(
-			Texts::parse(
-				"en",
-				&[ModuleSource {
-					path: "ui/greeting.ftl",
-					source
-				}]
-			)
-			.is_err()
-		);
+		assert!(Texts::parse("en", source.as_bytes()).is_err());
 	}
-
-	assert!(Texts::parse("en", &[]).is_err());
-	assert!(
-		Texts::parse(
-			"en",
-			&[ModuleSource {
-				path: "wrong.ftl",
-				source: "hello = Hello!"
-			}]
-		)
-		.is_err()
-	);
-}
-
-#[test]
-fn definition_has_an_explicit_small_contract() {
-	assert!(Texts::descriptor(include_bytes!("../assets/localizations/localization.toml")).is_ok());
-	assert!(Texts::descriptor(b"translations-directory = '../outside'").is_err());
-	assert!(Texts::descriptor(b"translations-directory = 'translations'\nextra = true").is_err());
 }

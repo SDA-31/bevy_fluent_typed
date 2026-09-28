@@ -28,7 +28,6 @@ impl<'a> Fixture<'a> {
 			".rustfmt.toml",
 			"src",
 			"docs",
-			"codegen_bridge",
 			"examples/minimal",
 			"examples/codegen",
 			"examples/no_codegen",
@@ -70,7 +69,7 @@ impl<'a> Fixture<'a> {
 		fs::write(
 			&manifest,
 			format!(
-				"{}\n[workspace]\nmembers = [\"codegen_bridge\", \"examples/minimal\", \"examples/codegen\", \"examples/no_codegen\", \"examples/icu\", \"examples/asset_source\", \"version-pins\"]\nresolver = \"3\"\n[patch.crates-io]\nfluent_typed_codegen = {{ path = {generator} }}\n[profile.dev]\ndebug = 0\n",
+				"{}\n[workspace]\nmembers = [\"examples/minimal\", \"examples/codegen\", \"examples/no_codegen\", \"examples/icu\", \"examples/asset_source\", \"version-pins\"]\nresolver = \"3\"\n[patch.crates-io]\nfluent_typed_codegen = {{ path = {generator} }}\n[profile.dev]\ndebug = 0\n",
 				fs::read_to_string(&manifest)?
 			),
 		)?;

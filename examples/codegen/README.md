@@ -4,6 +4,10 @@ One Fluent module, three languages, typed `texts::ui::Greeting` resources.
 The program prints English, Spanish and Russian greetings, then exits. No window,
 GPU, watcher loop or extra test catalogs are needed.
 
+These commands build this checkout and resolve generator 0.2.1 from crates.io.
+For local generator development, use the [local generator patch](../../docs/build.md#work-on-local-checkouts).
+For a new application, follow the [root quickstart](../../README.md#setup).
+
 ```sh
 cargo run --manifest-path examples/codegen/Cargo.toml
 cargo test --manifest-path examples/codegen/Cargo.toml
@@ -25,14 +29,31 @@ uses the public build facade introduced in 0.1.1; the local path tests this chec
 
 `assets/localizations/translations/en/ui/greeting.ftl` becomes
 `texts::ui::Greeting`. Asset paths and discovery come from the manifest and TOML,
-not from a language list in build.rs. The bridge validates sources and explicitly
+not from a language list in build.rs. The build facade validates sources and explicitly
 registers file/directory changes with Cargo. Its generator runs in the host build
-graph, not inside the application. See [the guide](../../GUIDE.md#3-generate-and-index).
+graph, not inside the application. See [the guide](../../README.md#setup).
 
 For a generator-free provider see [no_codegen](../no_codegen). For deferred
 messages, typed arguments and live edits see the larger [integration suite](../minimal).
 
-The application uses embedded catalogs immediately. [tests/output.rs](tests/output.rs)
-checks the executable's three greetings; there is no test collection wrapper in main.
+The application explicitly calls `texts::embed_manifest!()` and parses the
+selected language during an update. [tests/output.rs](tests/output.rs) checks the executable's three greetings; there is no test collection wrapper in main.
 
 [MIT](LICENSE).
+
+## Supply your own bytes
+
+Keep the same generated types and build script:
+
+```sh
+cargo run --manifest-path examples/codegen/Cargo.toml --bin bytes
+```
+
+[src/bin/bytes.rs](src/bin/bytes.rs) passes `(Locale, Greeting::PATH, bytes)` tuples
+to `LocalizationPlugin::from_bytes` and prints the same three greetings using
+ordinary generated resources. It deliberately embeds its small input with
+`include_bytes!`; no runtime manifest or AssetPlugin is required. The buffers
+are retained for repeat loads. This example uses `Full` and keeps the selected
+language ready. For on-demand reading and unloading, follow the
+[Lazy guide](../../GUIDE.md#fully-lazy-complete-mainrs) using Bevy's asset system;
+custom storage belongs in an [asset source](../../docs/asset-sources.md).

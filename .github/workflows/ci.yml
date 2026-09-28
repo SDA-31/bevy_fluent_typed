@@ -2,7 +2,11 @@ name: CI
 
 on:
   push:
+    paths-ignore:
+      - 'CHANGELOG.md'
   pull_request:
+    paths-ignore:
+      - 'CHANGELOG.md'
   workflow_dispatch:
 
 permissions:
@@ -14,7 +18,7 @@ concurrency:
 
 env:
   # Test a pinned generator checkout, not a game workspace or moving branch.
-  GENERATOR_REV: 2920a0a7dd214cb1027e6e905974f2d5c3d79013
+  GENERATOR_REV: b56a1dcebed32e1cf18c6375647a8cb5960351f6
   # Compile-fail probes inspect rustc diagnostics without ANSI escape sequences.
   CARGO_TERM_COLOR: never
   CARGO_INCREMENTAL: 0
@@ -60,13 +64,13 @@ jobs:
             bevy-quality-${{ runner.os }}-${{ runner.arch }}-${{ env.GENERATOR_REV }}-${{ hashFiles('runtime/**/Cargo.toml') }}-
       - name: Check formatting in every package
         run: |
-          for manifest in Cargo.toml codegen_bridge/Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml tools/compatibility/Cargo.toml; do
+          for manifest in Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml tools/compatibility/Cargo.toml; do
             cargo fmt --manifest-path "$manifest" --all -- --check
           done
       - name: Resolve independent package graphs
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
-          for manifest in Cargo.toml codegen_bridge/Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml tools/compatibility/Cargo.toml; do
+          for manifest in Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml tools/compatibility/Cargo.toml; do
             cargo generate-lockfile --manifest-path "$manifest" --config "$generator_config"
           done
       - name: Clippy
@@ -75,27 +79,22 @@ jobs:
           cargo clippy --locked --all-targets --features codegen,watch --config "$generator_config" -- -D warnings
           cargo clippy --locked --all-targets --no-default-features --features bevy-0-20,codegen,watch --config "$generator_config" -- -D warnings
           cargo clippy --locked --all-targets --no-default-features --features build --config "$generator_config" -- -D warnings
-          cargo clippy --locked --manifest-path codegen_bridge/Cargo.toml --all-targets --all-features --config "$generator_config" -- -D warnings
-          cargo clippy --locked --manifest-path codegen_bridge/Cargo.toml --all-targets --no-default-features --features runtime --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path examples/minimal/Cargo.toml --all-targets --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path tools/compatibility/Cargo.toml --all-targets -- -D warnings
           for manifest in examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml; do
             cargo clippy --locked --manifest-path "$manifest" --all-targets --config "$generator_config" -- -D warnings
           done
-      - name: Test bridge and maintainer tool
+      - name: Test build facade and maintainer tool
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
-          cargo test --locked --manifest-path codegen_bridge/Cargo.toml --all-features --config "$generator_config"
-          cargo test --locked --manifest-path codegen_bridge/Cargo.toml --no-default-features --features runtime --config "$generator_config"
+          cargo test --locked --no-default-features --features build --config "$generator_config"
           cargo test --locked --manifest-path tools/compatibility/Cargo.toml
-      - name: Check runtime-only bridge dependency isolation
+      - name: Check minimal runtime dependency isolation
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
-          cargo tree --locked --manifest-path codegen_bridge/Cargo.toml --no-default-features --features runtime --edges normal,build --prefix none --config "$generator_config" > "$CARGO_TARGET_DIR/bridge-dependencies.txt"
-          # fluent-syntax legitimately uses derive macros through thiserror;
-          # those may depend on syn/quote without importing our generator.
-          if grep -E '^(fluent_typed_codegen|prettyplease) v' "$CARGO_TARGET_DIR/bridge-dependencies.txt"; then
-            echo 'Build-time generator dependencies leaked into the runtime-only bridge.' >&2
+          cargo tree --locked --no-default-features --features bevy-0-19 --edges normal,build,no-proc-macro --prefix none --config "$generator_config" > "$CARGO_TARGET_DIR/minimal-dependencies.txt"
+          if grep -E '^(fluent_typed_codegen|bevy_fluent_codegen_bridge|toml_edit|prettyplease) v' "$CARGO_TARGET_DIR/minimal-dependencies.txt"; then
+            echo 'Generator or manifest dependencies leaked into the minimal runtime.' >&2
             exit 1
           fi
       - name: Test custom asset source integration on the default backend
@@ -103,29 +102,25 @@ jobs:
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
           cargo test --locked --manifest-path examples/asset_source/Cargo.toml --config "$generator_config"
           cargo run --locked --manifest-path examples/asset_source/Cargo.toml --config "$generator_config"
-      - name: Build runtime and bridge documentation
+      - name: Build runtime and build-facade documentation
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
           cargo doc --locked --no-deps --features codegen,watch,build --config "$generator_config"
           cargo doc --locked --no-deps --no-default-features --features bevy-0-20,codegen,watch,build --config "$generator_config"
           cargo doc --locked --no-deps --no-default-features --features build --config "$generator_config"
-          cargo doc --locked --manifest-path codegen_bridge/Cargo.toml --no-deps --all-features --config "$generator_config"
       - name: Inspect library archives without uploading
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
           cargo package --locked --list --config "$generator_config" > "$CARGO_TARGET_DIR/runtime-package.txt"
-          cargo package --locked --list --manifest-path codegen_bridge/Cargo.toml --config "$generator_config" > "$CARGO_TARGET_DIR/bridge-package.txt"
           grep -Fx LICENSE "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/quickstart.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/runtime.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/asset-sources.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/build.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/formatting.md "$CARGO_TARGET_DIR/runtime-package.txt"
-          grep -Fx LICENSE "$CARGO_TARGET_DIR/bridge-package.txt"
-          # A new runtime version cannot be package-verified until its bridge
-          # version is published. Inventory is not a publish dry-run; the manual
-          # child-to-parent release performs registry-backed verification.
-          if grep -E '^(codegen_bridge|examples|tools/compatibility)/' "$CARGO_TARGET_DIR/runtime-package.txt"; then
+          # The already-published generator is the runtime's only localization
+          # package dependency. No separate bridge release is needed.
+          if grep -E '^(examples|tools/compatibility)/' "$CARGO_TARGET_DIR/runtime-package.txt"; then
             echo 'A nested package leaked into the runtime archive.' >&2
             exit 1
           fi

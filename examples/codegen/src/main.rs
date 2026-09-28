@@ -12,12 +12,12 @@ fn main() {
 			file_path: assets.to_string_lossy().into_owned(),
 			..default()
 		},
-		LocalizationPlugin::<texts::Translations>::new(texts::CATALOG_ASSET_PATH),
+		LocalizationPlugin::<texts::Translations>::new(texts::embed_manifest!()),
 	));
 	app.finish();
 	app.cleanup();
 
-	// Embedded catalogs are available immediately, before external I/O completes.
+	// Explicit embedded sources are parsed during the next plugin update.
 	for locale in [texts::Locale::En, texts::Locale::Es, texts::Locale::Ru] {
 		app.world_mut()
 			.resource_mut::<Localization<texts::Translations>>()

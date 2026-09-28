@@ -1,19 +1,43 @@
-use crate::bevy::prelude::*;
+#[cfg(feature = "manifest")]
+use crate::LocalizationManifest;
+use crate::bevy::{ecs as bevy_ecs, prelude::*};
 use crate::{
-	CatalogDescriptor, FluentCatalog, Localization, LocalizedText, Message, Module, ModuleSource,
-	bindings,
+	FluentCatalog, FluentScope, Lazy, Localization, LocalizedText, Message, Module, ModuleStore,
+	ScopeRegistration, bindings,
 };
 use std::sync::Arc;
 
+#[cfg(feature = "manifest")]
+mod bindings_lifecycle;
+mod bytes;
 mod documentation;
+#[cfg(feature = "manifest")]
+mod lazy;
+#[cfg(feature = "manifest")]
 mod loader;
+#[cfg(feature = "manifest")]
 mod scheduling;
+#[cfg(feature = "manifest")]
+mod waiting;
 
-// Deliberately no Clone, Default or TypePath: generated catalogs need none.
+#[derive(Resource, Clone)]
 struct TestCatalog(String);
+
+impl FluentScope for TestCatalog {
+	type Catalog = Self;
+
+	fn module_paths() -> &'static [&'static str] {
+		&["ui.ftl"]
+	}
+
+	fn assemble(modules: &ModuleStore<Self>) -> Option<Self> {
+		modules.get::<Self>().ok().cloned()
+	}
+}
 
 impl FluentCatalog for TestCatalog {
 	type Locale = &'static str;
+	type Modules<'a> = &'a ModuleStore<Self>;
 
 	fn locales() -> &'static [Self::Locale] {
 		&["de", "es", "ja"]
@@ -23,57 +47,66 @@ impl FluentCatalog for TestCatalog {
 		"ja"
 	}
 
-	fn embedded(locale: Self::Locale) -> Self {
-		Self(locale.into())
+	fn modules() -> Vec<Module<Self>> {
+		vec![Module::new::<Self>("ui.ftl", |_, bytes| {
+			String::from_utf8(bytes.to_vec())
+				.map(Self)
+				.map_err(|error| error.to_string())
+		})]
 	}
 
-	fn descriptor(_: &[u8]) -> Result<CatalogDescriptor, String> {
-		Ok(CatalogDescriptor {
-			modules_directory: ".".into(),
-		})
+	fn scopes() -> Vec<ScopeRegistration<Self>> {
+		vec![ScopeRegistration::new::<Self>()]
 	}
 
-	fn modules(_: Self::Locale) -> Vec<Module> {
-		vec![Module {
-			path: "ui.ftl",
-			embedded: "hello = Hi\n",
-		}]
-	}
-
-	fn parse(_: Self::Locale, sources: &[ModuleSource<'_>]) -> Result<Self, String> {
-		Ok(Self(sources.iter().map(|module| module.source).collect()))
+	fn view(modules: &ModuleStore<Self>) -> Self::Modules<'_> {
+		modules
 	}
 }
 
+#[cfg(feature = "manifest")]
+fn manifest() -> LocalizationManifest {
+	LocalizationManifest::__embedded((
+		"ja",
+		"ja",
+		".",
+		&[
+			("de", "ui.ftl", b"de"),
+			("es", "ui.ftl", b"es"),
+			("ja", "ui.ftl", b"ja"),
+		],
+	))
+}
+
 #[test]
-fn arbitrary_locales_default_and_inactive_reload_keep_their_own_catalogs() {
-	let mut state = Localization::<TestCatalog>::default();
+fn selected_locale_releases_previous_data_but_keeps_logical_requests() {
+	let mut state = Localization::<TestCatalog, Lazy>::default();
 	assert_eq!(state.locale(), "ja");
-	state.publish(
-		"es",
-		Arc::new(TestCatalog("changed".into())),
-		&[("ui.ftl", "changed".into())],
-	);
-	assert_eq!(state.catalog().0, "ja");
+	assert!(state.catalog().is_none());
+	state.load::<TestCatalog>();
+	state
+		.store
+		.insert_leaf("ui.ftl", Arc::new(TestCatalog("ready".into())));
+	assert_eq!(state.catalog().unwrap().0, "ready");
 	state.set_locale("es");
-	assert_eq!(state.catalog().0, "changed");
-	state.set_locale("de");
-	assert_eq!(state.catalog().0, "de");
+	assert!(state.catalog().is_none());
+	assert!(state.desired().contains("ui.ftl"));
+	state.unload::<TestCatalog>();
+	assert!(state.desired().is_empty());
 }
 
 #[test]
-fn deferred_messages_and_existing_ui_world_labels_follow_the_active_catalog() {
+fn deferred_messages_refresh_and_clear_existing_ui_and_world_labels() {
 	let message = Message::<TestCatalog>::new(|catalog| catalog.0.clone());
 	let cloned = message.clone();
 	let mut app = App::new();
-	app.init_resource::<Localization<TestCatalog>>()
-		.add_systems(
-			Update,
-			(
-				bindings::refresh_ui::<TestCatalog>,
-				bindings::refresh_world::<TestCatalog>,
-			),
-		);
+	app.insert_resource(TestCatalog("ja".into())).add_systems(
+		Update,
+		(
+			bindings::refresh_ui::<TestCatalog>,
+			bindings::refresh_world::<TestCatalog>,
+		),
+	);
 	let ui = app
 		.world_mut()
 		.spawn((Text::default(), LocalizedText::from(message)))
@@ -84,18 +117,13 @@ fn deferred_messages_and_existing_ui_world_labels_follow_the_active_catalog() {
 		.id();
 	app.update();
 	assert_eq!(app.world().get::<Text>(ui).unwrap().0, "ja");
-	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
-		.set_locale("es");
+	app.world_mut().insert_resource(TestCatalog("es".into()));
 	app.update();
 	assert_eq!(app.world().get::<Text>(ui).unwrap().0, "es");
 	assert_eq!(app.world().get::<Text2d>(world).unwrap().0, "es");
-	assert_eq!(
-		cloned.render(
-			app.world()
-				.resource::<Localization<TestCatalog>>()
-				.catalog()
-		),
-		"es"
-	);
+	assert_eq!(cloned.render(app.world().resource()), "es");
+	app.world_mut().remove_resource::<TestCatalog>();
+	app.update();
+	assert!(app.world().get::<Text>(ui).unwrap().0.is_empty());
+	assert!(app.world().get::<Text2d>(world).unwrap().0.is_empty());
 }

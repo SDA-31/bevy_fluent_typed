@@ -7,7 +7,7 @@ pins the consumer's selected official Bevy packages to the requested release, th
   reload and missing-module recovery, and actual text-detector ordering.
 - Generated consumer tests, including multi-file filesystem watcher reloads.
 - Both headless example binaries.
-- Separate minimal codegen/no-codegen examples, including actual resource/Text
+- Separate minimal codegen/no-codegen examples, including generator-free byte input and actual resource/Text
   values after switching through all three languages.
 - The standalone ICU resource example: Decimal and percentage formatters,
   EN/ES/RU/AR UI/world strings, exact ratio scaling and explicit rebinding after
@@ -27,7 +27,7 @@ pins the consumer's selected official Bevy packages to the requested release, th
 - Runtime-only dependency isolation; on 0.19/0.20, rejected missing/conflicting backend selections.
 
 No Python, shell-script runtime, game source or game assets are required. This
-package is not a dependency of the library, bridge or example and is not published.
+package is not a dependency of the library or example and is not published.
 The `examples/asset_source` generated-resource example is additionally tested on
 0.19 and the pinned 0.20 RC, including its loading/recovery tests and executable.
 The runtime's virtual-source regression runs on every backend in this matrix.
@@ -55,6 +55,8 @@ cargo run -p bevy-fluent-compatibility -- \
 ```
 
 The generator path is explicit; no sibling checkout convention is assumed.
+Runtime 0.2.1 requires generator 0.2.1; supply that generator
+checkout. The matrix also verifies native-resource readiness and deferred setup.
 The 0.16 backend starts at 0.16.1. The earlier 0.16.0 `bevy_color` package is
 yanked and cannot be selected by a fresh exact-release fixture.
 The 0.16.1 family pins `bevy_color` to 0.16.2 because that is the published
@@ -82,3 +84,6 @@ Completed fixtures contain an intentional `immutable_probe` compile-fail binary
 on 0.19/0.20; create a fresh fixture through this command when repeating the suite.
 
 [MIT](LICENSE), independently of any consuming application.
+
+The runtime is tested both with manifest support and as a backend-only byte
+loader. The latter graph must contain no generator, TOML parser or bridge package.

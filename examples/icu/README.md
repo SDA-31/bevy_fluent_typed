@@ -6,12 +6,15 @@ deferred `LocalizedText` bindings. English documentation and source-language FTL
 English, Spanish, Russian and Arabic translations. No window, fonts or GPU needed.
 
 This example uses the existing `bevy_fluent_typed` API. ICU is an **application
-dependency here only**, not a direct dependency or feature of the runtime, generator or
-bridge. There is no custom formatter trait to implement.
+dependency here only**, not a direct dependency or feature of the runtime or generator. There is no custom formatter trait to implement.
 
 ## Run
 
 From a checkout of this repository:
+
+These commands build this checkout and resolve generator 0.2.1 from crates.io.
+For local generator development, use the [local generator patch](../../docs/build.md#work-on-local-checkouts).
+For a new application, follow the [root quickstart](../../README.md#setup).
 
 ```sh
 cargo run --manifest-path examples/icu/Cargo.toml
@@ -21,7 +24,7 @@ cargo test --manifest-path examples/icu/Cargo.toml
 Use `--locked --offline` after the initial dependency resolution. In the enclosing
 development workspace the package is named `localization-icu-example`.
 Repository-local paths in Cargo.toml test this checkout; external applications
-use the runtime's [versioned dependency setup](../../README.md#optional-generation).
+use the runtime's [registry setup](../../README.md#setup).
 The build script explicitly calls `bevy_fluent_typed::build()`.
 
 Assets are ordinary modular FTL under
@@ -82,8 +85,8 @@ ICU payloads across Bevy threads. Formatter initialization errors are returned
 from startup. Demonstration values are bounded; validate arbitrary input and
 scaling/rounding limits according to your application's numeric domain.
 
-The app immediately uses embedded catalogs and does not wait for asynchronous
-asset loading. The separate [integration suite](../minimal) tests real filesystem
+The app explicitly embeds source bytes and parses them during updates. It does
+not perform asynchronous file loading. The separate [integration suite](../minimal) tests real filesystem
 hot reload. String assertions preserve Fluent isolation but do not prove visual
 RTL layout, glyph shaping, fonts or UI mirroring.
 

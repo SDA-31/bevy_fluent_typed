@@ -1,8 +1,12 @@
 ## Explicit build-script API
 
-The `build` feature exposes [`build()`], [`from_cargo()`], [`generate()`] and
-[`Settings`] through the same crate used by the application. The companion bridge
-is an implementation detail; consumers do not need to name it in Cargo.toml.
+For a complete Cargo.toml, files and application, follow the
+[quickstart](https://github.com/SDA-31/bevy_fluent_typed/blob/main/README.md#setup).
+This section explains the optional custom build entrypoints.
+
+The `build` feature exposes `build()`, `from_cargo()`, `generate()` and
+`Settings` through the same crate used by the application. Its private build
+module emits the Bevy provider; no separate bridge package is needed.
 Discovery and the typed module tree come from
 [fluent_typed_codegen](https://docs.rs/fluent_typed_codegen/); message accessors
 and Fluent resolution come from [fluent-typed](https://docs.rs/fluent-typed/).
@@ -35,3 +39,64 @@ renaming the crate, use that alias in both, as in the integration example.
 The public facade is available since **0.1.1**. Version 0.1.0 required a separate
 bridge build-dependency. Number formatting and plural-category preparation are
 application runtime work, not part of this build phase.
+
+## Features
+
+| Feature selection | Available API and dependencies |
+| --- | --- |
+| Defaults | Bevy 0.19 runtime and `manifest` support |
+| `codegen` on the normal dependency | `translations!`, generated resources and manifest helpers; enables `manifest`, not generation |
+| `build` alone, defaults disabled | Explicit generation in build.rs; generator build dependencies, no Bevy |
+| `manifest` with a backend | Manifest constructors and the generator's runtime manifest API; no generation |
+| One backend alone, defaults disabled | Byte sources and handwritten providers; no generator package, TOML or bridge |
+| `watch` | Bevy asset-source file watching; does not watch custom byte loaders |
+
+`codegen` and `manifest` are independent of how you obtain runtime bytes.
+Generated providers currently include manifest helpers, so `codegen` enables
+those types even when the application chooses `from_bytes` or `from_loader`.
+Disabling only `codegen` leaves the default `manifest` feature enabled. Use
+`default-features = false` and select a backend for the minimal handwritten path.
+
+## Manifest configuration
+
+`[package.metadata.localization]` selects the build-time `asset-root` and the
+manifest's asset-relative `catalog` path. The manifest selects `source-language`,
+`default-language` and the optional `translations-directory` (default `"."`).
+`languages-directory` is the legacy alias; do not specify both directory names.
+Languages are discovered from directories; keep their module/message contracts
+in sync. Typed annotations belong to the source language.
+
+The generated `CATALOG_CONFIG` contains the TOML contract, and `CATALOG_ASSET_PATH`
+is its build-time asset address. Reusing them at runtime is convenient, but
+optional: the application can pass another compatible source contract and choose
+another asset root. No generated FTL payload is embedded unless the application
+explicitly invokes `embed_manifest!()`.
+
+## Work on local checkouts
+
+Local paths are for editing and testing the libraries together.
+Replace the quickstart's runtime/build entries and add a generator patch as
+shown below. Keep its other dependencies, metadata, `build.rs` and source files.
+Set both paths to your checkouts:
+
+```toml
+[dependencies]
+bevy_fluent_typed = { path = "/absolute/path/to/bevy_fluent_typed", features = ["codegen"] }
+
+[build-dependencies]
+bevy_fluent_typed = { path = "/absolute/path/to/bevy_fluent_typed", default-features = false, features = ["build"] }
+
+[patch.crates-io]
+fluent_typed_codegen = { path = "/absolute/path/to/fluent_typed_codegen" }
+```
+
+The runtime checkout contains the Bevy build adapter. Put the patch in the
+workspace root when the consumer belongs to a workspace. This is development
+wiring; normal released consumers use the registry quickstart.
+
+For repository examples using a local generator, provide this same
+patch on the command line (replace the path with your generator checkout):
+
+```sh
+cargo run --manifest-path examples/codegen/Cargo.toml --config 'patch.crates-io.fluent_typed_codegen.path="/absolute/path/to/fluent_typed_codegen"'
+```

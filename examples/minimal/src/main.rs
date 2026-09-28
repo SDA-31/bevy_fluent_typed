@@ -28,9 +28,7 @@ fn main() -> Result<(), String> {
 		},
 	))
 	.init_resource::<console::LoadStatus>()
-	.add_plugins(LocalizationPlugin::<Translations>::new(
-		texts::CATALOG_ASSET_PATH,
-	))
+	.add_plugins(LocalizationPlugin::<Translations>::new(texts::manifest()))
 	.add_systems(
 		PreUpdate,
 		console::observe.after(LocalizationSystems::Publish),
@@ -51,7 +49,7 @@ fn main() -> Result<(), String> {
 		app.world_mut()
 			.resource_mut::<Localization<Translations>>()
 			.set_locale(locale);
-		app.update();
+		console::run_until_loaded(&mut app, label, false)?;
 		println!("{locale}: {}", app.world().get::<Text>(label).unwrap().0);
 	}
 

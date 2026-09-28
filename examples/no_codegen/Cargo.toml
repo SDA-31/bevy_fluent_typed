@@ -8,7 +8,6 @@ publish = false
 
 [dependencies]
 bevy_fluent_typed = { path = "../..", default-features = false }
-toml_edit = { version = "0.25.15", default-features = false, features = ["parse"] }
 
 [features]
 default = ["bevy-0-19"]

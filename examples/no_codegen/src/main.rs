@@ -1,20 +1,31 @@
 mod texts;
 
-use bevy_fluent_typed::bevy::{asset::AssetPlugin, prelude::*};
+use bevy_fluent_typed::bevy::prelude::*;
 use bevy_fluent_typed::{Localization, LocalizationPlugin, LocalizedText};
 use texts::Texts;
 
 fn main() {
-	let assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
+	// This example explicitly embeds its own readable bytes; no TOML or generator.
+	let plugin = LocalizationPlugin::<Texts>::from_bytes([
+		(
+			"en",
+			"ui/greeting.ftl",
+			include_bytes!("../assets/localizations/translations/en/ui/greeting.ftl").as_slice(),
+		),
+		(
+			"es",
+			"ui/greeting.ftl",
+			include_bytes!("../assets/localizations/translations/es/ui/greeting.ftl").as_slice(),
+		),
+		(
+			"ru",
+			"ui/greeting.ftl",
+			include_bytes!("../assets/localizations/translations/ru/ui/greeting.ftl").as_slice(),
+		),
+	])
+	.expect("known locale/module keys");
 	let mut app = App::new();
-	app.add_plugins((
-		MinimalPlugins,
-		AssetPlugin {
-			file_path: assets.to_string_lossy().into_owned(),
-			..default()
-		},
-		LocalizationPlugin::<Texts>::new("localizations/localization.toml"),
-	));
+	app.add_plugins((MinimalPlugins, plugin));
 	let label = app
 		.world_mut()
 		.spawn((
@@ -25,12 +36,25 @@ fn main() {
 	app.finish();
 	app.cleanup();
 
-	// The same text entity follows each language change using embedded catalogs.
+	// The plugin parses requested bytes and publishes checked resources.
 	for locale in ["en", "es", "ru"] {
 		app.world_mut()
 			.resource_mut::<Localization<Texts>>()
 			.set_locale(locale);
-		app.update();
+		let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+		while app
+			.world()
+			.resource::<Localization<Texts>>()
+			.catalog()
+			.is_none()
+		{
+			app.update();
+			assert!(
+				std::time::Instant::now() < deadline,
+				"example translation load timed out"
+			);
+			std::thread::sleep(std::time::Duration::from_millis(5));
+		}
 		println!("{}", app.world().get::<Text>(label).unwrap().0);
 	}
 }

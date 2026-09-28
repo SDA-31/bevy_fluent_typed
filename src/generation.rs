@@ -1,8 +1,11 @@
 //! The only source emitter that knows both generator and Bevy runtime APIs.
-use crate::provider;
+mod navigation;
+mod provider;
+mod scopes;
+
 use fluent_typed_codegen::{
 	Extension, Scope, Settings,
-	syn::{Item, ItemStruct, ItemUse, Stmt, parse_quote},
+	syn::{Item, ItemStruct, ItemUse, parse_quote},
 };
 use std::{path::Path, process::ExitCode};
 
@@ -16,7 +19,10 @@ impl Extension for BevyExtension {
 	fn root_imports(&self) -> Vec<ItemUse> {
 		vec![
 			parse_quote!(
-				use __fluent_bridge::fluent_syntax;
+				use __fluent_runtime::__fluent_codegen;
+			),
+			parse_quote!(
+				use __fluent_runtime::fluent_syntax;
 			),
 			parse_quote!(
 				use __fluent_runtime::fluent_typed;
@@ -50,26 +56,12 @@ impl Extension for BevyExtension {
 		&["bevy_ecs"]
 	}
 
-	fn root_items(&self, scopes: &[Scope]) -> Vec<Item> {
-		let publications = scopes.iter().map(|scope| -> Stmt {
-			let ty = &scope.type_path;
-			let accessors = &scope.accessors;
-
-			parse_quote! {
-				world.insert_resource::<#ty>(::std::clone::Clone::clone(self #(.#accessors())*));
-			}
-		});
-
-		vec![
-			provider::implementation(),
-			parse_quote! {
-				impl Translations {
-					fn __publish(&self, world: &mut __fluent_runtime::bevy::prelude::World) {
-						#(#publications)*
-					}
-				}
-			},
-		]
+	fn root_items(&self, metadata: &[Scope]) -> Vec<Item> {
+		let mut items = scopes::implementations(metadata);
+		items.push(provider::manifest());
+		items.push(provider::implementation(metadata));
+		items.push(navigation::implementation(metadata));
+		items
 	}
 }
 

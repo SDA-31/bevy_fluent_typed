@@ -1,13 +1,17 @@
 # Typed resources, text bindings and live edits
 
-For the smallest starting points, use [codegen](../codegen) or
-[no_codegen](../no_codegen). This larger example shows language-switchable Bevy
+For the smallest starting point, use [codegen](../codegen).
+[Without codegen](../no_codegen) is an advanced handwritten-provider example. This larger example shows language-switchable Bevy
 text, typed resources and real filesystem hot reload. It runs without a window
 or GPU. English, Spanish and Russian catalogs are included.
 
 ## Run
 
 From this repository:
+
+These commands build this checkout and resolve generator 0.2.1 from crates.io.
+For local generator development, use the [local generator patch](../../docs/build.md#work-on-local-checkouts).
+For a new application, follow the [root quickstart](../../README.md#setup).
 
 ```sh
 cargo run --manifest-path examples/minimal/Cargo.toml
@@ -26,7 +30,8 @@ In an enclosing workspace, the package is `localization-example`; add
 - [typed_resources.rs](src/bin/typed_resources.rs): the shorter resource-focused
   walkthrough. It shows `Translations → Presentation → Hud`, a direct
   `Res<texts::presentation::Hud>` parameter and the same text entity after a
-  language switch. This binary uses embedded catalogs immediately.
+  language switch. This binary explicitly embeds source bytes and parses the selected
+  language during an update.
 - [console.rs](src/console.rs): the default binary's terminal runner and load
   diagnostics. This is headless application plumbing, not a localization API.
 - [build.rs](build.rs): the explicit generation call; `translations!` only
@@ -34,7 +39,7 @@ In an enclosing workspace, the package is `localization-example`; add
 - [tests/](tests): contract, resource, watcher and formatting regressions. Start
   with [tests/README.md](tests/README.md) when looking for verification.
 
-The default binary waits for successful **external** loads, prints the bound
+The default binary waits for successful file loads, prints the bound
 text, switches through every discovered language and exits. Watch mode keeps the
 English label alive: edit `assets/localizations/translations/en/ui.ftl` **inside
 this example**. Valid edits print to the terminal; invalid edits print a diagnostic
@@ -46,9 +51,9 @@ the example's files.
 [Cargo.toml](Cargo.toml) deliberately renames `bevy_fluent_typed` to
 `localization_runtime` in both dependency sections. The normal dependency enables
 `codegen` and `watch`; the same crate's build-dependency disables defaults and
-enables only `build`. The bridge is an implementation detail. This public build
+enables only `build`. The build adapter lives inside the public crate. This public build
 facade is available since 0.1.1. Repository-local paths test this checkout;
-external applications use the [registry setup](../../README.md#optional-generation).
+external applications use the [registry setup](../../README.md#setup).
 
 The normal dependency selects Bevy 0.19 by default. To use 0.16, 0.17 or 0.18,
 disable its defaults and select the corresponding backend feature; leave the

@@ -46,44 +46,76 @@ compile_error!(
 	"Bevy backends are mutually exclusive; disable default features to select another backend"
 );
 
-#[cfg(feature = "runtime")]
+#[cfg(all(feature = "runtime", feature = "manifest"))]
 mod addresses;
-#[cfg(feature = "runtime")]
+#[cfg(all(feature = "runtime", feature = "manifest"))]
 mod assets;
 #[cfg(feature = "runtime")]
 mod bindings;
 #[cfg(feature = "runtime")]
+mod bytes;
+#[cfg(feature = "runtime")]
 mod catalog;
 #[cfg(feature = "runtime")]
 mod compatibility;
+#[cfg(feature = "build")]
+mod generation;
+#[cfg(feature = "runtime")]
+mod loading;
 #[cfg(feature = "runtime")]
 mod message;
+#[cfg(feature = "runtime")]
+mod mode;
 #[cfg(feature = "runtime")]
 mod plugin;
 #[cfg(feature = "runtime")]
 mod resources;
 #[cfg(feature = "runtime")]
+mod scope;
+#[cfg(feature = "runtime")]
 mod state;
+#[cfg(feature = "runtime")]
+mod status;
+#[cfg(feature = "runtime")]
+mod systems;
 
 #[cfg(all(feature = "codegen", feature = "runtime"))]
 mod macros;
 
-#[doc(hidden)]
-#[cfg(feature = "codegen")]
-pub use bevy_fluent_codegen_bridge as __codegen;
-
 /// Explicit build-script generation and configuration, without an engine backend.
 #[cfg(feature = "build")]
-pub use bevy_fluent_codegen_bridge::{Settings, build, from_cargo, generate};
+pub use generation::{build, from_cargo, generate};
+
+/// Generator settings for explicit build frontends.
+#[cfg(feature = "build")]
+pub use fluent_typed_codegen::Settings;
+
+/// Parser used by generated validation contracts.
+#[cfg(feature = "codegen")]
+#[doc(hidden)]
+pub use fluent_syntax;
 
 #[cfg(feature = "runtime")]
-pub use catalog::{CatalogDescriptor, FluentCatalog, Module, ModuleSource};
+pub use catalog::{FluentCatalog, FluentScope, Module};
+#[cfg(any(feature = "manifest", feature = "build"))]
+#[doc(hidden)]
+pub use fluent_typed_codegen as __fluent_codegen;
+#[cfg(feature = "manifest")]
+pub use fluent_typed_codegen::{CatalogConfig, LocalizationManifest, ManifestError};
 #[cfg(feature = "runtime")]
 pub use message::{CatalogUpdate, CatalogUpdateReader, LocalizedText, Message, ReloadCatalogs};
 #[cfg(feature = "runtime")]
+pub use mode::{Full, Lazy, LoadingMode};
+#[cfg(feature = "runtime")]
 pub use plugin::{LocalizationPlugin, LocalizationSystems};
 #[cfg(feature = "runtime")]
+pub use scope::{ModuleStore, ScopeRegistration};
+#[cfg(feature = "runtime")]
 pub use state::Localization;
+#[cfg(feature = "runtime")]
+pub use status::{ModuleError, ModuleStatus};
+#[cfg(feature = "runtime")]
+pub use systems::{IntoLocalizedSystems, LocalizationAppExt, localized};
 
 /// Compatible upstream runtime used by generated accessors; no separate dependency needed.
 #[cfg(feature = "runtime")]

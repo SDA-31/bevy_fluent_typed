@@ -14,7 +14,7 @@ pub(super) fn example_app() -> Result<App, Box<dyn std::error::Error>> {
 			file_path: assets.to_string_lossy().into_owned(),
 			..default()
 		},
-		LocalizationPlugin::<texts::Translations>::new(texts::CATALOG_ASSET_PATH),
+		LocalizationPlugin::<texts::Translations>::new(texts::embed_manifest!()),
 	))
 	.insert_resource(formatting::NumberFormats::try_new(GroupingStrategy::Auto)?)
 	.add_systems(Startup, formatting::spawn_labels);

@@ -3,8 +3,7 @@
 Number formatting is application work. Use dedicated
 [ICU4X](https://docs.rs/icu/) or
 [ICU](https://unicode-org.github.io/icu/userguide/format_parse/) services for
-numbers, percentages, currencies and dates. Neither this runtime nor its codegen
-bridge adds an ICU dependency or a formatting feature.
+numbers, percentages, currencies and dates. Neither this runtime nor its generator adds an ICU dependency or a formatting feature.
 
 The [ICU example's formatting module](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/icu/src/formatting.rs)
 creates reusable services per catalog locale and captures a shared map in
@@ -47,7 +46,7 @@ chance = Chance: { $value }
 
 Call `app.insert_resource(NumberFormats::try_new(GroupingStrategy::Auto)?)`
 once during setup and register `spawn_labels` in `Startup`, after configuring
-Bevy and [`LocalizationPlugin`]. The example's
+Bevy and `LocalizationPlugin`. The example's
 [main.rs](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/icu/src/main.rs)
 handles that wiring. Generated types and ICU dependencies belong to the example;
 the library's documentation links to its source rather than embedding it.
