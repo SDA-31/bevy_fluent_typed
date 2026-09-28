@@ -122,12 +122,15 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 		}
 	}
 
-	if runtime
-		.iter()
-		.any(|(name, _)| matches!(name.as_str(), "bevy_fluent_codegen_bridge" | "prettyplease"))
-	{
+	if runtime.iter().any(|(name, _)| {
+		matches!(
+			name.as_str(),
+			"bevy_fluent_codegen_bridge" | "fluent_typed_codegen" | "prettyplease"
+		)
+	}) {
 		return Err(
-			"runtime without codegen unexpectedly depends on the bridge/generation code".into(),
+			"minimal runtime unexpectedly depends on the generator, manifest parser or bridge"
+				.into(),
 		);
 	}
 
@@ -139,6 +142,15 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 		"--no-default-features",
 		"--features",
 		&format!("{backend},watch"),
+	])?;
+	fixture.success(&[
+		"test",
+		"--locked",
+		"-p",
+		"bevy_fluent_typed",
+		"--no-default-features",
+		"--features",
+		&format!("{backend},manifest,watch"),
 	])?;
 	let example = ["--locked", "-p", "localization-example"];
 	fixture.success(&[&["test"][..], &example].concat())?;

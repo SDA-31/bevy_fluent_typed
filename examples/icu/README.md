@@ -6,8 +6,7 @@ deferred `LocalizedText` bindings. English documentation and source-language FTL
 English, Spanish, Russian and Arabic translations. No window, fonts or GPU needed.
 
 This example uses the existing `bevy_fluent_typed` API. ICU is an **application
-dependency here only**, not a direct dependency or feature of the runtime, generator or
-bridge. There is no custom formatter trait to implement.
+dependency here only**, not a direct dependency or feature of the runtime or generator. There is no custom formatter trait to implement.
 
 ## Run
 

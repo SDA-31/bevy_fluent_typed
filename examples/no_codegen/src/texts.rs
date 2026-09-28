@@ -1,9 +1,7 @@
 //! Handwritten checked provider for one argument-free Fluent leaf/root.
 use bevy_fluent_typed::bevy::{ecs as bevy_ecs, prelude::Resource};
 use bevy_fluent_typed::fluent_typed::prelude::L10nBundle;
-use bevy_fluent_typed::{
-	FluentCatalog, FluentScope, LocalizationManifest, Module, ModuleStore, ScopeRegistration,
-};
+use bevy_fluent_typed::{FluentCatalog, FluentScope, Module, ModuleStore, ScopeRegistration};
 
 #[derive(Resource, Clone)]
 pub(super) struct Texts {
@@ -55,12 +53,4 @@ impl Texts {
 			.map_err(|error| error.to_string())?;
 		Ok(Self { hello })
 	}
-}
-
-pub(super) fn manifest() -> LocalizationManifest {
-	LocalizationManifest::parse(
-		include_str!("../assets/localizations/localization.toml"),
-		"localizations/localization.toml",
-	)
-	.expect("example source contract")
 }

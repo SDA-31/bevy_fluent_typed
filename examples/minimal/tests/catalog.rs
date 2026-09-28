@@ -51,7 +51,6 @@ mod raw {
 #[allow(dead_code, clippy::derivable_impls, clippy::too_many_arguments)]
 mod namespace {
 	use localization_runtime as __fluent_runtime;
-	use localization_runtime::__codegen as __fluent_bridge;
 
 	include!(concat!(env!("OUT_DIR"), "/bevy_catalog.rs"));
 

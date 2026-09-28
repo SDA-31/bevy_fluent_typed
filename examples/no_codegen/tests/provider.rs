@@ -1,7 +1,7 @@
 #[path = "../src/texts.rs"]
 mod texts;
 
-use bevy_fluent_typed::{FluentCatalog, FluentScope, LocalizationManifest};
+use bevy_fluent_typed::{FluentCatalog, FluentScope};
 use texts::Texts;
 
 #[test]
@@ -33,18 +33,4 @@ fn incompatible_candidates_fail_before_publication() {
 	] {
 		assert!(Texts::parse("en", source.as_bytes()).is_err());
 	}
-}
-
-#[test]
-fn manifest_is_only_a_source_contract() {
-	let manifest = texts::manifest();
-	assert_eq!(manifest.config().source_language, "en");
-	assert!(manifest.embedded_modules().is_none());
-	assert!(
-		LocalizationManifest::parse(
-			"source-language = 'en'\ndefault-language = 'en'\nextra = true",
-			"unused.toml"
-		)
-		.is_err()
-	);
 }

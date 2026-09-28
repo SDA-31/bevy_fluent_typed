@@ -1,5 +1,8 @@
 //! The only source emitter that knows both generator and Bevy runtime APIs.
-use crate::{navigation, provider, scopes};
+mod navigation;
+mod provider;
+mod scopes;
+
 use fluent_typed_codegen::{
 	Extension, Scope, Settings,
 	syn::{Item, ItemStruct, ItemUse, parse_quote},
@@ -19,7 +22,7 @@ impl Extension for BevyExtension {
 				use __fluent_runtime::__fluent_codegen;
 			),
 			parse_quote!(
-				use __fluent_bridge::fluent_syntax;
+				use __fluent_runtime::fluent_syntax;
 			),
 			parse_quote!(
 				use __fluent_runtime::fluent_typed;

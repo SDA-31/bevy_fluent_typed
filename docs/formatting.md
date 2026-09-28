@@ -3,8 +3,7 @@
 Number formatting is application work. Use dedicated
 [ICU4X](https://docs.rs/icu/) or
 [ICU](https://unicode-org.github.io/icu/userguide/format_parse/) services for
-numbers, percentages, currencies and dates. Neither this runtime nor its codegen
-bridge adds an ICU dependency or a formatting feature.
+numbers, percentages, currencies and dates. Neither this runtime nor its generator adds an ICU dependency or a formatting feature.
 
 The [ICU example's formatting module](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/icu/src/formatting.rs)
 creates reusable services per catalog locale and captures a shared map in

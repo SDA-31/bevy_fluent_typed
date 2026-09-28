@@ -1,15 +1,23 @@
+#[cfg(feature = "manifest")]
+use crate::LocalizationManifest;
 use crate::bevy::{ecs as bevy_ecs, prelude::*};
 use crate::{
-	FluentCatalog, FluentScope, Lazy, Localization, LocalizationManifest, LocalizedText, Message,
-	Module, ModuleStore, ScopeRegistration, bindings,
+	FluentCatalog, FluentScope, Lazy, Localization, LocalizedText, Message, Module, ModuleStore,
+	ScopeRegistration, bindings,
 };
 use std::sync::Arc;
 
+#[cfg(feature = "manifest")]
 mod bindings_lifecycle;
+mod bytes;
 mod documentation;
+#[cfg(feature = "manifest")]
 mod lazy;
+#[cfg(feature = "manifest")]
 mod loader;
+#[cfg(feature = "manifest")]
 mod scheduling;
+#[cfg(feature = "manifest")]
 mod waiting;
 
 #[derive(Resource, Clone)]
@@ -56,6 +64,7 @@ impl FluentCatalog for TestCatalog {
 	}
 }
 
+#[cfg(feature = "manifest")]
 fn manifest() -> LocalizationManifest {
 	LocalizationManifest::__embedded((
 		"ja",

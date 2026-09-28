@@ -1,8 +1,9 @@
 //! Keep Bevy minor-version differences out of loading and scheduling policy.
 pub(crate) mod readiness;
 
+#[cfg(feature = "manifest")]
+use crate::bevy::asset::{AssetPath, LoadContext};
 use crate::bevy::{
-	asset::{AssetPath, LoadContext},
 	ecs::{schedule::ScheduleConfigs, system::ScheduleSystem},
 	prelude::*,
 };
@@ -34,6 +35,7 @@ pub(crate) fn register_notifications<C: FluentCatalog>(app: &mut App) {
 		.add_message::<ReloadCatalogs<C>>();
 }
 
+#[cfg(feature = "manifest")]
 pub(crate) fn asset_path<'a>(context: &'a LoadContext<'_>) -> &'a AssetPath<'static> {
 	#[cfg(all(
 		any(feature = "bevy-0-16", feature = "bevy-0-17"),

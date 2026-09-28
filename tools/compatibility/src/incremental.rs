@@ -62,7 +62,7 @@ pub(crate) fn check(fixture: &Fixture<'_>) -> Result<()> {
 	fs::write(&manifest_path, &manifest)?;
 	check_result(fixture, &arguments, Some(false))?;
 
-	// The bridge explicitly tracks source directories even if Cargo excludes assets.
+	// The build facade explicitly tracks source directories even if Cargo excludes assets.
 	fs::write(
 		&manifest_path,
 		manifest.replacen("[package]", "[package]\nexclude = [\"assets/**\"]", 1),

@@ -5,8 +5,8 @@ For a complete Cargo.toml, files and application, follow the
 This section explains the optional custom build entrypoints.
 
 The `build` feature exposes `build()`, `from_cargo()`, `generate()` and
-`Settings` through the same crate used by the application. The companion bridge
-is an implementation detail; consumers do not need to name it in Cargo.toml.
+`Settings` through the same crate used by the application. Its private build
+module emits the Bevy provider; no separate bridge package is needed.
 Discovery and the typed module tree come from
 [fluent_typed_codegen](https://docs.rs/fluent_typed_codegen/); message accessors
 and Fluent resolution come from [fluent-typed](https://docs.rs/fluent-typed/).
@@ -39,6 +39,23 @@ renaming the crate, use that alias in both, as in the integration example.
 The public facade is available since **0.1.1**. Version 0.1.0 required a separate
 bridge build-dependency. Number formatting and plural-category preparation are
 application runtime work, not part of this build phase.
+
+## Features
+
+| Feature selection | Available API and dependencies |
+| --- | --- |
+| Defaults | Bevy 0.19 runtime and `manifest` support |
+| `codegen` on the normal dependency | `translations!`, generated resources and manifest helpers; enables `manifest`, not generation |
+| `build` alone, defaults disabled | Explicit generation in build.rs; generator build dependencies, no Bevy |
+| `manifest` with a backend | Manifest constructors and the generator's runtime manifest API; no generation |
+| One backend alone, defaults disabled | Byte sources and handwritten providers; no generator package, TOML or bridge |
+| `watch` | Bevy asset-source file watching; does not watch custom byte loaders |
+
+`codegen` and `manifest` are independent of how you obtain runtime bytes.
+Generated providers currently include manifest helpers, so `codegen` enables
+those types even when the application chooses `from_bytes` or `from_loader`.
+Disabling only `codegen` leaves the default `manifest` feature enabled. Use
+`default-features = false` and select a backend for the minimal handwritten path.
 
 ## Manifest configuration
 
@@ -73,7 +90,7 @@ bevy_fluent_typed = { path = "/absolute/path/to/bevy_fluent_typed", default-feat
 fluent_typed_codegen = { path = "/absolute/path/to/fluent_typed_codegen" }
 ```
 
-The runtime checkout supplies its own companion bridge. Put the patch in the
+The runtime checkout contains the Bevy build adapter. Put the patch in the
 workspace root when the consumer belongs to a workspace. This is development
 wiring; normal released consumers use the registry quickstart.
 

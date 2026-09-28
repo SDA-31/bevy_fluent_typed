@@ -1,9 +1,9 @@
 //! Selected locale and explicit logical demand, independent of physical asset handles.
+#[cfg(feature = "manifest")]
 use crate::assets::ModuleAsset;
-use crate::bevy::{
-	ecs as bevy_ecs,
-	prelude::{Handle, Resource},
-};
+#[cfg(feature = "manifest")]
+use crate::bevy::prelude::Handle;
+use crate::bevy::{ecs as bevy_ecs, prelude::Resource, tasks::Task};
 use crate::{FluentCatalog, FluentScope, Full, Lazy, LoadingMode, ModuleStatus, ModuleStore};
 use std::{
 	any::TypeId,
@@ -13,10 +13,28 @@ use std::{
 };
 
 pub(crate) struct RequestedModule<C: FluentCatalog> {
+	pub(crate) locale: C::Locale,
+	pub(crate) task: Option<Task<Result<crate::catalog::SharedScope, String>>>,
+	#[cfg(feature = "manifest")]
 	pub(crate) handle: Option<Handle<ModuleAsset<C>>>,
+	#[cfg(feature = "manifest")]
 	pub(crate) accepted: Option<u64>,
 	// Tracks our request before AssetServer's detached task changes load state.
 	pub(crate) pending: bool,
+}
+
+impl<C: FluentCatalog> RequestedModule<C> {
+	pub(crate) fn new(locale: C::Locale) -> Self {
+		Self {
+			locale,
+			task: None,
+			#[cfg(feature = "manifest")]
+			handle: None,
+			#[cfg(feature = "manifest")]
+			accepted: None,
+			pending: false,
+		}
+	}
 }
 
 /// Controller for the selected locale and the scopes requested by the application.

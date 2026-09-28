@@ -184,6 +184,13 @@ Bevy 0.19 enforces immutable generated resources in ECS. Older backends expose
 the same read-only catalog API without that ECS guarantee. `watch` is an
 optional normal-dependency feature for filesystem change notifications.
 
+## Advanced integrations
+
+Keep generated accessors when supplying your own bytes. See
+[custom byte sources](GUIDE.md#custom-byte-sources) for `from_bytes` and async
+`from_loader`, or [without code generation](GUIDE.md#without-code-generation)
+for a minimal runtime and a handwritten provider.
+
 ## Troubleshooting
 
 | What happened | What to check |
@@ -233,5 +240,5 @@ manual runs still execute checks.
 
 Message accessors and Fluent resolution use
 [fluent-typed](https://github.com/human-solutions/fluent-typed).
-[MIT](LICENSE) covers this library, its bridge and examples, not your application
+[MIT](LICENSE) covers this library and its examples, not your application
 or translations.

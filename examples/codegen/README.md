@@ -29,7 +29,7 @@ uses the public build facade introduced in 0.1.1; the local path tests this chec
 
 `assets/localizations/translations/en/ui/greeting.ftl` becomes
 `texts::ui::Greeting`. Asset paths and discovery come from the manifest and TOML,
-not from a language list in build.rs. The bridge validates sources and explicitly
+not from a language list in build.rs. The build facade validates sources and explicitly
 registers file/directory changes with Cargo. Its generator runs in the host build
 graph, not inside the application. See [the guide](../../README.md#setup).
 
@@ -40,3 +40,18 @@ The application explicitly calls `texts::embed_manifest!()` and parses the
 selected language during an update. [tests/output.rs](tests/output.rs) checks the executable's three greetings; there is no test collection wrapper in main.
 
 [MIT](LICENSE).
+
+## Supply your own bytes
+
+Keep the same generated types and build script:
+
+```sh
+cargo run --manifest-path examples/codegen/Cargo.toml --bin bytes
+```
+
+[src/bin/bytes.rs](src/bin/bytes.rs) passes `(Locale, Greeting::PATH, bytes)` tuples
+to `LocalizationPlugin::from_bytes` and prints the same three greetings using
+ordinary generated resources. It deliberately embeds its small input with
+`include_bytes!`; no runtime manifest or AssetPlugin is required. The buffers
+are retained for repeat loads. For async acquisition per requested module, use
+`from_loader` as described in [the guide](../../GUIDE.md#custom-byte-sources).

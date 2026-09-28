@@ -34,16 +34,20 @@ compile_error!(
 	"Bevy backends are mutually exclusive; disable default features to select an older backend"
 );
 
-#[cfg(feature = "runtime")]
+#[cfg(all(feature = "runtime", feature = "manifest"))]
 mod addresses;
-#[cfg(feature = "runtime")]
+#[cfg(all(feature = "runtime", feature = "manifest"))]
 mod assets;
 #[cfg(feature = "runtime")]
 mod bindings;
 #[cfg(feature = "runtime")]
+mod bytes;
+#[cfg(feature = "runtime")]
 mod catalog;
 #[cfg(feature = "runtime")]
 mod compatibility;
+#[cfg(feature = "build")]
+mod generation;
 #[cfg(feature = "runtime")]
 mod loading;
 #[cfg(feature = "runtime")]
@@ -66,20 +70,25 @@ mod systems;
 #[cfg(all(feature = "codegen", feature = "runtime"))]
 mod macros;
 
-#[doc(hidden)]
-#[cfg(feature = "codegen")]
-pub use bevy_fluent_codegen_bridge as __codegen;
-
 /// Explicit build-script generation and configuration, without an engine backend.
 #[cfg(feature = "build")]
-pub use bevy_fluent_codegen_bridge::{Settings, build, from_cargo, generate};
+pub use generation::{build, from_cargo, generate};
+
+/// Generator settings for explicit build frontends.
+#[cfg(feature = "build")]
+pub use fluent_typed_codegen::Settings;
+
+/// Parser used by generated validation contracts.
+#[cfg(feature = "codegen")]
+#[doc(hidden)]
+pub use fluent_syntax;
 
 #[cfg(feature = "runtime")]
 pub use catalog::{FluentCatalog, FluentScope, Module};
-#[cfg(feature = "runtime")]
+#[cfg(any(feature = "manifest", feature = "build"))]
 #[doc(hidden)]
 pub use fluent_typed_codegen as __fluent_codegen;
-#[cfg(feature = "runtime")]
+#[cfg(feature = "manifest")]
 pub use fluent_typed_codegen::{CatalogConfig, LocalizationManifest, ManifestError};
 #[cfg(feature = "runtime")]
 pub use message::{CatalogUpdate, CatalogUpdateReader, LocalizedText, Message, ReloadCatalogs};

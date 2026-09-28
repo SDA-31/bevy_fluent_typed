@@ -3,7 +3,7 @@
 Use native required resources with registration helpers that infer catalog
 readiness. Existing manual conditions and explicit Lazy requests keep working.
 Update both normal and build dependencies on `bevy_fluent_typed` to `0.2.1`.
-The runtime uses bridge and generator 0.2.1; no generated
+The runtime integrates the Bevy build adapter and uses generator 0.2.1; no generated
 schema or manifest changes are required.
 
 ## Use the build-configured file manifest
@@ -107,3 +107,12 @@ normal Bevy behavior. No global error handler is replaced.
 
 See the [loading guide](../GUIDE.md#read-resources-and-handle-readiness) for
 module lifetime, loading modes and typed navigation.
+
+## Byte sources and optional manifest support
+
+Existing default and codegen setups keep their manifest constructors. The build
+adapter is now inside `bevy_fluent_typed`; remove any direct bridge dependency.
+For handwritten providers with defaults disabled, add `manifest` if you use
+`LocalizationManifest` or `LocalizationPlugin::new`/`new_lazy`. A backend alone
+supports `from_bytes` and `from_loader` without the generator package. See the
+[feature table](build.md#features) and [advanced guide](../GUIDE.md#custom-byte-sources).

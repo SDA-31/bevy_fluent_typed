@@ -1,7 +1,7 @@
 # Typed resources, text bindings and live edits
 
-For the smallest starting points, use [codegen](../codegen) or
-[no_codegen](../no_codegen). This larger example shows language-switchable Bevy
+For the smallest starting point, use [codegen](../codegen).
+[Without codegen](../no_codegen) is an advanced handwritten-provider example. This larger example shows language-switchable Bevy
 text, typed resources and real filesystem hot reload. It runs without a window
 or GPU. English, Spanish and Russian catalogs are included.
 
@@ -51,7 +51,7 @@ the example's files.
 [Cargo.toml](Cargo.toml) deliberately renames `bevy_fluent_typed` to
 `localization_runtime` in both dependency sections. The normal dependency enables
 `codegen` and `watch`; the same crate's build-dependency disables defaults and
-enables only `build`. The bridge is an implementation detail. This public build
+enables only `build`. The build adapter lives inside the public crate. This public build
 facade is available since 0.1.1. Repository-local paths test this checkout;
 external applications use the [registry setup](../../README.md#setup).
 

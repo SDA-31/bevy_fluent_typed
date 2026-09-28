@@ -53,7 +53,8 @@ pub trait FluentScope: Resource + Clone {
 /// Root provider connecting compiled typed schemas to the Bevy runtime.
 ///
 /// Generation is optional. Handwritten providers implement the same scope and
-/// checked-leaf contracts. Sources are supplied separately through a manifest.
+/// checked-leaf contracts. Sources are supplied separately as readable bytes, an
+/// asynchronous loader, or an optional manifest.
 pub trait FluentCatalog: FluentScope<Catalog = Self> {
 	/// Stable compiled locale code; identifiers must be unique directory names.
 	type Locale: Copy + Eq + Send + Sync + AsRef<str> + 'static;

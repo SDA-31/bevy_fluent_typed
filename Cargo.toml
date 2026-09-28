@@ -16,20 +16,21 @@ publish = ["crates-io"]
 features = ["codegen", "watch", "build"]
 
 [features]
-default = ["bevy-0-19"]
+default = ["bevy-0-19", "manifest"]
 bevy-0-16 = ["runtime", "dep:bevy_0_16"]
 bevy-0-17 = ["runtime", "dep:bevy_0_17"]
 bevy-0-18 = ["runtime", "dep:bevy_0_18"]
 bevy-0-19 = ["runtime", "dep:bevy_0_19"]
 # Enabled by each backend; build-only consumers do not need the runtime.
-runtime = ["dep:fluent-typed", "dep:fluent_typed_codegen"]
-build = ["dep:bevy_fluent_codegen_bridge", "bevy_fluent_codegen_bridge/build"]
-codegen = ["dep:bevy_fluent_codegen_bridge", "bevy_fluent_codegen_bridge/runtime"]
+runtime = ["dep:fluent-typed"]
+manifest = ["dep:fluent_typed_codegen", "fluent_typed_codegen/manifest"]
+build = ["dep:fluent_typed_codegen", "fluent_typed_codegen/build"]
+codegen = ["manifest", "dep:fluent-syntax"]
 watch = ["bevy_0_16?/file_watcher", "bevy_0_16?/multi_threaded", "bevy_0_17?/file_watcher", "bevy_0_18?/file_watcher", "bevy_0_19?/file_watcher"]
 
 [dependencies]
-fluent_typed_codegen = { version = "0.2.1", default-features = false, features = ["manifest"], optional = true }
-bevy_fluent_codegen_bridge = { version = "0.2.1", path = "codegen_bridge", optional = true }
+fluent_typed_codegen = { version = "0.2.1", default-features = false, optional = true }
+fluent-syntax = { version = "0.12", optional = true }
 fluent-typed = { version = "0.9.0", optional = true, default-features = false, features = ["langneg"] }
 # Select exactly one backend. Each admits patches within its own Bevy minor.
 bevy_0_16 = { package = "bevy", version = "0.16.1", optional = true, default-features = false, features = ["std", "async_executor", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }

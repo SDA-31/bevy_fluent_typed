@@ -1,18 +1,24 @@
 //! Reconcile logical requests with the selected language's concrete assets.
+#[cfg(feature = "manifest")]
 use crate::assets::ModuleAsset;
+use crate::bevy::prelude::*;
+#[cfg(feature = "manifest")]
 use crate::bevy::{
 	asset::{AssetEvent, AssetLoadFailedEvent, AssetPath},
 	ecs as bevy_ecs,
-	prelude::*,
 };
 use crate::compatibility::{MessageReader, MessageWriter};
+#[cfg(feature = "manifest")]
 use crate::state::RequestedModule;
 use crate::{
-	CatalogUpdate, FluentCatalog, LoadingMode, Localization, LocalizationManifest, Module,
-	ModuleStatus, ReloadCatalogs, addresses,
+	CatalogUpdate, FluentCatalog, LoadingMode, Localization, ModuleStatus, ReloadCatalogs,
 };
+#[cfg(feature = "manifest")]
+use crate::{LocalizationManifest, Module, addresses};
+#[cfg(feature = "manifest")]
 use std::{collections::HashMap, marker::PhantomData, path::Path};
 
+#[cfg(feature = "manifest")]
 #[derive(Resource)]
 pub(crate) struct CatalogSource<C: FluentCatalog> {
 	pub(crate) manifest: LocalizationManifest,
@@ -31,6 +37,7 @@ pub(crate) fn reload_catalogs<C: FluentCatalog, M: LoadingMode>(
 	}
 }
 
+#[cfg(feature = "manifest")]
 pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 	mut localization: ResMut<Localization<C, M>>,
 	source: Res<CatalogSource<C>>,
@@ -56,31 +63,8 @@ pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 		localization.requests_changed = false;
 	}
 
+	release_unrequested(&mut localization);
 	let desired = localization.desired();
-	let removed: Vec<_> = localization
-		.entries
-		.keys()
-		.copied()
-		.filter(|path| !desired.contains(path))
-		.collect();
-
-	for path in removed {
-		if localization
-			.entries
-			.remove(path)
-			.is_some_and(|entry| entry.pending)
-		{
-			localization.pending -= 1;
-		}
-
-		localization.retry.remove(path);
-		localization.store.states.remove(path);
-
-		if let Some(id) = localization.store.leaves.get(path).copied() {
-			localization.store.values.remove(&id);
-			localization.store.revision += 1;
-		}
-	}
 
 	let locale = localization.locale();
 
@@ -107,27 +91,17 @@ pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 				.insert(path, ModuleStatus::Loading);
 
 			if let Some(error) = &source.error {
-				localization.entries.insert(
-					path,
-					RequestedModule {
-						handle: None,
-						accepted: None,
-						pending: false,
-					},
-				);
+				localization
+					.entries
+					.insert(path, RequestedModule::new(locale));
 				publish(&mut localization, path, Err(error.clone()), &mut updates);
 				continue;
 			}
 
 			if source.manifest.embedded_modules().is_some() {
-				localization.entries.insert(
-					path,
-					RequestedModule {
-						handle: None,
-						accepted: None,
-						pending: false,
-					},
-				);
+				localization
+					.entries
+					.insert(path, RequestedModule::new(locale));
 				let candidate = source
 					.manifest
 					.read(locale.as_ref(), path)
@@ -162,6 +136,7 @@ pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 							handle: Some(handle),
 							accepted,
 							pending: true,
+							..RequestedModule::new(locale)
 						},
 					);
 				}
@@ -172,6 +147,7 @@ pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 							handle: None,
 							accepted: None,
 							pending: false,
+							..RequestedModule::new(locale)
 						},
 					);
 					publish(&mut localization, path, Err(error), &mut updates);
@@ -208,7 +184,37 @@ pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 	}
 }
 
-fn publish<C: FluentCatalog, M: LoadingMode>(
+pub(crate) fn release_unrequested<C: FluentCatalog, M: LoadingMode>(
+	localization: &mut Localization<C, M>,
+) {
+	let desired = localization.desired();
+	let removed: Vec<_> = localization
+		.entries
+		.keys()
+		.copied()
+		.filter(|path| !desired.contains(path))
+		.collect();
+
+	for path in removed {
+		if localization
+			.entries
+			.remove(path)
+			.is_some_and(|entry| entry.pending)
+		{
+			localization.pending -= 1;
+		}
+
+		localization.retry.remove(path);
+		localization.store.states.remove(path);
+
+		if let Some(id) = localization.store.leaves.get(path).copied() {
+			localization.store.values.remove(&id);
+			localization.store.revision += 1;
+		}
+	}
+}
+
+pub(crate) fn publish<C: FluentCatalog, M: LoadingMode>(
 	localization: &mut Localization<C, M>,
 	path: &'static str,
 	candidate: Result<crate::catalog::SharedScope, String>,
@@ -238,6 +244,7 @@ fn publish<C: FluentCatalog, M: LoadingMode>(
 	}
 }
 
+#[cfg(feature = "manifest")]
 pub(crate) fn report_failures<C: FluentCatalog, M: LoadingMode>(
 	mut events: MessageReader<AssetLoadFailedEvent<ModuleAsset<C>>>,
 	mut localization: ResMut<Localization<C, M>>,
@@ -266,6 +273,7 @@ pub(crate) fn report_failures<C: FluentCatalog, M: LoadingMode>(
 	}
 }
 
+#[cfg(feature = "manifest")]
 pub(crate) fn asset_address(
 	manifest: &LocalizationManifest,
 	locale: &str,

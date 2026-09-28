@@ -7,7 +7,7 @@ pins the consumer's selected official Bevy packages to the requested release, th
   reload and missing-module recovery, and actual text-detector ordering.
 - Generated consumer tests, including multi-file filesystem watcher reloads.
 - Both headless example binaries.
-- Separate minimal codegen/no-codegen examples, including actual resource/Text
+- Separate minimal codegen/no-codegen examples, including generator-free byte input and actual resource/Text
   values after switching through all three languages.
 - The standalone ICU resource example: Decimal and percentage formatters,
   EN/ES/RU/AR UI/world strings, exact ratio scaling and explicit rebinding after
@@ -27,7 +27,7 @@ pins the consumer's selected official Bevy packages to the requested release, th
 - Runtime-only dependency isolation; on 0.19, rejected missing/conflicting backend selections.
 
 No Python, shell-script runtime, game source or game assets are required. This
-package is not a dependency of the library, bridge or example and is not published.
+package is not a dependency of the library or example and is not published.
 The separate `examples/asset_source` generated-resource example targets the default
 Bevy 0.19 API and is tested by the CI quality job, not copied into this matrix.
 The runtime's virtual-source regression runs on every backend in this matrix.
@@ -80,3 +80,6 @@ Completed fixtures contain an intentional `immutable_probe` compile-fail binary
 on 0.19; create a fresh fixture through this command when repeating the suite.
 
 [MIT](LICENSE), independently of any consuming application.
+
+The runtime is tested both with manifest support and as a backend-only byte
+loader. The latter graph must contain no generator, TOML parser or bridge package.

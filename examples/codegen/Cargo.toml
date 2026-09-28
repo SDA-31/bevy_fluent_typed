@@ -1,4 +1,5 @@
 [package]
+default-run = "localization-codegen-example"
 name = "localization-codegen-example"
 version = "0.1.0"
 edition = "2024"

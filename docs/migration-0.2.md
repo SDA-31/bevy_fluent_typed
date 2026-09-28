@@ -1,6 +1,6 @@
 # Migrate from bevy_fluent_typed 0.1.3 to 0.2.1
 
-This guide upgrades runtime and bridge 0.1.3 to 0.2.1.
+This guide upgrades runtime 0.1.3 to 0.2.1.
 It includes the generated manifest helper and native required-resource waiting.
 
 Start with **Full**, the default mode. It keeps all modules of the selected
@@ -197,7 +197,7 @@ usable last-good resource. Check availability and latest-attempt status separate
 
 ## 7. Handwritten providers and direct bridge users
 
-Skip this section when using `translations!`; the bridge generates these changes.
+Skip this section when using `translations!`; the build facade generates these changes.
 
 | Removed or changed contract | Replacement |
 | --- | --- |
@@ -215,10 +215,12 @@ sources. Preserve contract validation in custom leaf parsers. Start from the
 all parent scopes before their children. Only one controller/plugin mode may own
 a root provider in an App.
 
-Direct bridge users must upgrade `bevy_fluent_codegen_bridge` and the generator
-to 0.2.1 together with the runtime. The old bridge `validate_definition` helper is
-removed; use the shared manifest contract. Standard consumers keep the public
-facade and need no direct bridge dependency.
+Direct bridge users should replace that dependency with `bevy_fluent_typed`:
+use `build` with defaults disabled in build-dependencies, and `codegen` with a
+backend in normal dependencies. The separate bridge package is no longer used.
+The public `build()` and `translations!` entrypoints stay the same. For manual
+providers using `default-features = false`, add `manifest` to retain file/manifest
+constructors, or switch to [byte sources](../GUIDE.md#custom-byte-sources).
 
 Run `cargo check` and application tests after migration. Exercise startup,
 language changes, invalid-file recovery and any screen unload/reload behavior.

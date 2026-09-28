@@ -4,7 +4,7 @@ mod fixture {
 	use localization_runtime::translations;
 
 	// Caller scope must not override the macro's defining runtime dependency.
-	mod bevy_fluent_codegen_bridge {}
+	mod bevy_fluent_typed {}
 
 	translations!(
 		/// A nested module with restricted visibility and an optional semicolon.

@@ -1,20 +1,31 @@
 mod texts;
 
-use bevy_fluent_typed::bevy::{asset::AssetPlugin, prelude::*};
+use bevy_fluent_typed::bevy::prelude::*;
 use bevy_fluent_typed::{Localization, LocalizationPlugin, LocalizedText};
 use texts::Texts;
 
 fn main() {
-	let assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets");
+	// This example explicitly embeds its own readable bytes; no TOML or generator.
+	let plugin = LocalizationPlugin::<Texts>::from_bytes([
+		(
+			"en",
+			"ui/greeting.ftl",
+			include_bytes!("../assets/localizations/translations/en/ui/greeting.ftl").as_slice(),
+		),
+		(
+			"es",
+			"ui/greeting.ftl",
+			include_bytes!("../assets/localizations/translations/es/ui/greeting.ftl").as_slice(),
+		),
+		(
+			"ru",
+			"ui/greeting.ftl",
+			include_bytes!("../assets/localizations/translations/ru/ui/greeting.ftl").as_slice(),
+		),
+	])
+	.expect("known locale/module keys");
 	let mut app = App::new();
-	app.add_plugins((
-		MinimalPlugins,
-		AssetPlugin {
-			file_path: assets.to_string_lossy().into_owned(),
-			..default()
-		},
-		LocalizationPlugin::<Texts>::new(texts::manifest()),
-	));
+	app.add_plugins((MinimalPlugins, plugin));
 	let label = app
 		.world_mut()
 		.spawn((
@@ -25,7 +36,7 @@ fn main() {
 	app.finish();
 	app.cleanup();
 
-	// Files load asynchronously through AssetServer for the selected language.
+	// The plugin parses requested bytes and publishes checked resources.
 	for locale in ["en", "es", "ru"] {
 		app.world_mut()
 			.resource_mut::<Localization<Texts>>()
