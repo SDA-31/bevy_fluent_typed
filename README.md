@@ -23,14 +23,7 @@ translations through Bevy's asset system or explicitly embed them.
 
 ## Setup
 
-Use Rust 1.95 or newer and a Bevy 0.19 application. To start a new project:
-
-```sh
-cargo new localized-app --edition 2024
-cd localized-app
-```
-
-In `Cargo.toml`, keep `[package]` and replace the empty `[dependencies]` section with:
+Add these dependencies to `Cargo.toml`:
 
 ```toml
 [dependencies]
