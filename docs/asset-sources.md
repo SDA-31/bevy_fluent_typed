@@ -39,4 +39,4 @@ independent watcher/direct AssetServer reloads whose reader-opening futures fini
 out of order. Bevy supplies no pre-loader request generation. Its
 `AssetLoadFailedEvent` also has no generation, including failures inside
 `read_to_end`. For strict order, disable watching and use ReloadCatalogs. See the
-[loading boundary](runtime.md#scheduling-and-reload-guarantees).
+[loading boundary](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/runtime.md#scheduling-and-reload-guarantees).

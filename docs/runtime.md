@@ -194,6 +194,9 @@ are not inspected: expose each required catalog as a direct parameter or retain
 explicit conditions for those advanced forms. Apply configuration after
 `localized`; already configured systems have erased their parameter types.
 Missing ordinary resources retain Bevy's normal validation behavior.
+Install localization plugins before the schedule is first initialized or run;
+the helper registers its precise resource reads at that point. Systems may be
+registered before or after the plugin while building the `App`.
 
 The ordinary `add_systems` API is unchanged. The new helper requires a recurring
 schedule, such as `Update`, to retry waiting systems. Ordinary `Startup`, `OnEnter`

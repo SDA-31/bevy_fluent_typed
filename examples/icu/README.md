@@ -13,7 +13,7 @@ bridge. There is no custom formatter trait to implement.
 
 From a checkout of this repository:
 
-These commands build this checkout and resolve generator 0.2.0 from crates.io.
+These commands build this checkout and resolve generator 0.2.1 from crates.io.
 For local generator development, use the [local generator patch](../../docs/build.md#work-on-local-checkouts).
 For a new application, follow the [root quickstart](../../README.md#setup).
 

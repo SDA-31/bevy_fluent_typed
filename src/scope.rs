@@ -1,10 +1,8 @@
 //! Immutable scope storage and type-erased publication hooks for generated providers.
+use crate::bevy::ecs::world::{FilteredResources, FilteredResourcesBuilder};
 use crate::bevy::prelude::*;
 use crate::catalog::SharedScope;
-use crate::{
-	FluentCatalog, FluentScope, LocalizationSystems, ModuleError, ModuleStatus, bindings,
-	compatibility,
-};
+use crate::{FluentCatalog, FluentScope, ModuleError, ModuleStatus, bindings};
 use std::{
 	any::TypeId,
 	collections::{BTreeMap, HashMap},
@@ -24,11 +22,19 @@ pub struct ModuleStore<C: FluentCatalog> {
 	pub(crate) states: BTreeMap<&'static str, ModuleStatus>,
 	pub(crate) leaves: BTreeMap<&'static str, TypeId>,
 	pub(crate) scopes: Arc<[ScopeRegistration<C>]>,
+	pub(crate) scope_indices: HashMap<TypeId, usize>,
 	pub(crate) revision: u64,
 }
 
 impl<C: FluentCatalog> ModuleStore<C> {
 	pub(crate) fn new(locale: C::Locale) -> Self {
+		let scopes: Arc<[ScopeRegistration<C>]> = C::scopes().into();
+		let scope_indices = scopes
+			.iter()
+			.enumerate()
+			.map(|(index, scope)| (scope.id, index))
+			.collect();
+
 		Self {
 			locale,
 			values: HashMap::new(),
@@ -38,7 +44,8 @@ impl<C: FluentCatalog> ModuleStore<C> {
 				.map(|module| (module.path, module.scope))
 				.collect(),
 			revision: 0,
-			scopes: C::scopes().into(),
+			scopes,
+			scope_indices,
 		}
 	}
 
@@ -136,6 +143,8 @@ pub struct ScopeRegistration<C: FluentCatalog> {
 	pub(crate) publish: fn(&SharedScope, &mut World),
 	pub(crate) remove: fn(&mut World),
 	pub(crate) exists: fn(&World) -> bool,
+	pub(crate) ready_access: fn(&mut FilteredResourcesBuilder),
+	pub(crate) ready_exists: fn(&FilteredResources) -> bool,
 	pub(crate) bindings: fn(&mut App),
 }
 
@@ -159,16 +168,11 @@ impl<C: FluentCatalog> ScopeRegistration<C> {
 				world.remove_resource::<S>();
 			},
 			exists: |world| world.contains_resource::<S>(),
-			bindings: |app| {
-				app.add_systems(
-					PostUpdate,
-					compatibility::before_text_detection((
-						bindings::refresh_ui::<S>.before(compatibility::UiSystems::Content),
-						bindings::refresh_world::<S>.before(compatibility::update_text2d_layout),
-					))
-					.in_set(LocalizationSystems::Refresh),
-				);
+			ready_access: |builder| {
+				builder.add_read::<S>();
 			},
+			ready_exists: |resources| resources.get::<S>().is_ok(),
+			bindings: bindings::register::<S>,
 		}
 	}
 }

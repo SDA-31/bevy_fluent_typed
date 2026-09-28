@@ -19,6 +19,19 @@ before 1.0, a minor release can introduce incompatible API changes.
 - [Optional adoption from 0.2.0](docs/migration-0.2.1.md), including startup,
   scheduling and parameter-shape limitations. Existing 0.2.0 code remains valid.
 
+### Fixed
+
+- Readiness conditions register only the catalog resources they inspect, allowing
+  systems that mutate unrelated resources or components to run in parallel.
+- Idle frames reuse module demand and publication revisions instead of allocating
+  temporary signatures and repeatedly scanning the entire schema.
+- Text refresh visits scope types with live bindings. Unused scopes no longer
+  add two scheduled systems each. Adding `Text` or `Text2d` to an existing binding
+  formats it on the next refresh.
+- File loading indexes exact asset addresses instead of scanning all known
+  locale/module combinations. Embedded lookup uses the generator's 0.2.1 index.
+- The asset-source guide's loading-boundary link also works in published Rustdoc.
+
 ## [0.2.0] - 2026-09-28
 
 This release updates runtime and bridge to 0.2.0. Follow the

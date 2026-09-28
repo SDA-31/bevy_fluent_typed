@@ -5,6 +5,7 @@ use crate::{
 };
 use std::sync::Arc;
 
+mod bindings_lifecycle;
 mod documentation;
 mod lazy;
 mod loader;

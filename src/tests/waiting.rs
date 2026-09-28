@@ -103,6 +103,61 @@ fn full_mode_publishes_before_the_first_required_update() {
 }
 
 #[test]
+fn same_schedule_resource_removal_delays_a_required_consumer() {
+	let mut app = app();
+	app.add_plugins(LocalizationPlugin::<TestCatalog>::new(manifest()));
+	app.update();
+	app.add_systems(
+		Update,
+		(
+			(|world: &mut World| {
+				world.remove_resource::<TestCatalog>();
+			}),
+			localized(required),
+		)
+			.chain(),
+	);
+	app.update();
+	assert!(app.world().resource::<Observations>().required.is_empty());
+	// PostUpdate restores the controller's still-owned snapshot.
+	assert!(app.world().contains_resource::<TestCatalog>());
+}
+
+#[test]
+fn inferred_condition_does_not_conflict_with_unrelated_writes() {
+	use crate::bevy::ecs::system::System;
+	use crate::compatibility::readiness::Readiness;
+
+	let mut app = app();
+	app.add_plugins(LocalizationPlugin::<TestCatalog>::new(manifest()));
+	let mut gate = IntoSystem::into_system(
+		|ready: Readiness<(Res<TestCatalog>, ResMut<Observations>)>| ready.ready(),
+	);
+	let mut unrelated = IntoSystem::into_system(|_: ResMut<Observations>, _: Query<&mut Text>| {});
+
+	#[cfg(feature = "bevy-0-16")]
+	{
+		gate.initialize(app.world_mut());
+		unrelated.initialize(app.world_mut());
+		assert!(
+			gate.component_access()
+				.is_compatible(unrelated.component_access())
+		);
+	}
+
+	#[cfg(not(feature = "bevy-0-16"))]
+	{
+		let gate_access = gate.initialize(app.world_mut());
+		let unrelated_access = unrelated.initialize(app.world_mut());
+		assert!(
+			gate_access
+				.combined_access()
+				.is_compatible(unrelated_access.combined_access())
+		);
+	}
+}
+
+#[test]
 fn deferred_setup_waits_runs_once_and_applies_commands() {
 	let mut app = app();
 	app.add_plugins(LocalizationPlugin::<TestCatalog>::new_lazy(manifest()))

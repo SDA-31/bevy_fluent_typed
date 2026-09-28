@@ -7,6 +7,7 @@ use crate::bevy::{
 	},
 	prelude::*,
 };
+use crate::compatibility::readiness::{Probe, Readiness};
 use crate::{FluentCatalog, LoadingMode, Localization, ScopeRegistration};
 use std::{
 	any::TypeId,
@@ -18,10 +19,8 @@ use std::{
 	},
 };
 
-type Ready = Box<dyn Fn(&World) -> bool + Send + Sync>;
-
 #[derive(Resource, Default)]
-pub(crate) struct CatalogReadiness(HashMap<TypeId, Ready>);
+pub(crate) struct CatalogReadiness(pub(crate) HashMap<TypeId, Arc<Probe>>);
 
 impl CatalogReadiness {
 	pub(crate) fn register<C: FluentCatalog, M: LoadingMode>(
@@ -29,18 +28,26 @@ impl CatalogReadiness {
 		scope: &ScopeRegistration<C>,
 	) {
 		let id = scope.id;
-		let exists = scope.exists;
+		let exists = scope.ready_exists;
+		let access = scope.ready_access;
 		world.init_resource::<Self>();
 		world.resource_mut::<Self>().0.insert(
 			scope.parameter,
-			Box::new(move |world| {
-				let Some(localization) = world.get_resource::<Localization<C, M>>() else {
-					return false;
-				};
+			Arc::new(Probe {
+				access: Box::new(move |builder| {
+					builder.add_read::<Localization<C, M>>();
+					access(builder);
+				}),
+				ready: Box::new(move |resources| {
+					let Ok(localization) = resources.get::<Localization<C, M>>() else {
+						return false;
+					};
 
-				localization.store.values.get(&id).is_some_and(|value| {
-					localization.published.get(&id) == Some(&value.revision) && exists(world)
-				})
+					localization.store.values.get(&id).is_some_and(|value| {
+						localization.published.get(&id) == Some(&value.revision)
+							&& exists(resources)
+					})
+				}),
 			}),
 		);
 	}
@@ -58,6 +65,8 @@ impl CatalogReadiness {
 /// for one-time initialization after readiness. Custom derived `SystemParam`s and
 /// nested parameter tuples are not inspected; use a direct `Res` parameter for
 /// each required catalog. Ordinary missing resources keep Bevy's validation behavior.
+/// Install localization plugins before the schedule is first initialized or run,
+/// so its inferred resource reads can be registered with the scheduler.
 pub fn localized<M>(systems: impl IntoLocalizedSystems<M>) -> ScheduleConfigs<ScheduleSystem> {
 	systems.into_localized(false)
 }
@@ -159,7 +168,6 @@ where
 	Tracked<F, M>: IntoScheduleConfigs<ScheduleSystem, T>,
 {
 	fn into_localized(self, once: bool) -> ScheduleConfigs<ScheduleSystem> {
-		let parameters = F::Param::types();
 		let completed = Arc::new(AtomicBool::new(false));
 		let system = if once {
 			Tracked {
@@ -172,23 +180,17 @@ where
 			self.into_configs()
 		};
 
-		system.run_if(move |world: &World| {
+		system.run_if(move |readiness: Readiness<F::Param>| {
 			if once && completed.load(Ordering::Relaxed) {
 				return false;
 			}
 
-			let Some(registry) = world.get_resource::<CatalogReadiness>() else {
-				return true;
-			};
-
-			parameters
-				.iter()
-				.all(|id| registry.0.get(id).is_none_or(|ready| ready(world)))
+			readiness.ready()
 		})
 	}
 }
 
-trait ParameterTypes {
+pub(crate) trait ParameterTypes {
 	fn types() -> Vec<TypeId>;
 }
 

@@ -42,7 +42,7 @@ impl FluentCatalog for OpaqueProvider {
 	type Modules<'a> = &'a ModuleStore<Self>;
 
 	fn locales() -> &'static [Self::Locale] {
-		&["en"]
+		&["en", "fr"]
 	}
 
 	fn default_locale() -> Self::Locale {
@@ -265,4 +265,59 @@ fn virtual_source_without_files_or_watcher_reloads_and_recovers_from_missing_mod
 			.catalog()
 			.is_some_and(|catalog| catalog.0 == "Recovered")
 	});
+}
+
+#[test]
+fn named_source_address_index_distinguishes_locales_for_the_same_module() {
+	let files = Dir::default();
+	files.insert_asset_text(
+		Path::new("nested/translations/en/ui/title.ftl"),
+		"title = English\n",
+	);
+	files.insert_asset_text(
+		Path::new("nested/translations/fr/ui/title.ftl"),
+		"title = French\n",
+	);
+	let mut app = App::new();
+	app.register_asset_source("test", memory_source(files))
+		.add_plugins((MinimalPlugins, AssetPlugin::default()))
+		.add_plugins(LocalizationPlugin::<OpaqueProvider>::new(manifest()));
+	app.finish();
+	app.cleanup();
+
+	for (locale, expected) in [("en", "English"), ("fr", "French"), ("en", "English")] {
+		app.world_mut()
+			.resource_mut::<Localization<OpaqueProvider>>()
+			.set_locale(locale);
+		pump_until(&mut app, |world| {
+			world
+				.resource::<Localization<OpaqueProvider>>()
+				.catalog()
+				.is_some_and(|catalog| catalog.0 == expected)
+		});
+	}
+
+	// Let asset notifications settle. Tracking handles must not mark the
+	// controller changed on older backends when no new candidate exists.
+	for _ in 0..4 {
+		app.update();
+	}
+
+	let changed = app
+		.world()
+		.get_resource_ref::<Localization<OpaqueProvider>>()
+		.unwrap()
+		.last_changed();
+
+	for _ in 0..4 {
+		app.update();
+	}
+
+	assert_eq!(
+		app.world()
+			.get_resource_ref::<Localization<OpaqueProvider>>()
+			.unwrap()
+			.last_changed(),
+		changed
+	);
 }

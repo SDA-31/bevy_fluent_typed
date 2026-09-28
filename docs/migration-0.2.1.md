@@ -3,7 +3,7 @@
 Existing 0.2.0 calls, manual readiness conditions and explicit Lazy requests
 keep working. Adopt the new registration helper to infer catalog readiness.
 Update both normal and build dependencies on `bevy_fluent_typed` to `0.2.1`.
-The runtime still uses the compatible 0.2.0 bridge and generator; no generated
+The runtime uses the compatible 0.2.0 bridge and generator 0.2.1; no generated
 schema or manifest changes are required.
 
 ## Wait for a required catalog

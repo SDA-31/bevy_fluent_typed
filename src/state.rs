@@ -9,6 +9,7 @@ use std::{
 	any::TypeId,
 	collections::{BTreeMap, BTreeSet, HashMap},
 	marker::PhantomData,
+	sync::Arc,
 };
 
 pub(crate) struct RequestedModule<C: FluentCatalog> {
@@ -29,6 +30,10 @@ pub struct Localization<C: FluentCatalog, M: LoadingMode = Full> {
 	pub(crate) entries: BTreeMap<&'static str, RequestedModule<C>>,
 	pub(crate) retry: BTreeSet<&'static str>,
 	pub(crate) published: HashMap<TypeId, u64>,
+	desired: Arc<BTreeSet<&'static str>>,
+	pub(crate) synchronized: u64,
+	pub(crate) requests_changed: bool,
+	pub(crate) pending: usize,
 	marker: PhantomData<fn() -> M>,
 }
 
@@ -55,12 +60,21 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			requested.insert(TypeId::of::<C>(), C::module_paths());
 		}
 
+		let desired = requested
+			.values()
+			.flat_map(|paths| paths.iter().copied())
+			.collect();
+
 		Self {
 			store: ModuleStore::new(locale),
 			requested,
 			entries: BTreeMap::new(),
 			retry: BTreeSet::new(),
 			published: HashMap::new(),
+			desired: Arc::new(desired),
+			synchronized: u64::MAX,
+			requests_changed: true,
+			pending: 0,
 			marker: PhantomData,
 		}
 	}
@@ -86,9 +100,12 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 		}
 
 		self.store.locale = locale;
+		self.requests_changed = true;
+		self.store.revision += 1;
 		self.store.values.clear();
 		self.store.states.clear();
 		self.entries.clear();
+		self.pending = 0;
 		self.retry.clear();
 	}
 
@@ -107,11 +124,21 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 		self.store.status::<S>()
 	}
 
-	pub(crate) fn desired(&self) -> BTreeSet<&'static str> {
-		self.requested
-			.values()
-			.flat_map(|paths| paths.iter().copied())
-			.collect()
+	pub(crate) fn desired(&self) -> Arc<BTreeSet<&'static str>> {
+		self.desired.clone()
+	}
+
+	pub(crate) fn finish_request(&mut self, path: &str) -> &mut RequestedModule<C> {
+		let entry = self
+			.entries
+			.get_mut(path)
+			.expect("registered module request");
+
+		if std::mem::replace(&mut entry.pending, false) {
+			self.pending -= 1;
+		}
+
+		entry
 	}
 }
 
@@ -121,7 +148,14 @@ impl<C: FluentCatalog> Localization<C, Lazy> {
 	/// releases any number of earlier `load::<S>()` calls for that scope type.
 	/// A repeated failed request retries its leaves.
 	pub fn load<S: FluentScope<Catalog = C>>(&mut self) {
-		self.requested.insert(TypeId::of::<S>(), S::module_paths());
+		if self
+			.requested
+			.insert(TypeId::of::<S>(), S::module_paths())
+			.is_none()
+		{
+			self.requests_changed = true;
+			Arc::make_mut(&mut self.desired).extend(S::module_paths().iter().copied());
+		}
 
 		for &path in S::module_paths() {
 			if matches!(self.store.states.get(path), Some(ModuleStatus::Failed(_))) {
@@ -133,6 +167,14 @@ impl<C: FluentCatalog> Localization<C, Lazy> {
 	/// Release this explicit request. Independent overlapping requests remain active.
 	/// The plugin releases unneeded resources and strong handles at synchronization.
 	pub fn unload<S: FluentScope<Catalog = C>>(&mut self) {
-		self.requested.remove(&TypeId::of::<S>());
+		if self.requested.remove(&TypeId::of::<S>()).is_some() {
+			self.requests_changed = true;
+			self.desired = Arc::new(
+				self.requested
+					.values()
+					.flat_map(|paths| paths.iter().copied())
+					.collect(),
+			);
+		}
 	}
 }

@@ -7,6 +7,7 @@ use crate::catalog::SharedScope;
 use crate::{FluentCatalog, Module, compatibility};
 use std::{
 	any::type_name,
+	collections::HashMap,
 	io,
 	sync::atomic::{AtomicU64, Ordering},
 };
@@ -33,13 +34,13 @@ impl<C: FluentCatalog> TypePath for ModuleAsset<C> {
 
 pub(crate) struct ModuleLoader<C: FluentCatalog> {
 	modules: Vec<Module<C>>,
-	addresses: Vec<(crate::bevy::asset::AssetPath<'static>, C::Locale, usize)>,
+	addresses: HashMap<crate::bevy::asset::AssetPath<'static>, (C::Locale, usize)>,
 }
 
 impl<C: FluentCatalog> ModuleLoader<C> {
 	pub(crate) fn new(manifest: &crate::LocalizationManifest) -> Self {
 		let modules = C::modules();
-		let mut addresses = Vec::new();
+		let mut addresses = HashMap::new();
 
 		if manifest.file_path().is_some() {
 			for &locale in C::locales() {
@@ -47,7 +48,7 @@ impl<C: FluentCatalog> ModuleLoader<C> {
 					if let Ok(address) =
 						crate::loading::asset_address(manifest, locale.as_ref(), module.path)
 					{
-						addresses.push((address, locale, index));
+						addresses.insert(address, (locale, index));
 					}
 				}
 			}
@@ -80,13 +81,9 @@ impl<C: FluentCatalog> AssetLoader for ModuleLoader<C> {
 	) -> Result<Self::Asset, Self::Error> {
 		let revision = NEXT_REVISION.fetch_add(1, Ordering::Relaxed);
 		let address = compatibility::asset_path(context);
-		let (_, locale, index) = self
-			.addresses
-			.iter()
-			.find(|(known, _, _)| known == address)
-			.ok_or_else(|| {
-				io::Error::other("asset address is absent from this provider's source contract")
-			})?;
+		let (locale, index) = self.addresses.get(address).ok_or_else(|| {
+			io::Error::other("asset address is absent from this provider's source contract")
+		})?;
 		let locale = *locale;
 		let module = &self.modules[*index];
 		let mut bytes = Vec::new();

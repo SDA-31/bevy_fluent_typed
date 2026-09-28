@@ -94,17 +94,9 @@ fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 		.unwrap()
 		.map(|(_, system)| system.type_id())
 		.collect();
-	let ui_refresh = systems
+	let refresh = systems
 		.iter()
-		.position(|&id| {
-			id == IntoSystem::into_system(bindings::refresh_ui::<TestCatalog>).type_id()
-		})
-		.unwrap();
-	let world_refresh = systems
-		.iter()
-		.position(|&id| {
-			id == IntoSystem::into_system(bindings::refresh_world::<TestCatalog>).type_id()
-		})
+		.position(|&id| id == IntoSystem::into_system(bindings::dispatch).type_id())
 		.unwrap();
 	#[cfg(feature = "bevy-0-19")]
 	let detector_types =
@@ -124,8 +116,7 @@ fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 	let ordering = system_dependencies(schedule.graph());
 
 	for index in detectors {
-		assert!(reachable(&ordering, nodes[ui_refresh]).contains(&nodes[index]));
-		assert!(reachable(&ordering, nodes[world_refresh]).contains(&nodes[index]));
+		assert!(reachable(&ordering, nodes[refresh]).contains(&nodes[index]));
 	}
 
 	assert_eq!(

@@ -78,7 +78,10 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 			.init_resource::<Localization<C, M>>()
 			.insert_resource(CatalogSource::<C> {
 				manifest: self.manifest.clone(),
-				modules: C::modules(),
+				modules: C::modules()
+					.into_iter()
+					.map(|module| (module.path, module))
+					.collect(),
 				error,
 				marker: PhantomData,
 			})

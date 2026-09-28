@@ -57,24 +57,22 @@ pub(crate) fn synchronize<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
 				localization.published.insert(scope.id, revision);
 			}
 		}
+
+		localization.synchronized = localization.store.revision;
 	});
 }
 
 fn needs_sync<C: FluentCatalog, M: LoadingMode>(world: &World) -> bool {
 	let localization = world.resource::<Localization<C, M>>();
 
-	localization.store.scopes.iter().any(|scope| {
-		let value = localization.store.values.get(&scope.id);
-		let Some(signature) = localization.store.signature(scope.paths) else {
-			return value.is_some()
-				|| localization.published.contains_key(&scope.id)
-				|| (scope.exists)(world);
-		};
+	if localization.synchronized != localization.store.revision {
+		return true;
+	}
 
-		value.is_none_or(|value| {
-			value.signature != signature
-				|| localization.published.get(&scope.id) != Some(&value.revision)
-				|| !(scope.exists)(world)
-		})
+	// Resource removal by the host still restores the published snapshot. Idle
+	// frames inspect only published scopes, without rebuilding leaf signatures.
+	localization.published.keys().any(|id| {
+		let scope = &localization.store.scopes[localization.store.scope_indices[id]];
+		!(scope.exists)(world)
 	})
 }

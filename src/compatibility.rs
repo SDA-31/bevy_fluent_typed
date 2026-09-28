@@ -1,4 +1,6 @@
 //! Keep Bevy minor-version differences out of loading and scheduling policy.
+pub(crate) mod readiness;
+
 use crate::bevy::{
 	asset::{AssetPath, LoadContext},
 	ecs::{schedule::ScheduleConfigs, system::ScheduleSystem},
@@ -8,6 +10,7 @@ use crate::{CatalogUpdate, FluentCatalog, ReloadCatalogs};
 
 #[cfg(feature = "bevy-0-16")]
 pub(crate) use crate::bevy::{
+	ecs::component::HookContext,
 	prelude::{EventReader as MessageReader, EventWriter as MessageWriter},
 	text::update_text2d_layout,
 	ui::UiSystem as UiSystems,
@@ -15,6 +18,7 @@ pub(crate) use crate::bevy::{
 
 #[cfg(not(feature = "bevy-0-16"))]
 pub(crate) use crate::bevy::{
+	ecs::lifecycle::HookContext,
 	prelude::{MessageReader, MessageWriter},
 	sprite::update_text2d_layout,
 	ui::UiSystems,

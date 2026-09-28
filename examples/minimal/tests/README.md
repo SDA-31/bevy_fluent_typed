@@ -2,7 +2,7 @@
 
 From the Bevy localization repository root, run:
 
-The command resolves generator 0.2.0 from crates.io. For local development, use the
+The command resolves generator 0.2.1 from crates.io. For local development, use the
 [local generator patch](../../../docs/build.md#work-on-local-checkouts).
 For application setup, follow the [quickstart](../../../README.md#setup).
 

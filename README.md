@@ -40,7 +40,7 @@ asset-root = "assets"
 catalog = "localizations/localization.toml"
 ```
 
-Runtime 0.2.1 uses the compatible 0.2.0 bridge and generator from crates.io; no patch
+Runtime 0.2.1 uses bridge 0.2.0 and generator 0.2.1 from crates.io; no patch
 is needed. Edition 2024 uses Cargo resolver 3; an explicit workspace must use
 resolver 2 or 3. Keep the same crate name in both dependency sections. Enable
 the Bevy backend only on the normal dependency, and `build` only on the build-dependency.
