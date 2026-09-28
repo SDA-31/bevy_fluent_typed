@@ -159,9 +159,10 @@ optional normal-dependency feature for filesystem change notifications.
 
 ## Advanced integrations
 
-Keep generated accessors when supplying your own bytes. See
-[custom byte sources](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md#custom-byte-sources)
-for `from_bytes` and async `from_loader`, or
+Use [custom Bevy asset sources](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/asset-sources.md)
+for on-demand access to application-owned storage. Keep generated accessors when
+supplying [already-loaded bytes](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md#custom-byte-sources);
+the plugin retains those buffers. See
 [without code generation](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md#without-code-generation)
 for a minimal runtime and a handwritten provider.
 

@@ -53,5 +53,7 @@ cargo run --manifest-path examples/codegen/Cargo.toml --bin bytes
 to `LocalizationPlugin::from_bytes` and prints the same three greetings using
 ordinary generated resources. It deliberately embeds its small input with
 `include_bytes!`; no runtime manifest or AssetPlugin is required. The buffers
-are retained for repeat loads. For async acquisition per requested module, use
-`from_loader` as described in [the guide](../../GUIDE.md#custom-byte-sources).
+are retained for repeat loads. This example uses `Full` and keeps the selected
+language ready. For on-demand reading and unloading, follow the
+[Lazy guide](../../GUIDE.md#fully-lazy-complete-mainrs) using Bevy's asset system;
+custom storage belongs in an [asset source](../../docs/asset-sources.md).
