@@ -3,6 +3,10 @@ use bevy_fluent_typed::{Localization, LocalizationPlugin};
 
 bevy_fluent_typed::translations!(mod texts);
 
+texts::embed_manifest! {
+	const EMBEDDED = Translations;
+}
+
 fn main() {
 	let assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(texts::ASSET_ROOT);
 	let mut app = App::new();
@@ -12,7 +16,7 @@ fn main() {
 			file_path: assets.to_string_lossy().into_owned(),
 			..default()
 		},
-		LocalizationPlugin::<texts::Translations>::new(texts::embed_manifest!()),
+		LocalizationPlugin::<texts::Translations>::new(EMBEDDED),
 	));
 	app.finish();
 	app.cleanup();

@@ -51,8 +51,9 @@ After installing an updated pack, send `ReloadCatalogs::<texts::Translations>`.
 For pack layout, consistent revisions and watcher responsibilities, see
 [custom asset sources](../../docs/asset-sources.md).
 
-The memory source calls `texts::embed_manifest!().embedded_modules()` solely to
-seed virtual files and make this example self-contained. Generated `MODULES`
+The memory source declares `EMBEDDED` with `texts::embed_manifest!` and reads
+`EMBEDDED.embedded_modules()` solely to seed virtual files and make this example
+self-contained. Generated `MODULES`
 contains metadata, not source bytes. A real pack provides its own FTL.
 Older Bevy backends have the same localization contract, but Bevy 0.16/0.17 use
 `AssetSourceBuilder::default().with_reader(...)`; Bevy 0.16 uses events instead of

@@ -79,10 +79,53 @@ that load, then the plugin publishes its typed resource. Both Full and Lazy use
 Bevy's asynchronous loading; Lazy lets the application choose which scopes to
 request and retain. No additional parsing is deferred until accessor use.
 
-To embed only the HUD, replace `texts::manifest()` with
-`texts::embed_manifest!(module = texts::presentation::Hud)` and keep the request.
+To embed only the HUD, declare its source next to `translations!`:
+
+```rust,ignore
+texts::embed_manifest! {
+    const HUD = presentation::Hud;
+}
+```
+
+Pass `HUD` in place of `texts::manifest()` and keep the request.
 Embedding selects raw bytes in the binary; Lazy requests select what gets parsed.
-Use `texts::embed_manifest!()` to include the pause screen for the next section too.
+Use `const ALL = Translations;` and pass `ALL` to include the pause screen too.
+The existing expression form `texts::embed_manifest!()` also includes the whole tree.
+
+### Export an embedded source from a private module
+
+The source constant has type `LocalizationManifest`. Export it alongside ordinary
+catalog aliases; the generated module can stay private:
+
+```rust,ignore
+mod localization {
+    bevy_fluent_typed::translations!(mod texts);
+
+    pub use texts::presentation::Hud as Interface;
+    pub use texts::Translations;
+
+    texts::embed_manifest! {
+        pub const HUD = presentation::Hud;
+    }
+}
+```
+
+Consumers use the exported types and constant directly:
+
+```rust,ignore
+use localization::{HUD, Interface, Translations};
+
+// During plugin setup:
+app.add_plugins(LocalizationPlugin::<Translations, Lazy>::new(HUD));
+```
+
+Request `localization.load::<Interface>()` through `ResMut<Localization<Translations, Lazy>>`
+and register consumers with `add_localized_systems` and `Res<Interface>`.
+`Interface` names the catalog resource; `HUD` describes its embedded source.
+The macro's selectors always use the original relative schema names. Multiple
+constants, visibility and per-declaration `#[cfg(...)]` attributes are supported.
+A constant includes bytes but does not parse a Fluent catalog. Source bytes stay
+static after `unload`; parsed catalogs follow the usual resource lifetime.
 
 ## Load and release a screen
 

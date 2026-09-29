@@ -70,7 +70,10 @@ The generated `CATALOG_CONFIG` contains the TOML contract, and `CATALOG_ASSET_PA
 is its build-time asset address. Reusing them at runtime is convenient, but
 optional: the application can pass another compatible source contract and choose
 another asset root. No generated FTL payload is embedded unless the application
-explicitly invokes `embed_manifest!()`.
+explicitly invokes `embed_manifest!`, including a declaration such as
+`texts::embed_manifest! { const HUD = presentation::Hud; }`.
+The Bevy facade re-exports the same `LocalizationManifest` type used by the
+generator; declared constants require no additional import, adapter or conversion.
 
 ## Work on local checkouts
 

@@ -5,6 +5,10 @@ use icu_decimal::options::GroupingStrategy;
 
 bevy_fluent_typed::translations!(mod texts);
 
+texts::embed_manifest! {
+	const EMBEDDED = Translations;
+}
+
 mod formatting;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -16,7 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 			file_path: assets.to_string_lossy().into_owned(),
 			..default()
 		},
-		LocalizationPlugin::<texts::Translations>::new(texts::embed_manifest!()),
+		LocalizationPlugin::<texts::Translations>::new(EMBEDDED),
 	))
 	.insert_resource(formatting::NumberFormats::try_new(GroupingStrategy::Auto)?)
 	.add_systems(Startup, formatting::spawn_labels);

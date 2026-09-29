@@ -70,10 +70,16 @@ fn generated_manifest_uses_build_configuration_without_loading_sources() {
 }
 
 #[test]
-fn typed_embedding_resolves_nested_modules_and_import_aliases() {
+fn embedded_constants_select_scopes_and_preserve_catalog_aliases() {
 	use fixture::texts::presentation::Hud as FlightHud;
 
-	let selected = fixture::texts::embed_manifest!(module = FlightHud);
+	fixture::texts::embed_manifest! {
+		const SELECTED = presentation::Hud;
+		const GROUP = Presentation;
+		const COMPLETE = Translations;
+	}
+
+	let selected: LocalizationManifest = SELECTED;
 	let direct = fixture::texts::embed_manifest!(module = fixture::texts::presentation::Hud);
 	assert_eq!(selected.embedded_modules(), direct.embedded_modules());
 	assert!(
@@ -86,7 +92,15 @@ fn typed_embedding_resolves_nested_modules_and_import_aliases() {
 	let hud = FlightHud::from_manifest(fixture::texts::Locale::En, &selected).unwrap();
 	assert_eq!(hud.msg_title(), "Flight HUD");
 
-	let group = fixture::texts::embed_manifest!(module = fixture::texts::Presentation);
+	let group: LocalizationManifest = GROUP;
+	assert_eq!(
+		group.embedded_modules(),
+		fixture::texts::embed_manifest!(module = fixture::texts::Presentation).embedded_modules()
+	);
+	assert_eq!(
+		COMPLETE.embedded_modules(),
+		fixture::texts::embed_manifest!().embedded_modules()
+	);
 	assert!(
 		group
 			.embedded_modules()
@@ -98,4 +112,90 @@ fn typed_embedding_resolves_nested_modules_and_import_aliases() {
 	fixture::texts::presentation::Panel::from_manifest(fixture::texts::Locale::En, &group).unwrap();
 	assert_eq!(group_hud.msg_title(), hud.msg_title());
 	assert!(group.read("en", "ui.ftl").is_err());
+}
+
+// The generated tree stays private; consumers only import the chosen application API.
+mod encapsulated {
+	localization_runtime::translations!(mod catalogs);
+
+	pub use catalogs::presentation::Hud as Interface;
+	pub use catalogs::{Locale, Translations};
+
+	catalogs::embed_manifest! {
+		pub const HUD = presentation::Hud;
+	}
+}
+
+#[test]
+fn exported_constant_and_catalog_alias_support_lazy_required_resources() {
+	use encapsulated::{HUD, Interface, Locale, Translations};
+	use localization_runtime::bevy::prelude::*;
+	use localization_runtime::{Lazy, Localization, LocalizationAppExt, LocalizationPlugin};
+	use std::sync::{
+		Arc,
+		atomic::{AtomicUsize, Ordering},
+	};
+
+	let invocations = Arc::new(AtomicUsize::new(0));
+	let observed = invocations.clone();
+	let manifest: LocalizationManifest = HUD;
+	assert!(
+		manifest
+			.embedded_modules()
+			.unwrap()
+			.iter()
+			.all(|(_, path, _)| *path == "presentation/hud.ftl")
+	);
+	let mut app = App::new();
+	app.add_plugins((
+		MinimalPlugins,
+		AssetPlugin::default(),
+		LocalizationPlugin::<Translations, Lazy>::new(HUD),
+	))
+	.add_localized_systems(Update, move |_: Res<Interface>| {
+		observed.fetch_add(1, Ordering::Relaxed);
+	});
+	app.finish();
+	app.cleanup();
+	app.update();
+	assert_eq!(invocations.load(Ordering::Relaxed), 0);
+	assert!(!app.world().contains_resource::<Interface>());
+
+	app.world_mut()
+		.resource_mut::<Localization<Translations, Lazy>>()
+		.load::<Interface>();
+	app.update();
+	assert_eq!(invocations.load(Ordering::Relaxed), 1);
+	assert_eq!(
+		app.world().resource::<Interface>().msg_title(),
+		"Flight HUD"
+	);
+	assert!(!app.world().contains_resource::<Translations>());
+
+	app.world_mut()
+		.resource_mut::<Localization<Translations, Lazy>>()
+		.set_locale(Locale::Es);
+	app.update();
+	assert_eq!(invocations.load(Ordering::Relaxed), 2);
+	assert_eq!(
+		app.world().resource::<Interface>().msg_title(),
+		"Panel de vuelo"
+	);
+
+	app.world_mut()
+		.resource_mut::<Localization<Translations, Lazy>>()
+		.unload::<Interface>();
+	app.update();
+	assert_eq!(invocations.load(Ordering::Relaxed), 2);
+	assert!(!app.world().contains_resource::<Interface>());
+
+	app.world_mut()
+		.resource_mut::<Localization<Translations, Lazy>>()
+		.load::<Interface>();
+	app.update();
+	assert_eq!(invocations.load(Ordering::Relaxed), 3);
+	assert_eq!(
+		app.world().resource::<Interface>().msg_title(),
+		"Panel de vuelo"
+	);
 }

@@ -3,12 +3,16 @@ use crate::texts;
 use bevy_fluent_typed::bevy::asset::io::memory::Dir;
 use std::path::Path;
 
+texts::embed_manifest! {
+	const EMBEDDED = Translations;
+}
+
 pub(super) fn files() -> Dir {
 	let files = Dir::default();
 	files.insert_asset_text(Path::new(texts::CATALOG_ASSET_PATH), texts::CATALOG_CONFIG);
 
 	// Reuse build-time sources only to avoid adding an archive dependency to this example.
-	for (locale, path, source) in texts::embed_manifest!().embedded_modules().unwrap() {
+	for (locale, path, source) in EMBEDDED.embedded_modules().unwrap() {
 		files.insert_asset_text(
 			&Path::new("localizations")
 				.join(texts::LANGUAGES_DIRECTORY)

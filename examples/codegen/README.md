@@ -36,7 +36,8 @@ graph, not inside the application. See [the guide](../../README.md#setup).
 For a generator-free provider see [no_codegen](../no_codegen). For deferred
 messages, typed arguments and live edits see the larger [integration suite](../minimal).
 
-The application explicitly calls `texts::embed_manifest!()` and parses the
+The application declares `const EMBEDDED = Translations;` inside
+`texts::embed_manifest!`, passes that manifest to the plugin and parses the
 selected language during an update. [tests/output.rs](tests/output.rs) checks the executable's three greetings; there is no test collection wrapper in main.
 
 [MIT](LICENSE).

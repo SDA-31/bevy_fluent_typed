@@ -14,9 +14,7 @@ fn app() -> App {
 	app.add_plugins((MinimalPlugins, AssetPlugin::default()))
 		.insert_resource(Localization::<Translations>::new(Locale::En))
 		.init_resource::<Observations>()
-		.add_plugins(LocalizationPlugin::<Translations>::new(
-			texts::embed_manifest!(),
-		));
+		.add_plugins(LocalizationPlugin::<Translations>::new(super::EMBEDDED));
 	app.finish();
 	app.cleanup();
 	app.update();

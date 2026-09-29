@@ -6,6 +6,10 @@ use bevy_fluent_typed::{Localization, LocalizationAppExt, LocalizationPlugin, Lo
 
 bevy_fluent_typed::translations!(pub mod texts);
 
+texts::embed_manifest! {
+	const EMBEDDED = Translations;
+}
+
 fn main() {
 	let assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(texts::ASSET_ROOT);
 	let mut app = App::new();
@@ -16,9 +20,7 @@ fn main() {
 			..default()
 		},
 	))
-	.add_plugins(LocalizationPlugin::<texts::Translations>::new(
-		texts::embed_manifest!(),
-	))
+	.add_plugins(LocalizationPlugin::<texts::Translations>::new(EMBEDDED))
 	.add_localized_startup_systems(show_hud);
 	app.finish();
 	app.cleanup();

@@ -143,22 +143,25 @@ known language's raw FTL. The selected language is parsed during plugin updates,
 so readiness checks still apply. Static source bytes stay in the executable for
 its lifetime; no compressor or decompressor is involved.
 
-A Lazy application can select just its HUD by type:
+A Lazy application can declare a manifest for just its HUD:
 
 ```rust,ignore
-let manifest = texts::embed_manifest!(module = texts::presentation::Hud);
+texts::embed_manifest! {
+    pub const HUD = presentation::Hud;
+}
 ```
 
-Request the same leaf through
-`localization.load::<texts::presentation::Hud>()`.
-The manifest contains only this leaf's bytes across known languages.
-Select `texts::Presentation` for that group's descendants, or
-`texts::Translations` for the whole tree. `use` imports, including `as` aliases,
-work; arbitrary `type` aliases and generic parameters do not select recipes.
+Pass `HUD` directly to `LocalizationPlugin::<texts::Translations, Lazy>::new(HUD)`
+and request `localization.load::<texts::presentation::Hud>()`.
+`HUD` has type `LocalizationManifest` and contains this leaf's bytes across known
+languages. Select `Presentation` for that group's descendants, or `Translations`
+for the whole tree. These are paths relative to the generated tree, without
+`texts::`; imported aliases and generic parameters are not selectors. Ordinary
+catalog aliases remain usable for constructors and resources such as `Res<Interface>`.
 
 Unselected payloads are absent even in debug builds without optimization, LTO
 or linker dead-code removal. The macro is crate-local even when `texts` is public;
-a library can expose a function returning its chosen manifest.
+a private localization module can export the manifest constant and its catalog types.
 
 ## Supported engines
 
@@ -194,7 +197,7 @@ minimal runtime and a handwritten provider.
 | --- | --- |
 | `translations!` cannot find generated output | Add the shown build-dependency and return `bevy_fluent_typed::build()` from `build.rs`. |
 | Types or methods are missing | Add the corresponding FTL module/message in every language and rebuild. File edits at runtime cannot change the compiled schema. |
-| A typed `embed_manifest!(module = ...)` selector is rejected | Use version 0.2.1 from [Setup](#setup) in both dependency sections and remove old overrides. Pass a generated path or `use` alias, not a string or `type` alias. |
+| An `embed_manifest!` selector is rejected | Use a relative schema path in a const declaration, or a qualified generated path in an expression call. Imported catalog aliases are for constructors/resources, not embedding selectors. Keep build and runtime generator dependencies aligned. |
 | The resource is absent | Use `add_localized_systems` with native `Res<_>` to wait. In Lazy, request the scope first and keep that request active while the screen needs it. |
 | A bound label stays empty | Check `localization.status::<YourLeaf>()`. Its module must be requested and pass validation. A root binding waits for the whole tree. |
 | Files are not found | The manifest origin is relative to Bevy's asset root. Do not prefix it with `assets/` when `AssetPlugin` already points there. |
