@@ -101,7 +101,8 @@ that load, then the plugin publishes its typed resource. Both Full and Lazy use
 Bevy's asynchronous loading; Lazy lets the application choose which scopes to
 request and retain. No additional parsing is deferred until accessor use.
 
-To embed only the HUD, declare its source next to `translations!`:
+To try the constant-manifest recipe, configure [matching source checkouts](docs/build.md#work-on-local-checkouts).
+Then embed only the HUD by declaring its source next to `translations!`:
 
 ```rust,ignore
 texts::embed_manifest! {

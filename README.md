@@ -143,8 +143,9 @@ known language's raw FTL. The selected language is parsed during plugin updates,
 so readiness checks still apply. Static source bytes stay in the executable for
 its lifetime; no compressor or decompressor is involved.
 
-The macro accepts only an empty invocation or a block of constants. A Lazy
-application can declare a manifest for just its HUD:
+The macro accepts only an empty invocation or a block of constants. For the
+constant-declaration recipe, first configure [matching source checkouts](docs/build.md#work-on-local-checkouts).
+A Lazy application can then declare a manifest for just its HUD:
 
 ```rust,ignore
 texts::embed_manifest! {
@@ -198,13 +199,13 @@ minimal runtime and a handwritten provider.
 | --- | --- |
 | `translations!` cannot find generated output | Add the shown build-dependency and return `bevy_fluent_typed::build()` from `build.rs`. |
 | Types or methods are missing | Add the corresponding FTL module/message in every language and rebuild. File edits at runtime cannot change the compiled schema. |
-| An `embed_manifest!` selector is rejected | Use an empty invocation for all sources or a const declaration with a relative schema path for a subset. Imported catalog aliases are for constructors/resources, not embedding selectors. Keep build and runtime generator dependencies aligned. |
+| An `embed_manifest!` selector is rejected | Constant declarations use the [source-checkout setup](docs/build.md#work-on-local-checkouts). Keep build/runtime generator revisions aligned and use relative schema paths; imported catalog aliases are for constructors/resources. |
 | The resource is absent | Use `add_localized_systems` with native `Res<_>` to wait. In Lazy, request the scope first and keep that request active while the screen needs it. |
 | A bound label stays empty | Check `localization.status::<YourLeaf>()`. Its module must be requested and pass validation. A root binding waits for the whole tree. |
 | Files are not found | The manifest origin is relative to Bevy's asset root. Do not prefix it with `assets/` when `AssetPlugin` already points there. |
 | Editing the TOML has no runtime effect | The plugin receives a parsed contract and does not reload TOML. Rebuild this quickstart or construct a new contract during application setup. |
 | Cargo reports incompatible engine APIs | Select one matching Bevy backend, on the normal dependency only. Do not enable all features. |
-| These calls do not compile | Use `0.2.1` in both dependency sections, as shown in [Setup](#setup). For an existing application, follow the [migration guide](docs/migration-0.2.md). |
+| The registry quickstart does not compile | Match the runtime and build dependencies shown in [Setup](#setup). For an existing application, follow the [migration guide](docs/migration-0.2.md). |
 
 ## Known limits
 

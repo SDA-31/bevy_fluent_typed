@@ -97,8 +97,25 @@ The runtime checkout contains the Bevy build adapter. Put the patch in the
 workspace root when the consumer belongs to a workspace. This is development
 wiring; normal released consumers use the registry quickstart.
 
-For repository examples using a local generator, provide this same
-patch on the command line (replace the path with your generator checkout):
+The constant-manifest recipes and generated repository examples use matching
+runtime and generator sources. Select the generator checkout containing that
+macro implementation; the package version alone does not distinguish development
+revisions. The runtime's Cargo.toml intentionally keeps a registry dependency,
+so merely cloning both repositories does not connect them.
+
+For repeated example runs, add this to `.cargo/config.toml` at the runtime
+repository root, preserving any existing settings:
+
+```toml
+[patch.crates-io]
+fluent_typed_codegen = { path = "/absolute/path/to/fluent_typed_codegen" }
+```
+
+This local configuration applies the override to the commands in the example
+READMEs. Keep it out of commits. If your enclosing workspace already supplies
+the matching patch, no additional configuration is needed.
+
+For a single command, provide the same patch on the command line instead:
 
 ```sh
 cargo run --manifest-path examples/codegen/Cargo.toml --config 'patch.crates-io.fluent_typed_codegen.path="/absolute/path/to/fluent_typed_codegen"'

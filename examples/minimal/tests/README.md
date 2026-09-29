@@ -1,10 +1,9 @@
 # Verification
 
-From the Bevy localization repository root, run:
-
-The command resolves generator 0.2.1 from crates.io. For local development, use the
-[local generator patch](../../../docs/build.md#work-on-local-checkouts).
-For application setup, follow the [quickstart](../../../README.md#setup).
+First configure the [matching local generator](../../../docs/build.md#work-on-local-checkouts);
+the constant-manifest tests require its macro implementation. Then run from the
+Bevy localization repository root. For registry application setup, follow the
+[quickstart](../../../README.md#setup).
 
 ```sh
 cargo test --manifest-path examples/minimal/Cargo.toml

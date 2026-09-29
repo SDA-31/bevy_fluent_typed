@@ -79,7 +79,8 @@ that load, then the plugin publishes its typed resource. Both Full and Lazy use
 Bevy's asynchronous loading; Lazy lets the application choose which scopes to
 request and retain. No additional parsing is deferred until accessor use.
 
-To embed only the HUD, declare its source next to `translations!`:
+To try the constant-manifest recipe, configure [matching source checkouts](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/build.md#work-on-local-checkouts).
+Then embed only the HUD by declaring its source next to `translations!`:
 
 ```rust,ignore
 texts::embed_manifest! {
@@ -191,6 +192,10 @@ In Lazy mode, keep the explicit `load::<Scope>()` and `unload::<Scope>()` calls:
 registering a system does not request or retain a module. Keep the loading
 request active for as long as that screen needs its translations. Full mode
 keeps all modules of the selected language loaded automatically.
+
+For systems that must also run while a catalog is absent, such as UI cleanup,
+Bevy's `Option<Res<Scope>>` remains available. That optional parameter neither
+waits for the catalog nor requests or retains it.
 
 Functions and tuples are supported; tuple members wait independently. To add
 normal Bevy scheduling configuration, wrap functions before configuring them:

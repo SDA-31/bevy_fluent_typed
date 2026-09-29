@@ -4,9 +4,10 @@ One Fluent module, three languages, typed `texts::ui::Greeting` resources.
 The program prints English, Spanish and Russian greetings, then exits. No window,
 GPU, watcher loop or extra test catalogs are needed.
 
-These commands build this checkout and resolve generator 0.2.1 from crates.io.
-For local generator development, use the [local generator patch](../../docs/build.md#work-on-local-checkouts).
-For a new application, follow the [root quickstart](../../README.md#setup).
+First configure the [matching local generator](../../docs/build.md#work-on-local-checkouts).
+These commands test both source checkouts; the generated examples use manifest
+constants, so resolving the generator from the registry is not sufficient.
+For a new application using registry releases, follow the [root quickstart](../../README.md#setup).
 
 ```sh
 cargo run --manifest-path examples/codegen/Cargo.toml
