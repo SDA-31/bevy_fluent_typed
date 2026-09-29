@@ -16,9 +16,8 @@
 /// Select a leaf, a group such as `Presentation`, or the complete `Translations` tree.
 /// Selectors use original schema names, independently of application imports.
 /// Ordinary aliases still work for catalog constructors and `Res<Interface>`.
-/// The expression forms `texts::embed_manifest!()` and
-/// `texts::embed_manifest!(module = texts::presentation::Hud)` remain supported;
-/// imported or renamed catalog type names are not selectors.
+/// Only the empty invocation `texts::embed_manifest!()` for the complete tree
+/// and the constant-declaration block are accepted.
 ///
 /// ```ignore
 /// bevy_fluent_typed::translations!(pub mod texts);

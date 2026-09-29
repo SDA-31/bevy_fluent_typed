@@ -173,10 +173,18 @@ Requests for a type are idempotent, not reference-counted: one unload releases
 all repeated loads of that same type. Independent parent/child requests can still
 keep a leaf loaded. Full has no `load` or `unload` methods.
 
-For selective embedding, use
-`texts::embed_manifest!(module = texts::presentation::Hud)` and request that same
-leaf. Embedded static bytes live for the executable's lifetime; unloading releases
-runtime ownership of parsed data, not those bytes. Application-held clones can
+For selective embedding, declare a manifest and pass `HUD` to the plugin:
+
+```rust,ignore
+texts::embed_manifest! {
+    const HUD = presentation::Hud;
+}
+```
+
+Request the same leaf with `load::<texts::presentation::Hud>()`. The macro accepts
+only an empty invocation or a block of constants; move old selector arguments
+into a declaration. Embedded static bytes live for the executable's lifetime;
+unloading releases runtime ownership of parsed data, not those bytes. Application-held clones can
 also keep parsed scopes alive. See the [complete Lazy application](../GUIDE.md#fully-lazy-complete-mainrs).
 
 ## 6. Account for changed reload behavior

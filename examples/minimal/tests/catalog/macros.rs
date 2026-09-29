@@ -80,8 +80,14 @@ fn embedded_constants_select_scopes_and_preserve_catalog_aliases() {
 	}
 
 	let selected: LocalizationManifest = SELECTED;
-	let direct = fixture::texts::embed_manifest!(module = fixture::texts::presentation::Hud);
-	assert_eq!(selected.embedded_modules(), direct.embedded_modules());
+	let complete = fixture::texts::embed_manifest!();
+	let entries = complete.embedded_modules().unwrap();
+	let expected: Vec<_> = entries
+		.iter()
+		.copied()
+		.filter(|(_, path, _)| *path == "presentation/hud.ftl")
+		.collect();
+	assert_eq!(selected.embedded_modules().unwrap(), expected);
 	assert!(
 		selected
 			.embedded_modules()
@@ -93,14 +99,13 @@ fn embedded_constants_select_scopes_and_preserve_catalog_aliases() {
 	assert_eq!(hud.msg_title(), "Flight HUD");
 
 	let group: LocalizationManifest = GROUP;
-	assert_eq!(
-		group.embedded_modules(),
-		fixture::texts::embed_manifest!(module = fixture::texts::Presentation).embedded_modules()
-	);
-	assert_eq!(
-		COMPLETE.embedded_modules(),
-		fixture::texts::embed_manifest!().embedded_modules()
-	);
+	let expected: Vec<_> = entries
+		.iter()
+		.copied()
+		.filter(|(_, path, _)| path.starts_with("presentation/"))
+		.collect();
+	assert_eq!(group.embedded_modules().unwrap(), expected);
+	assert_eq!(COMPLETE.embedded_modules(), complete.embedded_modules());
 	assert!(
 		group
 			.embedded_modules()

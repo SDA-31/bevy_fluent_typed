@@ -143,7 +143,8 @@ known language's raw FTL. The selected language is parsed during plugin updates,
 so readiness checks still apply. Static source bytes stay in the executable for
 its lifetime; no compressor or decompressor is involved.
 
-A Lazy application can declare a manifest for just its HUD:
+The macro accepts only an empty invocation or a block of constants. A Lazy
+application can declare a manifest for just its HUD:
 
 ```rust,ignore
 texts::embed_manifest! {
@@ -197,7 +198,7 @@ minimal runtime and a handwritten provider.
 | --- | --- |
 | `translations!` cannot find generated output | Add the shown build-dependency and return `bevy_fluent_typed::build()` from `build.rs`. |
 | Types or methods are missing | Add the corresponding FTL module/message in every language and rebuild. File edits at runtime cannot change the compiled schema. |
-| An `embed_manifest!` selector is rejected | Use a relative schema path in a const declaration, or a qualified generated path in an expression call. Imported catalog aliases are for constructors/resources, not embedding selectors. Keep build and runtime generator dependencies aligned. |
+| An `embed_manifest!` selector is rejected | Use an empty invocation for all sources or a const declaration with a relative schema path for a subset. Imported catalog aliases are for constructors/resources, not embedding selectors. Keep build and runtime generator dependencies aligned. |
 | The resource is absent | Use `add_localized_systems` with native `Res<_>` to wait. In Lazy, request the scope first and keep that request active while the screen needs it. |
 | A bound label stays empty | Check `localization.status::<YourLeaf>()`. Its module must be requested and pass validation. A root binding waits for the whole tree. |
 | Files are not found | The manifest origin is relative to Bevy's asset root. Do not prefix it with `assets/` when `AssetPlugin` already points there. |

@@ -123,7 +123,8 @@ known language's raw FTL. The selected language is parsed during plugin updates,
 so readiness checks still apply. Static source bytes stay in the executable for
 its lifetime; no compressor or decompressor is involved.
 
-A Lazy application can declare a manifest for just its HUD:
+The macro accepts only an empty invocation or a block of constants. A Lazy
+application can declare a manifest for just its HUD:
 
 ```rust,ignore
 texts::embed_manifest! {
