@@ -98,7 +98,11 @@ fn watched_modules_publish_independently_and_locale_switch_drops_previous_snapsh
 	let root = canonical_root.as_path();
 
 	fs::create_dir_all(root.join("localizations")).unwrap();
-	fs::write(root.join(texts::CATALOG_ASSET_PATH), texts::CATALOG_CONFIG).unwrap();
+	fs::write(
+		root.join("localizations/localization.toml"),
+		texts::CATALOG_CONFIG,
+	)
+	.unwrap();
 
 	for &locale in Translations::locales() {
 		for (module, source) in super::modules(locale) {
@@ -121,7 +125,8 @@ fn watched_modules_publish_independently_and_locale_switch_drops_previous_snapsh
 		},
 	))
 	.add_plugins(LocalizationPlugin::<Translations>::new(
-		LocalizationManifest::parse(texts::CATALOG_CONFIG, texts::CATALOG_ASSET_PATH).unwrap(),
+		LocalizationManifest::parse(texts::CATALOG_CONFIG, "localizations/localization.toml")
+			.unwrap(),
 	))
 	.init_resource::<Outcomes>()
 	.add_systems(PreUpdate, record.after(LocalizationSystems::Publish));

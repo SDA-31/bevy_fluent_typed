@@ -52,7 +52,7 @@ fn generated_manifest_uses_build_configuration_without_loading_sources() {
 
 	assert_eq!(
 		manifest.file_path(),
-		Some(std::path::Path::new(fixture::texts::CATALOG_ASSET_PATH))
+		Some(std::path::Path::new(fixture::texts::CATALOG_PATH))
 	);
 	assert_eq!(
 		manifest.config().source_language,
@@ -67,6 +67,21 @@ fn generated_manifest_uses_build_configuration_without_loading_sources() {
 		std::path::Path::new(fixture::texts::LANGUAGES_DIRECTORY)
 	);
 	assert!(manifest.embedded_modules().is_none());
+}
+
+#[test]
+fn generated_catalog_path_supports_native_file_loading() {
+	let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(fixture::texts::CATALOG_PATH);
+	let filesystem = LocalizationManifest::from_file(path).unwrap();
+	let bytes = filesystem.read("en", "presentation/hud.ftl").unwrap();
+	let hud = fixture::texts::presentation::Hud::new(fixture::texts::Locale::En, &bytes).unwrap();
+	assert_eq!(
+		hud.msg_title(),
+		super::load(crate::texts::Locale::En)
+			.presentation()
+			.hud()
+			.msg_title()
+	);
 }
 
 #[test]

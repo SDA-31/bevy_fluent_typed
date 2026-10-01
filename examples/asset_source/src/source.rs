@@ -9,7 +9,10 @@ texts::embed_manifest! {
 
 pub(super) fn files() -> Dir {
 	let files = Dir::default();
-	files.insert_asset_text(Path::new(texts::CATALOG_ASSET_PATH), texts::CATALOG_CONFIG);
+	files.insert_asset_text(
+		Path::new("localizations/localization.toml"),
+		texts::CATALOG_CONFIG,
+	);
 
 	// Reuse build-time sources only to avoid adding an archive dependency to this example.
 	for (locale, path, source) in EMBEDDED.embedded_modules().unwrap() {

@@ -55,7 +55,8 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 	/// Configure the selected loading mode from a ready source contract.
 	/// File origins are Bevy asset addresses; named sources are preserved.
 	/// Generated consumers can pass `texts::manifest()` for their build-configured
-	/// file source, or a `LocalizationManifest` constant declared by
+	/// file source when their engine source resolves that origin, or a
+	/// `LocalizationManifest` constant declared by
 	/// `texts::embed_manifest! { const SOURCE = Translations; }` for explicit embedding.
 	/// Pass that constant directly to `new(SOURCE)`; no conversion is needed.
 	#[cfg(feature = "manifest")]

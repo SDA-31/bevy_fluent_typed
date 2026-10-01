@@ -88,10 +88,9 @@ fn example_starts_in_english_and_discovers_all_three_languages() {
 
 #[test]
 fn example_paths_come_from_its_generated_configuration() {
-	assert_eq!(crate::texts::ASSET_ROOT, "assets");
 	assert_eq!(
-		crate::texts::CATALOG_ASSET_PATH,
-		"localizations/localization.toml"
+		crate::texts::CATALOG_PATH,
+		"assets/localizations/localization.toml"
 	);
 	assert_eq!(
 		LocalizationManifest::parse(crate::texts::CATALOG_CONFIG, "localizations/catalog.toml")

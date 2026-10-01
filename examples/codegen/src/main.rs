@@ -8,14 +8,10 @@ texts::embed_manifest! {
 }
 
 fn main() {
-	let assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(texts::ASSET_ROOT);
 	let mut app = App::new();
 	app.add_plugins((
 		MinimalPlugins,
-		AssetPlugin {
-			file_path: assets.to_string_lossy().into_owned(),
-			..default()
-		},
+		AssetPlugin::default(),
 		LocalizationPlugin::<texts::Translations>::new(EMBEDDED),
 	));
 	app.finish();

@@ -52,7 +52,10 @@ Replace `main` with this version:
 ```rust,ignore
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(bevy::asset::AssetPlugin {
+            file_path: ".".into(),
+            ..default()
+        }))
         .add_plugins(LocalizationPlugin::<texts::Translations, Lazy>::new(texts::manifest()))
         .add_systems(Startup, request_hud)
         .add_localized_startup_systems(show_title)
@@ -487,7 +490,7 @@ The console event loop and asset root:
 
 ```rust,ignore
 fn main() -> AppExit {
-    let assets = Path::new(env!("CARGO_MANIFEST_DIR")).join(texts::ASSET_ROOT);
+    let assets = Path::new(env!("CARGO_MANIFEST_DIR"));
 
     App::new()
         .add_plugins((

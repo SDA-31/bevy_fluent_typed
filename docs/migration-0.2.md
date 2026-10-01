@@ -48,7 +48,7 @@ Before, the plugin accepted a manifest asset address and started with embedded
 catalogs while external files loaded:
 
 ```rust
-LocalizationPlugin::<texts::Translations>::new(texts::CATALOG_ASSET_PATH)
+LocalizationPlugin::<texts::Translations>::new("localizations/localization.toml")
 ```
 
 After, use the generated file-source contract:
@@ -58,9 +58,9 @@ let manifest = texts::manifest();
 let plugin = bevy_fluent_typed::LocalizationPlugin::<texts::Translations>::new(manifest);
 ```
 
-The helper uses the build-configured TOML and its **Bevy asset address**, without
-reading files or embedding FTL. Keep `AssetPlugin` pointed at your deployment's
-asset root. To change the runtime origin, construct a `LocalizationManifest`
+The helper uses the build-configured TOML and its package-relative `CATALOG_PATH`,
+without reading files or embedding FTL. Set the application's `AssetPlugin` root
+so this origin resolves in the chosen deployment layout. To change the runtime origin, construct a `LocalizationManifest`
 explicitly; see [custom sources](asset-sources.md).
 
 The plugin no longer loads or watches the TOML itself. To supply runtime TOML,
@@ -228,3 +228,35 @@ Run `cargo check` and application tests after migration. Exercise startup,
 language changes, invalid-file recovery and any screen unload/reload behavior.
 
 [All changes](../CHANGELOG.md) · [Quickstart](../README.md#setup) · [Loading guide](../GUIDE.md)
+
+## Catalog-only build configuration
+
+For the current source-checkout API, merge the previous `asset-root` and
+`catalog` values into one path relative to the package's `Cargo.toml`:
+
+```toml
+[package.metadata.localization]
+catalog = "assets/localizations/localization.toml"
+```
+
+Remove `asset-root`; it is rejected as an unknown setting. In explicit generator
+settings, keep only `Settings { catalog: ... }`. Generated `CATALOG_PATH` replaces
+`CATALOG_ASSET_PATH`, and `ASSET_ROOT` is removed. The catalog path may contain
+`..` to share source translations across packages. Runtime logical module paths
+and `translations-directory` still cannot escape their declared scope.
+
+This build-API change requires matching source checkouts; published 0.2.1 still
+uses the previous configuration. No release archive changes retroactively.
+
+`texts::manifest()` retains `CATALOG_PATH` verbatim. Configure the application's
+Bevy asset source root so that origin resolves, or supply a contract with the
+chosen runtime origin. With the standard `assets` source root, use:
+
+```rust,ignore
+let manifest = bevy_fluent_typed::LocalizationManifest::parse(
+    texts::CATALOG_CONFIG,
+    "localizations/localization.toml",
+)?;
+```
+
+Generation and explicit embedding do not depend on that engine address.

@@ -8,7 +8,8 @@
 /// With Cargo resolver 2/3, generation stays
 /// in the build-script dependency graph rather than the application runtime.
 /// Declaration alone embeds no FTL, including in unoptimized builds.
-/// `texts::manifest()` provides the build-configured file-source contract without I/O.
+/// `texts::manifest()` keeps the build-configured `CATALOG_PATH` origin without I/O.
+/// The application owns its engine source root and any different runtime origin.
 /// Declare an embedded source with a selector relative to the generated tree:
 /// `texts::embed_manifest! { pub const HUD = presentation::Hud; }`.
 /// The constant has type [`crate::LocalizationManifest`] and can be exported from

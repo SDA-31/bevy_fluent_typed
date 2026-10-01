@@ -59,17 +59,23 @@ Disabling only `codegen` leaves the default `manifest` feature enabled. Use
 
 ## Manifest configuration
 
-`[package.metadata.localization]` selects the build-time `asset-root` and the
-manifest's asset-relative `catalog` path. The manifest selects `source-language`,
+`[package.metadata.localization]` contains only `catalog`, the TOML file path
+relative to the consuming package's `Cargo.toml`. Parent components (`..`) may
+locate shared translation sources. The manifest selects `source-language`,
 `default-language` and the optional `translations-directory` (default `"."`).
 `languages-directory` is the legacy alias; do not specify both directory names.
 Languages are discovered from directories; keep their module/message contracts
 in sync. Typed annotations belong to the source language.
 
-The generated `CATALOG_CONFIG` contains the TOML contract, and `CATALOG_ASSET_PATH`
-is its build-time asset address. Reusing them at runtime is convenient, but
-optional: the application can pass another compatible source contract and choose
-another asset root. No generated FTL payload is embedded unless the application
+The generated `CATALOG_CONFIG` contains the TOML contract, and `CATALOG_PATH`
+is its package-relative build location. The generator does not select a Bevy
+asset root or rewrite this path into an asset address. `texts::manifest()` keeps
+that origin verbatim. The application must configure a source that resolves it,
+or create a `LocalizationManifest` with a different runtime origin. For example,
+with the standard Bevy `assets` root, use `LocalizationManifest::parse(
+texts::CATALOG_CONFIG, "localizations/localization.toml")`.
+
+No generated FTL payload is embedded unless the application
 explicitly invokes `embed_manifest!`, including a declaration such as
 `texts::embed_manifest! { const HUD = presentation::Hud; }`.
 The Bevy facade re-exports the same `LocalizationManifest` type used by the
@@ -97,7 +103,8 @@ The runtime checkout contains the Bevy build adapter. Put the patch in the
 workspace root when the consumer belongs to a workspace. This is development
 wiring; normal released consumers use the registry quickstart.
 
-The constant-manifest recipes and generated repository examples use matching
+The catalog-only build configuration, constant-manifest recipes and generated
+repository examples use matching
 runtime and generator sources. Select the generator checkout containing that
 macro implementation; the package version alone does not distinguish development
 revisions. The runtime's Cargo.toml intentionally keeps a registry dependency,
