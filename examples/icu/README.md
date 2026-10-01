@@ -15,7 +15,7 @@ From a checkout of this repository:
 First configure the [matching local generator](../../docs/build.md#work-on-local-checkouts).
 These commands test both source checkouts; the generated examples use manifest
 constants, so resolving the generator from the registry is not sufficient.
-For a new application using registry releases, follow the [root quickstart](../../README.md#setup).
+For a new application using this API, follow the [root quickstart](../../README.md#setup).
 
 ```sh
 cargo run --manifest-path examples/icu/Cargo.toml
@@ -25,7 +25,7 @@ cargo test --manifest-path examples/icu/Cargo.toml
 Use `--locked --offline` after the initial dependency resolution. In the enclosing
 development workspace the package is named `localization-icu-example`.
 Repository-local paths in Cargo.toml test this checkout; external applications
-use the runtime's [registry setup](../../README.md#setup).
+use the runtime's [application setup](../../README.md#setup).
 The build script explicitly calls `bevy_fluent_typed::build()`.
 
 Assets are ordinary modular FTL under

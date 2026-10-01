@@ -12,7 +12,7 @@ From this repository:
 First configure the [matching local generator](../../docs/build.md#work-on-local-checkouts).
 These commands test both source checkouts; the generated examples use manifest
 constants, so resolving the generator from the registry is not sufficient.
-For a new application using registry releases, follow the [root quickstart](../../README.md#setup).
+For a new application using this API, follow the [root quickstart](../../README.md#setup).
 
 ```sh
 cargo run --manifest-path examples/minimal/Cargo.toml
@@ -54,7 +54,7 @@ the example's files.
 `codegen` and `watch`; the same crate's build-dependency disables defaults and
 enables only `build`. The build adapter lives inside the public crate. This public build
 facade is available since 0.1.1. Repository-local paths test this checkout;
-external applications use the [registry setup](../../README.md#setup).
+external applications use the [application setup](../../README.md#setup).
 
 The normal dependency selects Bevy 0.19 by default. To use 0.16, 0.17 or 0.18,
 disable its defaults and select the corresponding backend feature; leave the

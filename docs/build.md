@@ -64,7 +64,8 @@ relative to the consuming package's `Cargo.toml`. Parent components (`..`) may
 locate shared translation sources. The manifest selects `source-language`,
 `default-language` and the optional `translations-directory` (default `"."`).
 `languages-directory` is the legacy alias; do not specify both directory names.
-Languages are discovered from directories; keep their module/message contracts
+Unknown fields in Cargo metadata and the TOML manifest are ignored; recognized
+fields are validated. Languages are discovered from directories; keep their module/message contracts
 in sync. Typed annotations belong to the source language.
 
 The generated `CATALOG_CONFIG` contains the TOML contract, and `CATALOG_PATH`
@@ -101,7 +102,8 @@ fluent_typed_codegen = { path = "/absolute/path/to/fluent_typed_codegen" }
 
 The runtime checkout contains the Bevy build adapter. Put the patch in the
 workspace root when the consumer belongs to a workspace. This is development
-wiring; normal released consumers use the registry quickstart.
+wiring for the current checkout API. For the published API, see the
+[versioned package documentation](https://docs.rs/bevy_fluent_typed/0.2.1/bevy_fluent_typed/).
 
 The catalog-only build configuration, constant-manifest recipes and generated
 repository examples use matching

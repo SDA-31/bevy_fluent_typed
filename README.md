@@ -26,7 +26,8 @@ Bevy's asset system or explicitly embed them.
 
 ## Setup
 
-Add these dependencies to `Cargo.toml`:
+For this API, use the [local checkout dependency entries](docs/build.md#work-on-local-checkouts)
+in place of the version-only entries below in `Cargo.toml`:
 
 ```toml
 [dependencies]
@@ -44,10 +45,6 @@ accessors. Configure the translation paths in the same `Cargo.toml`:
 [package.metadata.localization]
 catalog = "assets/localizations/localization.toml"
 ```
-
-The catalog-only build configuration requires matching source checkouts; use
-the [local checkout setup](docs/build.md#work-on-local-checkouts) to try it. Published 0.2.1
-uses the earlier two-field build configuration.
 
 Create `build.rs` beside `Cargo.toml`:
 
@@ -127,8 +124,8 @@ For a console-only program, see the [headless recipe](GUIDE.md#headless-applicat
 
 `texts::manifest()` supplies the manifest contract from your build configuration.
 It loads no translations and embeds no FTL. This application sets Bevy's source
-root to the working directory so `assets/localizations/localization.toml` is
-resolved as written. The build path does not configure AssetServer automatically.
+root to Bevy's base directory (the package directory under `cargo run`) so
+`assets/localizations/localization.toml` is resolved as written. The build path does not configure AssetServer automatically.
 For another source layout, pass a `LocalizationManifest` with its runtime origin.
 
 The default **Full** mode keeps every module of the selected language loaded.
@@ -213,7 +210,7 @@ minimal runtime and a handwritten provider.
 | Files are not found | The manifest origin is relative to Bevy's asset root. Do not prefix it with `assets/` when `AssetPlugin` already points there. |
 | Editing the TOML has no runtime effect | The plugin receives a parsed contract and does not reload TOML. Rebuild this quickstart or construct a new contract during application setup. |
 | Cargo reports incompatible engine APIs | Select one matching Bevy backend, on the normal dependency only. Do not enable all features. |
-| The registry quickstart does not compile | Match the runtime and build dependencies shown in [Setup](#setup). For an existing application, follow the [migration guide](docs/migration-0.2.md). |
+| The quickstart does not compile | Apply the local checkout override and match the dependencies shown in [Setup](#setup). For an existing application, follow the [migration guide](docs/migration-0.2.md). |
 
 ## Known limits
 
@@ -243,7 +240,8 @@ Runnable headless examples live in [examples/codegen](examples/codegen),
 [examples/no_codegen](examples/no_codegen), [examples/minimal](examples/minimal),
 [examples/icu](examples/icu) and [examples/asset_source](examples/asset_source).
 Their README commands start from a checkout of this repository. Their local path
-dependencies test that checkout; use the registry setup above for your application.
+dependencies test that checkout; follow the setup above, including its local
+checkout override, for your application.
 The [compatibility runner](tools/compatibility/README.md) is for maintainers.
 CI ignores branch pushes and PRs changing only `CHANGELOG.md`; tag pushes and
 manual runs still execute checks.

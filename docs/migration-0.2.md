@@ -58,9 +58,11 @@ let manifest = texts::manifest();
 let plugin = bevy_fluent_typed::LocalizationPlugin::<texts::Translations>::new(manifest);
 ```
 
-The helper uses the build-configured TOML and its package-relative `CATALOG_PATH`,
-without reading files or embedding FTL. Set the application's `AssetPlugin` root
-so this origin resolves in the chosen deployment layout. To change the runtime origin, construct a `LocalizationManifest`
+The published helper uses the build-configured TOML and its `CATALOG_ASSET_PATH`,
+without reading files or embedding FTL. With the catalog-only source-checkout
+configuration described below, it retains `CATALOG_PATH` instead. Set the
+application's `AssetPlugin` root so the origin resolves in the deployment layout.
+To change the runtime origin, construct a `LocalizationManifest`
 explicitly; see [custom sources](asset-sources.md).
 
 The plugin no longer loads or watches the TOML itself. To supply runtime TOML,
@@ -239,7 +241,8 @@ For the current source-checkout API, merge the previous `asset-root` and
 catalog = "assets/localizations/localization.toml"
 ```
 
-Remove `asset-root`; it is rejected as an unknown setting. In explicit generator
+Remove `asset-root`; unknown fields are ignored and no longer affect path
+resolution. Recognized fields are still validated. In explicit generator
 settings, keep only `Settings { catalog: ... }`. Generated `CATALOG_PATH` replaces
 `CATALOG_ASSET_PATH`, and `ASSET_ROOT` is removed. The catalog path may contain
 `..` to share source translations across packages. Runtime logical module paths

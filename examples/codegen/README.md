@@ -7,7 +7,7 @@ GPU, watcher loop or extra test catalogs are needed.
 First configure the [matching local generator](../../docs/build.md#work-on-local-checkouts).
 These commands test both source checkouts; the generated examples use manifest
 constants, so resolving the generator from the registry is not sufficient.
-For a new application using registry releases, follow the [root quickstart](../../README.md#setup).
+For a new application using this API, follow the [root quickstart](../../README.md#setup).
 
 ```sh
 cargo run --manifest-path examples/codegen/Cargo.toml

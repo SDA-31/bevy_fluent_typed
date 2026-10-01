@@ -6,7 +6,8 @@ Bevy's asset system or explicitly embed them.
 
 ## Setup
 
-Add these dependencies to `Cargo.toml`:
+For this API, use the [local checkout dependency entries](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/build.md#work-on-local-checkouts)
+in place of the version-only entries below in `Cargo.toml`:
 
 ```toml
 [dependencies]
@@ -24,10 +25,6 @@ accessors. Configure the translation paths in the same `Cargo.toml`:
 [package.metadata.localization]
 catalog = "assets/localizations/localization.toml"
 ```
-
-The catalog-only build configuration requires matching source checkouts; use
-the [local checkout setup](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/build.md#work-on-local-checkouts) to try it. Published 0.2.1
-uses the earlier two-field build configuration.
 
 Create `build.rs` beside `Cargo.toml`:
 
@@ -107,8 +104,8 @@ For a console-only program, see the [headless recipe](https://github.com/SDA-31/
 
 `texts::manifest()` supplies the manifest contract from your build configuration.
 It loads no translations and embeds no FTL. This application sets Bevy's source
-root to the working directory so `assets/localizations/localization.toml` is
-resolved as written. The build path does not configure AssetServer automatically.
+root to Bevy's base directory (the package directory under `cargo run`) so
+`assets/localizations/localization.toml` is resolved as written. The build path does not configure AssetServer automatically.
 For another source layout, pass a `LocalizationManifest` with its runtime origin.
 
 The default **Full** mode keeps every module of the selected language loaded.
