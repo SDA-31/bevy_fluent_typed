@@ -102,15 +102,11 @@ fluent_typed_codegen = { path = "/absolute/path/to/fluent_typed_codegen" }
 
 The runtime checkout contains the Bevy build adapter. Put the patch in the
 workspace root when the consumer belongs to a workspace. This is development
-wiring for the current checkout API. For the published API, see the
-[versioned package documentation](https://docs.rs/bevy_fluent_typed/0.2.1/bevy_fluent_typed/).
+wiring; normal applications use the registry dependencies in Setup.
 
-The catalog-only build configuration, constant-manifest recipes and generated
-repository examples use matching
-runtime and generator sources. Select the generator checkout containing that
-macro implementation; the package version alone does not distinguish development
-revisions. The runtime's Cargo.toml intentionally keeps a registry dependency,
-so merely cloning both repositories does not connect them.
+The runtime requires generator 0.3.0 for its current generated contract. For local
+changes in both libraries, select the matching generator checkout; cloning the
+two repositories does not apply this override automatically.
 
 For repeated example runs, add this to `.cargo/config.toml` at the runtime
 repository root, preserving any existing settings:

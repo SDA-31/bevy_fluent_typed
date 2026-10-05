@@ -1,8 +1,8 @@
 # Verification
 
-First configure the [matching local generator](../../../docs/build.md#work-on-local-checkouts);
-the constant-manifest tests require its macro implementation. Then run from the
-Bevy localization repository root. For application setup, including matching source checkouts, follow the
+Run from the Bevy localization repository root using generator 0.3.0. For local
+generator changes, configure the [override](../../../docs/build.md#work-on-local-checkouts).
+For application setup, follow the
 [quickstart](../../../README.md#setup).
 
 ```sh

@@ -1,6 +1,6 @@
-# Migrate from bevy_fluent_typed 0.1.3 to 0.2.1
+# Migrate from bevy_fluent_typed 0.1.3 to 0.3.0
 
-This guide upgrades runtime 0.1.3 to 0.2.1.
+This guide upgrades runtime 0.1.3 to 0.3.0.
 It includes the generated manifest helper and native required-resource waiting.
 
 Start with **Full**, the default mode. It keeps all modules of the selected
@@ -14,20 +14,21 @@ Replace the localization entries in your Cargo.toml:
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.2.1", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.3.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.2.1", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["build"] }
 ```
 
-Keep your existing Bevy dependency and localization metadata. This example uses
+Keep your existing Bevy dependency; update localization metadata as shown in
+[Catalog-only build configuration](#catalog-only-build-configuration). This example uses
 the default Bevy 0.19 backend. For 0.16, 0.17 or 0.18, retain your matching backend
 feature and `default-features = false` on the normal dependency only. Rust 1.95
 and the supported Bevy families are unchanged. Use Cargo resolver 2 or 3.
 
 Remove development Git/path patches for the runtime, bridge and generator when
 switching to the registry. Standard consumers do not declare a bridge or generator
-dependency; the facade resolves the matching 0.2.1 packages. If you rename the
+dependency; the facade resolves the matching 0.3.0 packages. If you rename the
 facade, use the same alias in both dependency sections.
 
 Keep your existing `build.rs`:
@@ -58,12 +59,10 @@ let manifest = texts::manifest();
 let plugin = bevy_fluent_typed::LocalizationPlugin::<texts::Translations>::new(manifest);
 ```
 
-The published helper uses the build-configured TOML and its `CATALOG_ASSET_PATH`,
-without reading files or embedding FTL. With the catalog-only source-checkout
-configuration described below, it retains `CATALOG_PATH` instead. Set the
-application's `AssetPlugin` root so the origin resolves in the deployment layout.
-To change the runtime origin, construct a `LocalizationManifest`
-explicitly; see [custom sources](asset-sources.md).
+The helper uses the build-configured TOML and its package-relative `CATALOG_PATH`,
+without reading files or embedding FTL. Set the application's `AssetPlugin` root
+so this origin resolves in the deployment layout. To change the runtime origin,
+construct a `LocalizationManifest` explicitly; see [custom sources](asset-sources.md).
 
 The plugin no longer loads or watches the TOML itself. To supply runtime TOML,
 obtain its readable text before constructing this contract. `from_file` uses the
@@ -179,13 +178,12 @@ Lazy also works with the no-argument embedded manifest from step 2. It controls
 which catalogs are parsed and retained; embedded static bytes remain for the
 executable's lifetime. Application-held catalog clones can keep parsed scopes
 alive after unloading. See the [complete Lazy application](../GUIDE.md#fully-lazy-complete-mainrs).
-For selective constant manifests when working on the libraries themselves,
-follow the [source-checkout setup](build.md#work-on-local-checkouts) and
+For selective constant manifests, follow the
 [embedded recipe](../README.md#explicit-embedding).
 
 ## 6. Account for changed reload behavior
 
-| In 0.1.3 | In 0.2.1 |
+| In 0.1.3 | In 0.3.0 |
 | --- | --- |
 | All embedded languages were initialized | Full requests only the selected language; Lazy requests selected scopes |
 | Locale changes could select a retained catalog immediately | Logical requests persist, old-language data is released and the new language loads |
@@ -233,7 +231,7 @@ language changes, invalid-file recovery and any screen unload/reload behavior.
 
 ## Catalog-only build configuration
 
-For the current source-checkout API, merge the previous `asset-root` and
+Merge the previous `asset-root` and
 `catalog` values into one path relative to the package's `Cargo.toml`:
 
 ```toml
@@ -248,8 +246,8 @@ settings, keep only `Settings { catalog: ... }`. Generated `CATALOG_PATH` replac
 `..` to share source translations across packages. Runtime logical module paths
 and `translations-directory` still cannot escape their declared scope.
 
-This build-API change requires matching source checkouts; published 0.2.1 still
-uses the previous configuration. No release archive changes retroactively.
+Use generator and runtime 0.3.0 together. See the
+[0.2.1 to 0.3.0 migration](migration-0.3.md) for the complete metadata and embedding changes.
 
 `texts::manifest()` retains `CATALOG_PATH` verbatim. Configure the application's
 Bevy asset source root so that origin resolves, or supply a contract with the

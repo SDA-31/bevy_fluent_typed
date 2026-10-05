@@ -12,9 +12,8 @@ dependency here only**, not a direct dependency or feature of the runtime or gen
 
 From a checkout of this repository:
 
-First configure the [matching local generator](../../docs/build.md#work-on-local-checkouts).
-These commands test both source checkouts; the generated examples use manifest
-constants, so resolving the generator from the registry is not sufficient.
+These commands use generator 0.3.0 from the registry. When editing both libraries,
+configure the [local generator override](../../docs/build.md#work-on-local-checkouts).
 For a new application using this API, follow the [root quickstart](../../README.md#setup).
 
 ```sh

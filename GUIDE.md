@@ -104,7 +104,7 @@ that load, then the plugin publishes its typed resource. Both Full and Lazy use
 Bevy's asynchronous loading; Lazy lets the application choose which scopes to
 request and retain. No additional parsing is deferred until accessor use.
 
-To try the constant-manifest recipe, configure [matching source checkouts](docs/build.md#work-on-local-checkouts).
+Use the same 0.3.0 facade in both normal and build dependencies for this recipe.
 Then embed only the HUD by declaring its source next to `translations!`:
 
 ```rust,ignore
@@ -466,7 +466,7 @@ For Bevy 0.19, the minimal dependency is:
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.2.1", default-features = false, features = ["bevy-0-19"] }
+bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["bevy-0-19"] }
 ```
 
 There is no build-dependency, `build.rs`, `translations!`, TOML manifest or
@@ -553,7 +553,7 @@ asset configuration and event loop, as in the quickstart.
 
 ## Migration from registry 0.1.3
 
-Follow the [migration guide to 0.2.1](docs/migration-0.2.md) for dependency updates, before/after
+Follow the [migration guide to 0.3.0](docs/migration-0.2.md) for dependency updates, before/after
 initialization, readiness handling, optional Lazy adoption and handwritten providers.
 The shortest upgrade keeps Full mode and existing typed message calls.
 

@@ -26,16 +26,15 @@ Bevy's asset system or explicitly embed them.
 
 ## Setup
 
-For this API, use the [local checkout dependency entries](docs/build.md#work-on-local-checkouts)
-in place of the version-only entries below in `Cargo.toml`:
+Add these dependencies to `Cargo.toml`:
 
 ```toml
 [dependencies]
 bevy = "0.19"
-bevy_fluent_typed = { version = "0.2.1", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.3.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.2.1", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["build"] }
 ```
 
 The normal dependency provides the plugin; the build dependency generates the
@@ -149,7 +148,7 @@ so readiness checks still apply. Static source bytes stay in the executable for
 its lifetime; no compressor or decompressor is involved.
 
 The macro accepts only an empty invocation or a block of constants. For the
-constant-declaration recipe, first configure [matching source checkouts](docs/build.md#work-on-local-checkouts).
+constant-declaration recipe, use the same 0.3.0 dependency in both Cargo sections.
 A Lazy application can then declare a manifest for just its HUD:
 
 ```rust,ignore
@@ -204,13 +203,13 @@ minimal runtime and a handwritten provider.
 | --- | --- |
 | `translations!` cannot find generated output | Add the shown build-dependency and return `bevy_fluent_typed::build()` from `build.rs`. |
 | Types or methods are missing | Add the corresponding FTL module/message in every language and rebuild. File edits at runtime cannot change the compiled schema. |
-| An `embed_manifest!` selector is rejected | Constant declarations use the [source-checkout setup](docs/build.md#work-on-local-checkouts). Keep build/runtime generator revisions aligned and use relative schema paths; imported catalog aliases are for constructors/resources. |
+| An `embed_manifest!` selector is rejected | Use 0.3.0 for both runtime and build dependencies and use relative schema paths; imported catalog aliases are for constructors/resources. |
 | The resource is absent | Use `add_localized_systems` with native `Res<_>` to wait. In Lazy, request the scope first and keep that request active while the screen needs it. |
 | A bound label stays empty | Check `localization.status::<YourLeaf>()`. Its module must be requested and pass validation. A root binding waits for the whole tree. |
 | Files are not found | The manifest origin is relative to Bevy's asset root. Do not prefix it with `assets/` when `AssetPlugin` already points there. |
 | Editing the TOML has no runtime effect | The plugin receives a parsed contract and does not reload TOML. Rebuild this quickstart or construct a new contract during application setup. |
 | Cargo reports incompatible engine APIs | Select one matching Bevy backend, on the normal dependency only. Do not enable all features. |
-| The quickstart does not compile | Apply the local checkout override and match the dependencies shown in [Setup](#setup). For an existing application, follow the [migration guide](docs/migration-0.2.md). |
+| The quickstart does not compile | Match the dependencies shown in [Setup](#setup). For an existing application, follow the [migration guide](docs/migration-0.2.md). |
 
 ## Known limits
 
@@ -231,17 +230,17 @@ transports, fonts and shaping remain application responsibilities.
   and named Bevy sources.
 - [Number formatting](docs/formatting.md): application-owned ICU4X formatters.
 - [Build API](docs/build.md): explicit generation and dependency feature isolation.
+- [Migration to 0.3.0](docs/migration-0.3.md): update catalog paths and embedded selectors.
 - [Migration](docs/migration-0.2.md): update an existing 0.1.3 application.
 - [Resource waiting](docs/migration-0.2.1.md): adopt native required resources
-  with the 0.2.1 scheduling helpers.
+  and the scheduling helpers.
 - [Changelog](CHANGELOG.md): notable changes grouped by release.
 
 Runnable headless examples live in [examples/codegen](examples/codegen),
 [examples/no_codegen](examples/no_codegen), [examples/minimal](examples/minimal),
 [examples/icu](examples/icu) and [examples/asset_source](examples/asset_source).
 Their README commands start from a checkout of this repository. Their local path
-dependencies test that checkout; follow the setup above, including its local
-checkout override, for your application.
+dependencies test that checkout; use the registry setup above for your application.
 The [compatibility runner](tools/compatibility/README.md) is for maintainers.
 CI ignores branch pushes and PRs changing only `CHANGELOG.md`; tag pushes and
 manual runs still execute checks.

@@ -9,9 +9,8 @@ the default Bevy 0.19 backend and adds no archive dependency.
 
 From this repository:
 
-First configure the [matching local generator](../../docs/build.md#work-on-local-checkouts).
-These commands test both source checkouts; the generated examples use manifest
-constants, so resolving the generator from the registry is not sufficient.
+These commands use generator 0.3.0 from the registry. When editing both libraries,
+configure the [local generator override](../../docs/build.md#work-on-local-checkouts).
 For a new application using this API, follow the [root quickstart](../../README.md#setup).
 
 ```sh
@@ -67,7 +66,7 @@ scenarios, `Text`/`Text2d` consistency checks, bounded test polling and update
 fixtures. These are not additional resources or steps required by an application.
 Run them with `cargo test`; `cargo run` performs no test mutations.
 
-Local path dependencies test this checkout. Application setup and the matching checkout overrides are
+Local path dependencies test this checkout. Application setup and optional development overrides are
 in the main [README](../../README.md#setup).
 
 [MIT](LICENSE).
