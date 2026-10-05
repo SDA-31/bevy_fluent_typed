@@ -5,7 +5,7 @@ For a complete Cargo.toml, files and application, follow the
 This section explains the optional custom build entrypoints.
 
 The `build` feature exposes `build()`, `from_cargo()`, `generate()` and
-`Settings` through the same crate used by the application. Its private build
+`Settings` and `BuildError` through the same crate used by the application. Its private build
 module emits the Bevy provider; no separate bridge package is needed.
 Discovery and the typed module tree come from
 [fluent_typed_codegen](https://docs.rs/fluent_typed_codegen/); message accessors
@@ -29,6 +29,27 @@ under `OUT_DIR`; macro expansion never runs the generator or writes files.
 For custom diagnostics use `from_cargo()` and handle its error; for explicit
 package/output paths use `generate()` with `Settings`. Do not ignore generation
 failures or compile stale output after an error.
+
+```no_run
+fn main() -> Result<(), bevy_fluent_typed::BuildError> {
+    bevy_fluent_typed::from_cargo()
+}
+```
+
+Both `from_cargo()` and `generate()` return the generator's `BuildError`,
+re-exported by this facade. Match `BuildError::Io` for the operation, filesystem
+path and original I/O error; `BuildError::Config` preserves the typed configuration
+cause and available filename. Module differences expose sorted missing/extra
+paths, and upstream failures keep their original typed error. All variants print
+readable diagnostics with `Display` and expose their original causes through
+`std::error::Error::source()` where applicable.
+
+`Settings::from_manifest` and `CatalogConfig::parse` return `ConfigError`;
+`LocalizationManifest` wraps configuration failures in `ManifestError::Config`.
+Use `ConfigField`, `FieldError` and `PathError` for matching invalid known fields
+or paths; unknown configuration fields remain ignored. Runtime-only consumers
+without `manifest` or `codegen` still have no generator dependency. Build-only
+errors are available only with `build`; they do not enable an engine backend.
 
 Cargo feature forwarding such as `bevy_fluent_typed/bevy-0-17` can enable a feature
 on both dependency kinds when they share a name. Select the backend directly in

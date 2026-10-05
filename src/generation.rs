@@ -4,7 +4,7 @@ mod provider;
 mod scopes;
 
 use fluent_typed_codegen::{
-	Extension, Scope, Settings,
+	BuildError, Extension, Scope, Settings,
 	syn::{Item, ItemStruct, ItemUse, parse_quote},
 };
 use std::{path::Path, process::ExitCode};
@@ -81,7 +81,7 @@ pub fn build() -> ExitCode {
 /// # Errors
 /// Reports missing Cargo environment, invalid catalogs/settings, generated-name
 /// or syntax errors, and filesystem failures.
-pub fn from_cargo() -> Result<(), String> {
+pub fn from_cargo() -> Result<(), BuildError> {
 	fluent_typed_codegen::from_cargo_with(&BevyExtension)
 }
 
@@ -94,6 +94,6 @@ pub fn from_cargo() -> Result<(), String> {
 ///
 /// # Errors
 /// Reports the same validation and I/O failures as [`from_cargo`].
-pub fn generate(package: &Path, output: &Path, settings: &Settings) -> Result<(), String> {
+pub fn generate(package: &Path, output: &Path, settings: &Settings) -> Result<(), BuildError> {
 	fluent_typed_codegen::generate_with(package, output, settings, &BevyExtension)
 }

@@ -12,10 +12,17 @@ Runtime and its build adapter require generator 0.2.2. See the
 
 ### Added
 
+- Typed configuration and build errors re-exported from the generator by the
+  manifest/build facade, preserving original error causes and filesystem context.
+
 - Generated named embedded manifest constants, with relative schema selectors
   and ordinary catalog/resource aliases preserved.
 
 ### Changed
+
+- **Breaking:** `from_cargo()` and `generate()` return `BuildError`; configuration
+  parsing uses `ConfigError` and typed `ManifestError` variants. The standard
+  `build() -> ExitCode` setup and runtime catalog signatures remain unchanged.
 
 - **Breaking:** Cargo localization metadata uses a single package-relative
   `catalog` path; the generator no longer configures an engine asset root.

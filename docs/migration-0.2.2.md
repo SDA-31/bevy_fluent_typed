@@ -81,3 +81,15 @@ Full/Lazy still govern parsing and module lifetime; selected static bytes remain
 for the executable's lifetime. Byte inputs, native resource waiting, language
 switching and reload guarantees are unchanged. Test file/ZIP origins and locale
 switches after migration. See the [changelog](../CHANGELOG.md).
+
+## Typed configuration and build errors
+
+Configuration parsers now return `ConfigError`, and explicit generation functions
+return `BuildError` instead of `String`. The standard `build() -> ExitCode` call
+is unchanged. Update custom `Result<(), String>` signatures to the typed error,
+or convert to a string deliberately at the application boundary.
+
+`ManifestError::Config { source }` replaces string configuration/path diagnostics;
+`ManifestError::RequiresLoader { origin }` identifies virtual manifest origins.
+The error enums are non-exhaustive: include a wildcard arm in application matches.
+Underlying parser, I/O and upstream causes are retained through `Error::source()`.
