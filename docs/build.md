@@ -104,7 +104,7 @@ The runtime checkout contains the Bevy build adapter. Put the patch in the
 workspace root when the consumer belongs to a workspace. This is development
 wiring; normal applications use the registry dependencies in Setup.
 
-The runtime requires generator 0.3.0 for its current generated contract. For local
+The runtime requires generator 0.2.2 for its current generated contract. For local
 changes in both libraries, select the matching generator checkout; cloning the
 two repositories does not apply this override automatically.
 

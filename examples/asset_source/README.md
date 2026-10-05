@@ -9,7 +9,7 @@ the default Bevy 0.19 backend and adds no archive dependency.
 
 From this repository:
 
-These commands use generator 0.3.0 from the registry. When editing both libraries,
+These commands use generator 0.2.2 from the registry. When editing both libraries,
 configure the [local generator override](../../docs/build.md#work-on-local-checkouts).
 For a new application using this API, follow the [root quickstart](../../README.md#setup).
 

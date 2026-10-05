@@ -1,6 +1,6 @@
-# Migrate from bevy_fluent_typed 0.1.3 to 0.3.0
+# Migrate from bevy_fluent_typed 0.1.3 to 0.2.2
 
-This guide upgrades runtime 0.1.3 to 0.3.0.
+This guide upgrades runtime 0.1.3 to 0.2.2.
 It includes the generated manifest helper and native required-resource waiting.
 
 Start with **Full**, the default mode. It keeps all modules of the selected
@@ -14,10 +14,10 @@ Replace the localization entries in your Cargo.toml:
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.3.0", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.2.2", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.2.2", default-features = false, features = ["build"] }
 ```
 
 Keep your existing Bevy dependency; update localization metadata as shown in
@@ -28,7 +28,7 @@ and the supported Bevy families are unchanged. Use Cargo resolver 2 or 3.
 
 Remove development Git/path patches for the runtime, bridge and generator when
 switching to the registry. Standard consumers do not declare a bridge or generator
-dependency; the facade resolves the matching 0.3.0 packages. If you rename the
+dependency; the facade resolves the matching 0.2.2 packages. If you rename the
 facade, use the same alias in both dependency sections.
 
 Keep your existing `build.rs`:
@@ -183,7 +183,7 @@ For selective constant manifests, follow the
 
 ## 6. Account for changed reload behavior
 
-| In 0.1.3 | In 0.3.0 |
+| In 0.1.3 | In 0.2.2 |
 | --- | --- |
 | All embedded languages were initialized | Full requests only the selected language; Lazy requests selected scopes |
 | Locale changes could select a retained catalog immediately | Logical requests persist, old-language data is released and the new language loads |
@@ -246,8 +246,8 @@ settings, keep only `Settings { catalog: ... }`. Generated `CATALOG_PATH` replac
 `..` to share source translations across packages. Runtime logical module paths
 and `translations-directory` still cannot escape their declared scope.
 
-Use generator and runtime 0.3.0 together. See the
-[0.2.1 to 0.3.0 migration](migration-0.3.md) for the complete metadata and embedding changes.
+Use generator and runtime 0.2.2 together. See the
+[0.2.1 to 0.2.2 migration](migration-0.2.2.md) for the complete metadata and embedding changes.
 
 `texts::manifest()` retains `CATALOG_PATH` verbatim. Configure the application's
 Bevy asset source root so that origin resolves, or supply a contract with the

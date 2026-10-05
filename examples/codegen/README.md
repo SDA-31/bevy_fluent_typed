@@ -4,7 +4,7 @@ One Fluent module, three languages, typed `texts::ui::Greeting` resources.
 The program prints English, Spanish and Russian greetings, then exits. No window,
 GPU, watcher loop or extra test catalogs are needed.
 
-These commands use generator 0.3.0 from the registry. When editing both libraries,
+These commands use generator 0.2.2 from the registry. When editing both libraries,
 configure the [local generator override](../../docs/build.md#work-on-local-checkouts).
 For a new application using this API, follow the [root quickstart](../../README.md#setup).
 

@@ -1,6 +1,6 @@
 # Verification
 
-Run from the Bevy localization repository root using generator 0.3.0. For local
+Run from the Bevy localization repository root using generator 0.2.2. For local
 generator changes, configure the [override](../../../docs/build.md#work-on-local-checkouts).
 For application setup, follow the
 [quickstart](../../../README.md#setup).

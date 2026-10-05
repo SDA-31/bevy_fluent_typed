@@ -11,10 +11,10 @@ Add these dependencies to `Cargo.toml`:
 ```toml
 [dependencies]
 bevy = "0.19"
-bevy_fluent_typed = { version = "0.3.0", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.2.2", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.2.2", default-features = false, features = ["build"] }
 ```
 
 The normal dependency provides the plugin; the build dependency generates the
@@ -128,7 +128,7 @@ so readiness checks still apply. Static source bytes stay in the executable for
 its lifetime; no compressor or decompressor is involved.
 
 The macro accepts only an empty invocation or a block of constants. For the
-constant-declaration recipe, use the same 0.3.0 dependency in both Cargo sections.
+constant-declaration recipe, use the same 0.2.2 dependency in both Cargo sections.
 A Lazy application can then declare a manifest for just its HUD:
 
 ```rust,ignore
@@ -181,5 +181,5 @@ for a minimal runtime and a handwritten provider.
 ## Further reading
 
 - [Loading guide](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md): Lazy requests, module lifetime and headless applications.
-- [Migration from 0.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) and [Migration from 0.2.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.3.md).
+- [Migration from 0.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) and [Migration from 0.2.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.2.md).
 - [Changelog](https://github.com/SDA-31/bevy_fluent_typed/blob/main/CHANGELOG.md).
