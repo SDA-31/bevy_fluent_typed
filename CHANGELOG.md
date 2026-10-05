@@ -5,7 +5,7 @@ Notable changes to the runtime (and its former companion bridge) are recorded he
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html);
 before 1.0, a minor release can introduce incompatible API changes.
 
-## [0.2.2] - 2026-10-05
+## [0.2.2] - 2026-10-06
 
 Runtime and its build adapter require generator 0.2.2. See the
 [migration from 0.2.1](docs/migration-0.2.2.md).
