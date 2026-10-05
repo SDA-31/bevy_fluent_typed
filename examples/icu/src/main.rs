@@ -5,18 +5,18 @@ use icu_decimal::options::GroupingStrategy;
 
 bevy_fluent_typed::translations!(mod texts);
 
+texts::embed_manifest! {
+	const EMBEDDED = Translations;
+}
+
 mod formatting;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-	let assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(texts::ASSET_ROOT);
 	let mut app = App::new();
 	app.add_plugins((
 		MinimalPlugins,
-		AssetPlugin {
-			file_path: assets.to_string_lossy().into_owned(),
-			..default()
-		},
-		LocalizationPlugin::<texts::Translations>::new(texts::embed_manifest!()),
+		AssetPlugin::default(),
+		LocalizationPlugin::<texts::Translations>::new(EMBEDDED),
 	))
 	.insert_resource(formatting::NumberFormats::try_new(GroupingStrategy::Auto)?)
 	.add_systems(Startup, formatting::spawn_labels);

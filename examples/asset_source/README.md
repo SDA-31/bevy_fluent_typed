@@ -9,9 +9,9 @@ the default Bevy 0.19 backend and adds no archive dependency.
 
 From this repository:
 
-These commands build this checkout and resolve generator 0.2.1 from crates.io.
-For local generator development, use the [local generator patch](../../docs/build.md#work-on-local-checkouts).
-For a new application, follow the [root quickstart](../../README.md#setup).
+These commands use generator 0.2.2 from the registry. When editing both libraries,
+configure the [local generator override](../../docs/build.md#work-on-local-checkouts).
+For a new application using this API, follow the [root quickstart](../../README.md#setup).
 
 ```sh
 cargo run --manifest-path examples/asset_source/Cargo.toml
@@ -51,8 +51,9 @@ After installing an updated pack, send `ReloadCatalogs::<texts::Translations>`.
 For pack layout, consistent revisions and watcher responsibilities, see
 [custom asset sources](../../docs/asset-sources.md).
 
-The memory source calls `texts::embed_manifest!().embedded_modules()` solely to
-seed virtual files and make this example self-contained. Generated `MODULES`
+The memory source declares `EMBEDDED` with `texts::embed_manifest!` and reads
+`EMBEDDED.embedded_modules()` solely to seed virtual files and make this example
+self-contained. Generated `MODULES`
 contains metadata, not source bytes. A real pack provides its own FTL.
 Older Bevy backends have the same localization contract, but Bevy 0.16/0.17 use
 `AssetSourceBuilder::default().with_reader(...)`; Bevy 0.16 uses events instead of
@@ -65,7 +66,7 @@ scenarios, `Text`/`Text2d` consistency checks, bounded test polling and update
 fixtures. These are not additional resources or steps required by an application.
 Run them with `cargo test`; `cargo run` performs no test mutations.
 
-Local path dependencies test this checkout. Public installation instructions are
+Local path dependencies test this checkout. Application setup and optional development overrides are
 in the main [README](../../README.md#setup).
 
 [MIT](LICENSE).

@@ -8,12 +8,12 @@ pub(super) fn manifest() -> Item {
 	parse_quote! {
 		/// Use the file-source contract configured in this application's build metadata.
 		///
-		/// This uses the validated TOML and its Bevy asset address. It reads no files,
-		/// loads no translations and includes no FTL bytes. AssetPlugin still owns
-		/// the runtime asset root. Pass a custom LocalizationManifest to the plugin
-		/// when runtime storage differs from the build configuration.
+		/// This uses the validated TOML and its package-relative CATALOG_PATH verbatim.
+		/// It reads no files, loads no translations and includes no FTL bytes. Configure
+		/// the application's AssetServer source to resolve that origin, or pass a custom
+		/// LocalizationManifest when runtime addresses differ from the build location.
 		pub fn manifest() -> __fluent_runtime::LocalizationManifest {
-			__fluent_runtime::LocalizationManifest::parse(CATALOG_CONFIG, CATALOG_ASSET_PATH)
+			__fluent_runtime::LocalizationManifest::parse(CATALOG_CONFIG, CATALOG_PATH)
 				.expect("build-validated localization manifest")
 		}
 	}

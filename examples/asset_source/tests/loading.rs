@@ -162,7 +162,10 @@ fn missing_source_data_at_start_can_be_installed_and_explicitly_retried() {
 	application::wait_for_load(&mut app);
 	assert_eq!(app.world().resource::<Outcomes>().rejected.len(), 2);
 	assert!(!app.world().contains_resource::<texts::ui::Hud>());
-	files.insert_asset_text(Path::new(texts::CATALOG_ASSET_PATH), texts::CATALOG_CONFIG);
+	files.insert_asset_text(
+		Path::new("localizations/localization.toml"),
+		texts::CATALOG_CONFIG,
+	);
 
 	for (locale, path, source) in texts::embed_manifest!().embedded_modules().unwrap() {
 		files.insert_asset_text(
@@ -192,7 +195,7 @@ fn source_contract_is_not_reread_and_module_io_failures_preserve_last_good_value
 	files.insert_asset_text(Path::new(HUD), "title = Last good HUD\n");
 	let mut app = app(files.clone());
 	application::wait_for_load(&mut app);
-	files.insert_asset_text(Path::new(texts::CATALOG_ASSET_PATH), "invalid TOML");
+	files.insert_asset_text(Path::new("localizations/localization.toml"), "invalid TOML");
 	reload(&mut app);
 	assert!(app.world().resource::<Outcomes>().rejected.is_empty());
 	assert_eq!(
@@ -200,7 +203,10 @@ fn source_contract_is_not_reread_and_module_io_failures_preserve_last_good_value
 		"Last good HUD"
 	);
 
-	files.insert_asset_text(Path::new(texts::CATALOG_ASSET_PATH), texts::CATALOG_CONFIG);
+	files.insert_asset_text(
+		Path::new("localizations/localization.toml"),
+		texts::CATALOG_CONFIG,
+	);
 	files.remove_asset(Path::new(PANEL));
 	reload(&mut app);
 	assert_eq!(
