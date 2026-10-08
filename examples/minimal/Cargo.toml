@@ -9,8 +9,7 @@ license = "MIT"
 publish = false
 
 [package.metadata.localization]
-asset-root = "assets"
-catalog = "localizations/localization.toml"
+catalog = "assets/localizations/localization.toml"
 
 [dependencies]
 localization_runtime = { package = "bevy_fluent_typed", path = "../..", features = ["watch", "codegen"] }

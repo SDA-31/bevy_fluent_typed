@@ -1,10 +1,10 @@
-# Adopt resource waiting in 0.2.1
+# Adopt native resource waiting
 
 Use native required resources with registration helpers that infer catalog
 readiness. Existing manual conditions and explicit Lazy requests keep working.
-Update both normal and build dependencies on `bevy_fluent_typed` to `0.2.1`.
-The runtime integrates the Bevy build adapter and uses generator 0.2.1; no generated
-schema or manifest changes are required.
+Use matching 0.2.2 facade dependencies. For catalog path and embedding changes,
+follow the [0.2.2 migration](migration-0.2.2.md); the scheduling helpers below retain
+their existing behavior.
 
 ## Use the build-configured file manifest
 

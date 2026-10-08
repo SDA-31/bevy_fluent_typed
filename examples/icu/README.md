@@ -12,9 +12,9 @@ dependency here only**, not a direct dependency or feature of the runtime or gen
 
 From a checkout of this repository:
 
-These commands build this checkout and resolve generator 0.2.1 from crates.io.
-For local generator development, use the [local generator patch](../../docs/build.md#work-on-local-checkouts).
-For a new application, follow the [root quickstart](../../README.md#setup).
+These commands use generator 0.2.2 from the registry. When editing both libraries,
+configure the [local generator override](../../docs/build.md#work-on-local-checkouts).
+For a new application using this API, follow the [root quickstart](../../README.md#setup).
 
 ```sh
 cargo run --manifest-path examples/icu/Cargo.toml
@@ -24,7 +24,7 @@ cargo test --manifest-path examples/icu/Cargo.toml
 Use `--locked --offline` after the initial dependency resolution. In the enclosing
 development workspace the package is named `localization-icu-example`.
 Repository-local paths in Cargo.toml test this checkout; external applications
-use the runtime's [registry setup](../../README.md#setup).
+use the runtime's [application setup](../../README.md#setup).
 The build script explicitly calls `bevy_fluent_typed::build()`.
 
 Assets are ordinary modular FTL under

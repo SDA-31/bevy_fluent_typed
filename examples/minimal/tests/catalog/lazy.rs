@@ -10,7 +10,7 @@ fn app() -> App {
 	app.add_plugins((
 		MinimalPlugins,
 		AssetPlugin::default(),
-		LocalizationPlugin::<Translations, Lazy>::new(texts::embed_manifest!()),
+		LocalizationPlugin::<Translations, Lazy>::new(super::EMBEDDED),
 	));
 	app.finish();
 	app.cleanup();
@@ -19,13 +19,13 @@ fn app() -> App {
 
 #[test]
 fn lazy_plugin_loads_from_a_typed_leaf_only_embedded_manifest() {
+	texts::embed_manifest! { const HUD = presentation::Hud; }
+
 	let mut app = App::new();
 	app.add_plugins((
 		MinimalPlugins,
 		AssetPlugin::default(),
-		LocalizationPlugin::<Translations, Lazy>::new(texts::embed_manifest!(
-			module = texts::presentation::Hud
-		)),
+		LocalizationPlugin::<Translations, Lazy>::new(HUD),
 	));
 	app.finish();
 	app.cleanup();
@@ -83,7 +83,7 @@ fn settled_full_empty_lazy_and_partial_lazy_controllers_remain_unchanged() {
 	full.add_plugins((
 		MinimalPlugins,
 		AssetPlugin::default(),
-		LocalizationPlugin::<Translations>::new(texts::embed_manifest!()),
+		LocalizationPlugin::<Translations>::new(super::EMBEDDED),
 	));
 	full.finish();
 	full.cleanup();

@@ -52,7 +52,10 @@ Replace `main` with this version:
 ```rust,ignore
 fn main() {
     App::new()
-        .add_plugins(DefaultPlugins)
+        .add_plugins(DefaultPlugins.set(bevy::asset::AssetPlugin {
+            file_path: ".".into(),
+            ..default()
+        }))
         .add_plugins(LocalizationPlugin::<texts::Translations, Lazy>::new(texts::manifest()))
         .add_systems(Startup, request_hud)
         .add_localized_startup_systems(show_title)
@@ -79,10 +82,54 @@ that load, then the plugin publishes its typed resource. Both Full and Lazy use
 Bevy's asynchronous loading; Lazy lets the application choose which scopes to
 request and retain. No additional parsing is deferred until accessor use.
 
-To embed only the HUD, replace `texts::manifest()` with
-`texts::embed_manifest!(module = texts::presentation::Hud)` and keep the request.
+Use the same 0.2.2 facade in both normal and build dependencies for this recipe.
+Then embed only the HUD by declaring its source next to `translations!`:
+
+```rust,ignore
+texts::embed_manifest! {
+    const HUD = presentation::Hud;
+}
+```
+
+Pass `HUD` in place of `texts::manifest()` and keep the request.
 Embedding selects raw bytes in the binary; Lazy requests select what gets parsed.
-Use `texts::embed_manifest!()` to include the pause screen for the next section too.
+Use `const ALL = Translations;` and pass `ALL` to include the pause screen too.
+The existing expression form `texts::embed_manifest!()` also includes the whole tree.
+
+### Export an embedded source from a private module
+
+The source constant has type `LocalizationManifest`. Export it alongside ordinary
+catalog aliases; the generated module can stay private:
+
+```rust,ignore
+mod localization {
+    bevy_fluent_typed::translations!(mod texts);
+
+    pub use texts::presentation::Hud as Interface;
+    pub use texts::Translations;
+
+    texts::embed_manifest! {
+        pub const HUD = presentation::Hud;
+    }
+}
+```
+
+Consumers use the exported types and constant directly:
+
+```rust,ignore
+use localization::{HUD, Interface, Translations};
+
+// During plugin setup:
+app.add_plugins(LocalizationPlugin::<Translations, Lazy>::new(HUD));
+```
+
+Request `localization.load::<Interface>()` through `ResMut<Localization<Translations, Lazy>>`
+and register consumers with `add_localized_systems` and `Res<Interface>`.
+`Interface` names the catalog resource; `HUD` describes its embedded source.
+The macro's selectors always use the original relative schema names. Multiple
+constants, visibility and per-declaration `#[cfg(...)]` attributes are supported.
+A constant includes bytes but does not parse a Fluent catalog. Source bytes stay
+static after `unload`; parsed catalogs follow the usual resource lifetime.
 
 ## Load and release a screen
 
@@ -148,6 +195,10 @@ In Lazy mode, keep the explicit `load::<Scope>()` and `unload::<Scope>()` calls:
 registering a system does not request or retain a module. Keep the loading
 request active for as long as that screen needs its translations. Full mode
 keeps all modules of the selected language loaded automatically.
+
+For systems that must also run while a catalog is absent, such as UI cleanup,
+Bevy's `Option<Res<Scope>>` remains available. That optional parameter neither
+waits for the catalog nor requests or retains it.
 
 Functions and tuples are supported; tuple members wait independently. To add
 normal Bevy scheduling configuration, wrap functions before configuring them:
@@ -397,7 +448,7 @@ For Bevy 0.19, the minimal dependency is:
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.2.1", default-features = false, features = ["bevy-0-19"] }
+bevy_fluent_typed = { version = "0.2.2", default-features = false, features = ["bevy-0-19"] }
 ```
 
 There is no build-dependency, `build.rs`, `translations!`, TOML manifest or
@@ -439,7 +490,7 @@ The console event loop and asset root:
 
 ```rust,ignore
 fn main() -> AppExit {
-    let assets = Path::new(env!("CARGO_MANIFEST_DIR")).join(texts::ASSET_ROOT);
+    let assets = Path::new(env!("CARGO_MANIFEST_DIR"));
 
     App::new()
         .add_plugins((
@@ -484,7 +535,7 @@ asset configuration and event loop, as in the quickstart.
 
 ## Migration from registry 0.1.3
 
-Follow the [migration guide to 0.2.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) for dependency updates, before/after
+Follow the [migration guide to 0.2.2](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) for dependency updates, before/after
 initialization, readiness handling, optional Lazy adoption and handwritten providers.
 The shortest upgrade keeps Full mode and existing typed message calls.
 

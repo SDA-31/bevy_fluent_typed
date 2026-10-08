@@ -5,7 +5,7 @@ For a complete Cargo.toml, files and application, follow the
 This section explains the optional custom build entrypoints.
 
 The `build` feature exposes `build()`, `from_cargo()`, `generate()` and
-`Settings` through the same crate used by the application. Its private build
+`Settings` and `BuildError` through the same crate used by the application. Its private build
 module emits the Bevy provider; no separate bridge package is needed.
 Discovery and the typed module tree come from
 [fluent_typed_codegen](https://docs.rs/fluent_typed_codegen/); message accessors
@@ -29,6 +29,27 @@ under `OUT_DIR`; macro expansion never runs the generator or writes files.
 For custom diagnostics use `from_cargo()` and handle its error; for explicit
 package/output paths use `generate()` with `Settings`. Do not ignore generation
 failures or compile stale output after an error.
+
+```no_run
+fn main() -> Result<(), bevy_fluent_typed::BuildError> {
+    bevy_fluent_typed::from_cargo()
+}
+```
+
+Both `from_cargo()` and `generate()` return the generator's `BuildError`,
+re-exported by this facade. Match `BuildError::Io` for the operation, filesystem
+path and original I/O error; `BuildError::Config` preserves the typed configuration
+cause and available filename. Module differences expose sorted missing/extra
+paths, and upstream failures keep their original typed error. All variants print
+readable diagnostics with `Display` and expose their original causes through
+`std::error::Error::source()` where applicable.
+
+`Settings::from_manifest` and `CatalogConfig::parse` return `ConfigError`;
+`LocalizationManifest` wraps configuration failures in `ManifestError::Config`.
+Use `ConfigField`, `FieldError` and `PathError` for matching invalid known fields
+or paths; unknown configuration fields remain ignored. Runtime-only consumers
+without `manifest` or `codegen` still have no generator dependency. Build-only
+errors are available only with `build`; they do not enable an engine backend.
 
 Cargo feature forwarding such as `bevy_fluent_typed/bevy-0-17` can enable a feature
 on both dependency kinds when they share a name. Select the backend directly in
@@ -59,18 +80,28 @@ Disabling only `codegen` leaves the default `manifest` feature enabled. Use
 
 ## Manifest configuration
 
-`[package.metadata.localization]` selects the build-time `asset-root` and the
-manifest's asset-relative `catalog` path. The manifest selects `source-language`,
+`[package.metadata.localization]` contains only `catalog`, the TOML file path
+relative to the consuming package's `Cargo.toml`. Parent components (`..`) may
+locate shared translation sources. The manifest selects `source-language`,
 `default-language` and the optional `translations-directory` (default `"."`).
 `languages-directory` is the legacy alias; do not specify both directory names.
-Languages are discovered from directories; keep their module/message contracts
+Unknown fields in Cargo metadata and the TOML manifest are ignored; recognized
+fields are validated. Languages are discovered from directories; keep their module/message contracts
 in sync. Typed annotations belong to the source language.
 
-The generated `CATALOG_CONFIG` contains the TOML contract, and `CATALOG_ASSET_PATH`
-is its build-time asset address. Reusing them at runtime is convenient, but
-optional: the application can pass another compatible source contract and choose
-another asset root. No generated FTL payload is embedded unless the application
-explicitly invokes `embed_manifest!()`.
+The generated `CATALOG_CONFIG` contains the TOML contract, and `CATALOG_PATH`
+is its package-relative build location. The generator does not select a Bevy
+asset root or rewrite this path into an asset address. `texts::manifest()` keeps
+that origin verbatim. The application must configure a source that resolves it,
+or create a `LocalizationManifest` with a different runtime origin. For example,
+with the standard Bevy `assets` root, use `LocalizationManifest::parse(
+texts::CATALOG_CONFIG, "localizations/localization.toml")`.
+
+No generated FTL payload is embedded unless the application
+explicitly invokes `embed_manifest!`, including a declaration such as
+`texts::embed_manifest! { const HUD = presentation::Hud; }`.
+The Bevy facade re-exports the same `LocalizationManifest` type used by the
+generator; declared constants require no additional import, adapter or conversion.
 
 ## Work on local checkouts
 
@@ -92,10 +123,25 @@ fluent_typed_codegen = { path = "/absolute/path/to/fluent_typed_codegen" }
 
 The runtime checkout contains the Bevy build adapter. Put the patch in the
 workspace root when the consumer belongs to a workspace. This is development
-wiring; normal released consumers use the registry quickstart.
+wiring; normal applications use the registry dependencies in Setup.
 
-For repository examples using a local generator, provide this same
-patch on the command line (replace the path with your generator checkout):
+The runtime requires generator 0.2.2 for its current generated contract. For local
+changes in both libraries, select the matching generator checkout; cloning the
+two repositories does not apply this override automatically.
+
+For repeated example runs, add this to `.cargo/config.toml` at the runtime
+repository root, preserving any existing settings:
+
+```toml
+[patch.crates-io]
+fluent_typed_codegen = { path = "/absolute/path/to/fluent_typed_codegen" }
+```
+
+This local configuration applies the override to the commands in the example
+READMEs. Keep it out of commits. If your enclosing workspace already supplies
+the matching patch, no additional configuration is needed.
+
+For a single command, provide the same patch on the command line instead:
 
 ```sh
 cargo run --manifest-path examples/codegen/Cargo.toml --config 'patch.crates-io.fluent_typed_codegen.path="/absolute/path/to/fluent_typed_codegen"'

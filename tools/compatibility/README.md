@@ -55,8 +55,10 @@ cargo run -p bevy-fluent-compatibility -- \
 ```
 
 The generator path is explicit; no sibling checkout convention is assumed.
-Runtime 0.2.1 requires generator 0.2.1; supply that generator
-checkout. The matrix also verifies native-resource readiness and deferred setup.
+Supply a generator checkout matching the runtime's generated API, including
+constant manifests; the package version alone does not identify development
+revisions. See the [local checkout setup](../../docs/build.md#work-on-local-checkouts).
+The matrix also verifies native-resource readiness and deferred setup.
 The 0.16 backend starts at 0.16.1. The earlier 0.16.0 `bevy_color` package is
 yanked and cannot be selected by a fresh exact-release fixture.
 The 0.16.1 family pins `bevy_color` to 0.16.2 because that is the published

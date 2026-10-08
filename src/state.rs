@@ -103,7 +103,8 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	}
 
 	/// Select a locale while retaining logical scope requests.
-	/// Previous-language snapshots are removed at the next publication boundary.
+	/// When the locale changes, controller snapshots clear immediately.
+	/// Published scope resources synchronize at the next publication boundary.
 	///
 	/// # Panics
 	/// Panics if the locale is not declared by the provider.

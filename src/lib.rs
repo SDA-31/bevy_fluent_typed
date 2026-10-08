@@ -88,7 +88,10 @@ pub use generation::{build, from_cargo, generate};
 
 /// Generator settings for explicit build frontends.
 #[cfg(feature = "build")]
-pub use fluent_typed_codegen::Settings;
+pub use fluent_typed_codegen::{
+	BuildError, IoOperation, ModuleMismatch, NameError, NameOwner, SchemaError, Settings,
+	SyntaxNode, UpstreamShapeError,
+};
 
 /// Parser used by generated validation contracts.
 #[cfg(feature = "codegen")]
@@ -101,7 +104,11 @@ pub use catalog::{FluentCatalog, FluentScope, Module};
 #[doc(hidden)]
 pub use fluent_typed_codegen as __fluent_codegen;
 #[cfg(feature = "manifest")]
-pub use fluent_typed_codegen::{CatalogConfig, LocalizationManifest, ManifestError};
+pub use fluent_typed_codegen::{LocalizationManifest, ManifestError};
+
+/// Typed configuration failures shared by manifest parsing and host generation.
+#[cfg(any(feature = "manifest", feature = "build"))]
+pub use fluent_typed_codegen::{CatalogConfig, ConfigError, ConfigField, FieldError, PathError};
 #[cfg(feature = "runtime")]
 pub use message::{CatalogUpdate, CatalogUpdateReader, LocalizedText, Message, ReloadCatalogs};
 #[cfg(feature = "runtime")]

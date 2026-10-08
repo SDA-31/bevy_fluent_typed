@@ -3,6 +3,10 @@ localization_runtime::translations!(pub mod texts);
 use localization_runtime::{FluentCatalog, Localization, LocalizationManifest, Message};
 use texts::{Locale, Translations};
 
+texts::embed_manifest! {
+	const EMBEDDED = Translations;
+}
+
 #[path = "catalog/contracts.rs"]
 mod contracts;
 #[path = "catalog/lazy.rs"]
@@ -17,7 +21,7 @@ mod reload;
 mod resources;
 
 fn modules(locale: Locale) -> Vec<(&'static str, &'static str)> {
-	texts::embed_manifest!()
+	EMBEDDED
 		.embedded_modules()
 		.unwrap()
 		.iter()
@@ -27,7 +31,7 @@ fn modules(locale: Locale) -> Vec<(&'static str, &'static str)> {
 }
 
 fn load(locale: Locale) -> Translations {
-	Translations::from_manifest(locale, &texts::embed_manifest!()).unwrap()
+	Translations::from_manifest(locale, &EMBEDDED).unwrap()
 }
 
 fn newline_variants(source: &str) -> [String; 2] {
@@ -84,10 +88,9 @@ fn example_starts_in_english_and_discovers_all_three_languages() {
 
 #[test]
 fn example_paths_come_from_its_generated_configuration() {
-	assert_eq!(crate::texts::ASSET_ROOT, "assets");
 	assert_eq!(
-		crate::texts::CATALOG_ASSET_PATH,
-		"localizations/localization.toml"
+		crate::texts::CATALOG_PATH,
+		"assets/localizations/localization.toml"
 	);
 	assert_eq!(
 		LocalizationManifest::parse(crate::texts::CATALOG_CONFIG, "localizations/catalog.toml")

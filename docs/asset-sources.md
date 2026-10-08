@@ -2,7 +2,9 @@
 
 The quickstart uses `texts::manifest()` for the file-source contract prepared by
 the build configuration. To keep the same schema with different runtime storage,
-construct the contract explicitly as below. The origin is a Bevy asset address;
+construct the contract explicitly as below. The generated helper retains the
+build-time `CATALOG_PATH`; it does not infer a Bevy source root. In the explicit
+contract below, the application supplies a Bevy asset address as the origin;
 `AssetPlugin` owns the asset root. `LocalizationManifest::from_file(path)` instead
 reads TOML through the native filesystem, so its origin is not automatically a
 Bevy-relative address.

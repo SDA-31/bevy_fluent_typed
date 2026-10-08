@@ -9,9 +9,9 @@ or GPU. English, Spanish and Russian catalogs are included.
 
 From this repository:
 
-These commands build this checkout and resolve generator 0.2.1 from crates.io.
-For local generator development, use the [local generator patch](../../docs/build.md#work-on-local-checkouts).
-For a new application, follow the [root quickstart](../../README.md#setup).
+These commands use generator 0.2.2 from the registry. When editing both libraries,
+configure the [local generator override](../../docs/build.md#work-on-local-checkouts).
+For a new application using this API, follow the [root quickstart](../../README.md#setup).
 
 ```sh
 cargo run --manifest-path examples/minimal/Cargo.toml
@@ -53,19 +53,20 @@ the example's files.
 `codegen` and `watch`; the same crate's build-dependency disables defaults and
 enables only `build`. The build adapter lives inside the public crate. This public build
 facade is available since 0.1.1. Repository-local paths test this checkout;
-external applications use the [registry setup](../../README.md#setup).
+external applications use the [application setup](../../README.md#setup).
 
 The normal dependency selects Bevy 0.19 by default. To use 0.16, 0.17 or 0.18,
 disable its defaults and select the corresponding backend feature; leave the
 build-dependency unchanged. Compatible patches are accepted, starting at 0.16.1
 for the oldest backend and .0 for the others.
 
-Cargo metadata selects `asset-root = "assets"` and
-`catalog = "localizations/localization.toml"`. That TOML selects
+Cargo metadata selects `catalog = "assets/localizations/localization.toml"`
+relative to this package's `Cargo.toml`. That TOML selects
 `translations-directory = "translations"`; source and default languages are
 `en`. To watch another language, change `default-language` and rebuild.
 
-The example anchors its asset root to its own package for repeatable runs.
+The default binary sets the Bevy source root to its own package so the generated
+manifest origin resolves without rewriting. Embedded examples need no file root.
 A packaged application should choose its deployment root instead. These paths
 are example configuration, not fixed library conventions.
 

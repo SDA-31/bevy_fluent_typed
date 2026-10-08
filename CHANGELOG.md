@@ -5,6 +5,40 @@ Notable changes to the runtime (and its former companion bridge) are recorded he
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html);
 before 1.0, a minor release can introduce incompatible API changes.
 
+## [0.2.2] - 2026-10-06
+
+Runtime and its build adapter require generator 0.2.2. See the
+[migration from 0.2.1](docs/migration-0.2.2.md).
+
+### Added
+
+- Typed configuration and build errors re-exported from the generator by the
+  manifest/build facade, preserving original error causes and filesystem context.
+
+- Generated named embedded manifest constants, with relative schema selectors
+  and ordinary catalog/resource aliases preserved.
+
+### Changed
+
+- **Breaking:** `from_cargo()` and `generate()` return `BuildError`; configuration
+  parsing uses `ConfigError` and typed `ManifestError` variants. The standard
+  `build() -> ExitCode` setup and runtime catalog signatures remain unchanged.
+
+- **Breaking:** Cargo localization metadata uses a single package-relative
+  `catalog` path; the generator no longer configures an engine asset root.
+- **Breaking:** `texts::manifest()` retains generated `CATALOG_PATH` verbatim.
+  Applications configure AssetServer roots or supply an explicit runtime origin.
+- Unknown configuration fields are ignored while recognized fields are validated.
+- Quickstarts, loading guides and runnable examples use the same file/embedded
+  source contract and document engine roots separately from generation paths.
+
+### Removed
+
+- **Breaking:** generated `ASSET_ROOT` and `CATALOG_ASSET_PATH`;
+  use application-owned roots and `CATALOG_PATH` for build filesystem metadata.
+- **Breaking:** selector expression arguments to `embed_manifest!` and generated
+  leaf-name helper macros; use the empty invocation or named constant declarations.
+
 ## [0.2.1] - 2026-09-29
 
 Runtime 0.2.1 uses generator 0.2.1. Its Bevy build adapter is included in the
@@ -119,6 +153,7 @@ This documentation release changes no public runtime API or behavior.
 Bridge 0.1.3 changes only dependency minimums and documentation.
 Earlier releases predate this changelog; their source is retained in Git tags.
 
+[0.2.2]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.2.1...v0.2.2
 [0.2.1]: https://docs.rs/crate/bevy_fluent_typed/0.2.1
 [0.2.0]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.1.3...v0.2.0
 [0.1.3]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.1.2...v0.1.3

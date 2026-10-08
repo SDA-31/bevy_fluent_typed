@@ -52,7 +52,7 @@ fn generated_manifest_uses_build_configuration_without_loading_sources() {
 
 	assert_eq!(
 		manifest.file_path(),
-		Some(std::path::Path::new(fixture::texts::CATALOG_ASSET_PATH))
+		Some(std::path::Path::new(fixture::texts::CATALOG_PATH))
 	);
 	assert_eq!(
 		manifest.config().source_language,
@@ -70,12 +70,39 @@ fn generated_manifest_uses_build_configuration_without_loading_sources() {
 }
 
 #[test]
-fn typed_embedding_resolves_nested_modules_and_import_aliases() {
+fn generated_catalog_path_supports_native_file_loading() {
+	let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(fixture::texts::CATALOG_PATH);
+	let filesystem = LocalizationManifest::from_file(path).unwrap();
+	let bytes = filesystem.read("en", "presentation/hud.ftl").unwrap();
+	let hud = fixture::texts::presentation::Hud::new(fixture::texts::Locale::En, &bytes).unwrap();
+	assert_eq!(
+		hud.msg_title(),
+		super::load(crate::texts::Locale::En)
+			.presentation()
+			.hud()
+			.msg_title()
+	);
+}
+
+#[test]
+fn embedded_constants_select_scopes_and_preserve_catalog_aliases() {
 	use fixture::texts::presentation::Hud as FlightHud;
 
-	let selected = fixture::texts::embed_manifest!(module = FlightHud);
-	let direct = fixture::texts::embed_manifest!(module = fixture::texts::presentation::Hud);
-	assert_eq!(selected.embedded_modules(), direct.embedded_modules());
+	fixture::texts::embed_manifest! {
+		const SELECTED = presentation::Hud;
+		const GROUP = Presentation;
+		const COMPLETE = Translations;
+	}
+
+	let selected: LocalizationManifest = SELECTED;
+	let complete = fixture::texts::embed_manifest!();
+	let entries = complete.embedded_modules().unwrap();
+	let expected: Vec<_> = entries
+		.iter()
+		.copied()
+		.filter(|(_, path, _)| *path == "presentation/hud.ftl")
+		.collect();
+	assert_eq!(selected.embedded_modules().unwrap(), expected);
 	assert!(
 		selected
 			.embedded_modules()
@@ -86,7 +113,14 @@ fn typed_embedding_resolves_nested_modules_and_import_aliases() {
 	let hud = FlightHud::from_manifest(fixture::texts::Locale::En, &selected).unwrap();
 	assert_eq!(hud.msg_title(), "Flight HUD");
 
-	let group = fixture::texts::embed_manifest!(module = fixture::texts::Presentation);
+	let group: LocalizationManifest = GROUP;
+	let expected: Vec<_> = entries
+		.iter()
+		.copied()
+		.filter(|(_, path, _)| path.starts_with("presentation/"))
+		.collect();
+	assert_eq!(group.embedded_modules().unwrap(), expected);
+	assert_eq!(COMPLETE.embedded_modules(), complete.embedded_modules());
 	assert!(
 		group
 			.embedded_modules()
@@ -98,4 +132,90 @@ fn typed_embedding_resolves_nested_modules_and_import_aliases() {
 	fixture::texts::presentation::Panel::from_manifest(fixture::texts::Locale::En, &group).unwrap();
 	assert_eq!(group_hud.msg_title(), hud.msg_title());
 	assert!(group.read("en", "ui.ftl").is_err());
+}
+
+// The generated tree stays private; consumers only import the chosen application API.
+mod encapsulated {
+	localization_runtime::translations!(mod catalogs);
+
+	pub use catalogs::presentation::Hud as Interface;
+	pub use catalogs::{Locale, Translations};
+
+	catalogs::embed_manifest! {
+		pub const HUD = presentation::Hud;
+	}
+}
+
+#[test]
+fn exported_constant_and_catalog_alias_support_lazy_required_resources() {
+	use encapsulated::{HUD, Interface, Locale, Translations};
+	use localization_runtime::bevy::prelude::*;
+	use localization_runtime::{Lazy, Localization, LocalizationAppExt, LocalizationPlugin};
+	use std::sync::{
+		Arc,
+		atomic::{AtomicUsize, Ordering},
+	};
+
+	let invocations = Arc::new(AtomicUsize::new(0));
+	let observed = invocations.clone();
+	let manifest: LocalizationManifest = HUD;
+	assert!(
+		manifest
+			.embedded_modules()
+			.unwrap()
+			.iter()
+			.all(|(_, path, _)| *path == "presentation/hud.ftl")
+	);
+	let mut app = App::new();
+	app.add_plugins((
+		MinimalPlugins,
+		AssetPlugin::default(),
+		LocalizationPlugin::<Translations, Lazy>::new(HUD),
+	))
+	.add_localized_systems(Update, move |_: Res<Interface>| {
+		observed.fetch_add(1, Ordering::Relaxed);
+	});
+	app.finish();
+	app.cleanup();
+	app.update();
+	assert_eq!(invocations.load(Ordering::Relaxed), 0);
+	assert!(!app.world().contains_resource::<Interface>());
+
+	app.world_mut()
+		.resource_mut::<Localization<Translations, Lazy>>()
+		.load::<Interface>();
+	app.update();
+	assert_eq!(invocations.load(Ordering::Relaxed), 1);
+	assert_eq!(
+		app.world().resource::<Interface>().msg_title(),
+		"Flight HUD"
+	);
+	assert!(!app.world().contains_resource::<Translations>());
+
+	app.world_mut()
+		.resource_mut::<Localization<Translations, Lazy>>()
+		.set_locale(Locale::Es);
+	app.update();
+	assert_eq!(invocations.load(Ordering::Relaxed), 2);
+	assert_eq!(
+		app.world().resource::<Interface>().msg_title(),
+		"Panel de vuelo"
+	);
+
+	app.world_mut()
+		.resource_mut::<Localization<Translations, Lazy>>()
+		.unload::<Interface>();
+	app.update();
+	assert_eq!(invocations.load(Ordering::Relaxed), 2);
+	assert!(!app.world().contains_resource::<Interface>());
+
+	app.world_mut()
+		.resource_mut::<Localization<Translations, Lazy>>()
+		.load::<Interface>();
+	app.update();
+	assert_eq!(invocations.load(Ordering::Relaxed), 3);
+	assert_eq!(
+		app.world().resource::<Interface>().msg_title(),
+		"Panel de vuelo"
+	);
 }

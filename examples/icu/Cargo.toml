@@ -20,5 +20,4 @@ writeable = "0.6"
 bevy_fluent_typed = { path = "../..", default-features = false, features = ["build"] }
 
 [package.metadata.localization]
-asset-root = "assets"
-catalog = "localizations/localization.toml"
+catalog = "assets/localizations/localization.toml"
