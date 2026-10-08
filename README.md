@@ -17,6 +17,7 @@ Bevy's asset system or explicitly embed them.
 - [Quickstart: create a project](#setup)
 - [Add translations](#add-the-translations)
 - [Run the application](#run-a-complete-application)
+- [Comparison with bevy_fluent](#comparison-with-bevy_fluent)
 - [Embed translations](#explicit-embedding)
 - [Supported Bevy versions](#supported-engines)
 - [Full, Lazy and hybrid recipes](GUIDE.md)
@@ -131,6 +132,18 @@ The default **Full** mode keeps every module of the selected language loaded.
 `add_localized_startup_systems` runs `show_title` once its required `Res<Hud>` is
 ready; the rest of the application continues normally while it waits.
 See the [loading guide](GUIDE.md) for recurring systems and explicit Lazy requests.
+
+## Comparison with bevy_fluent
+
+[bevy_fluent](https://github.com/kgv/bevy_fluent/blob/main/doc/en-US.md) loads
+Fluent assets, looks up messages by string identifiers, and supports locale
+fallback chains. `bevy_fluent_typed` focuses on typed message access and arguments
+through [fluent-typed](https://github.com/human-solutions/fluent-typed), native
+`Res<Scope>` catalogs, and Full, Lazy or hybrid module loading. Its optional
+generator creates accessors in an explicit `build.rs` step and checks a shared
+message and argument contract across translations. Compatible translation text
+can reload at runtime; changes to the generated schema require rebuilding.
+This runtime does not provide automatic locale fallback.
 
 ## Explicit embedding
 
