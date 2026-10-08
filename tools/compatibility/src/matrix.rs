@@ -5,7 +5,7 @@ use std::{collections::BTreeSet, fs, path::Path};
 
 pub(crate) fn backend(version: &str) -> Result<String> {
 	// Git-only preview: other prereleases still require an explicit audit.
-	if version == "0.20.0-rc.1" {
+	if version == "0.20.0-rc.2" {
 		return Ok("bevy-0-20".into());
 	}
 
@@ -409,9 +409,15 @@ fn dependency_tree(
 mod tests {
 	#[test]
 	fn preview_backend_accepts_only_the_explicitly_pinned_rc() {
-		assert_eq!(super::backend("0.20.0-rc.1").unwrap(), "bevy-0-20");
+		assert_eq!(super::backend("0.20.0-rc.2").unwrap(), "bevy-0-20");
 
-		for version in ["0.20.0-rc.2", "0.20.0-dev", "0.20.0", "0.20.0-rc.1\n"] {
+		for version in [
+			"0.20.0-rc.1",
+			"0.20.0-rc.3",
+			"0.20.0-dev",
+			"0.20.0",
+			"0.20.0-rc.2\n",
+		] {
 			assert!(super::backend(version).is_err());
 		}
 	}

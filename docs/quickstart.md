@@ -186,6 +186,6 @@ for a minimal runtime and a handwritten provider.
 
 ## Bevy 0.20 preview
 
-For exactly Bevy 0.20.0-rc.1, use the Git dependencies and Rust 1.96+ described
+For exactly Bevy 0.20.0-rc.2, use the Git dependencies and Rust 1.96+ described
 in the [preview guide](https://github.com/SDA-31/bevy_fluent_typed/blob/compat/bevy-0.20/docs/compat-bevy-0.20.md).
 The registry setup above uses stable Bevy 0.19.

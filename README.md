@@ -173,13 +173,13 @@ a private localization module can export the manifest constant and its catalog t
 
 | Normal-dependency feature | Bevy release family |
 | --- | --- |
-| `bevy-0-20` (Git-only preview) | Exactly 0.20.0-rc.1; Rust 1.96+ |
+| `bevy-0-20` (Git-only preview) | Exactly 0.20.0-rc.2; Rust 1.96+ |
 | `bevy-0-19` (default) | 0.19.0 and compatible patches |
 | `bevy-0-18` | 0.18.0 and compatible patches |
 | `bevy-0-17` | 0.17.0 and compatible patches |
 | `bevy-0-16` | 0.16.1 and compatible patches |
 
-For Bevy 0.20.0-rc.1, follow the [Git dependency setup](docs/compat-bevy-0.20.md).
+For Bevy 0.20.0-rc.2, follow the [Git dependency setup](docs/compat-bevy-0.20.md).
 The badges and registry quickstart above describe the stable release.
 
 Select exactly one backend. For another backend, disable defaults on the normal

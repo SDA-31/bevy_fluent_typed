@@ -32,7 +32,7 @@ The `examples/asset_source` generated-resource example is additionally tested on
 0.19 and the pinned 0.20 RC, including its loading/recovery tests and executable.
 The runtime's virtual-source regression runs on every backend in this matrix.
 
-This Git-only branch also accepts exactly `0.20.0-rc.1`, not arbitrary prereleases
+This Git-only branch also accepts exactly `0.20.0-rc.2`, not arbitrary prereleases
 or stable 0.20. Run it with Rust 1.96+; see
 [preview policy and setup](../../docs/compat-bevy-0.20.md).
 

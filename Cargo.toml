@@ -40,4 +40,4 @@ bevy_0_17 = { package = "bevy", version = "0.17.0", optional = true, default-fea
 bevy_0_18 = { package = "bevy", version = "0.18.0", optional = true, default-features = false, features = ["std", "async_executor", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }
 bevy_0_19 = { package = "bevy", version = "0.19.0", optional = true, default-features = false, features = ["std", "async_executor", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }
 # Do not silently advance to another RC or the final release.
-bevy_0_20 = { package = "bevy", version = "=0.20.0-rc.1", optional = true, default-features = false, features = ["std", "async_executor", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }
+bevy_0_20 = { package = "bevy", version = "=0.20.0-rc.2", optional = true, default-features = false, features = ["std", "async_executor", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }

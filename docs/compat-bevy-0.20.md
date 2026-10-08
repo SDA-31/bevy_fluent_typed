@@ -2,7 +2,7 @@
 
 This is a **Git-only experiment**, not a crates.io release or a stable-support
 promise. The branch `compat/bevy-0.20` tracks one explicitly checked candidate:
-Bevy **0.20.0-rc.1**, requiring Rust **1.96 or newer**. Default features still
+Bevy **0.20.0-rc.2**, requiring Rust **1.96 or newer**. Default features still
 select stable Bevy 0.19; use `bevy-0-20` explicitly with defaults disabled.
 The branch includes the 0.2.2 loading API; publication is disabled.
 
@@ -27,7 +27,7 @@ backend. The build adapter is part of `bevy_fluent_typed` and uses the published
 `fluent_typed_codegen` 0.2.2. No bridge dependency or generator patch is needed.
 
 If the application also depends directly on Bevy, select exactly
-`version = "=0.20.0-rc.1"` with the application's own engine features. Do not
+`version = "=0.20.0-rc.2"` with the application's own engine features. Do not
 combine this backend with a stable Bevy version. For reproducible installation,
 replace `branch` with the same reviewed commit `rev` in both entries; a branch
 name can move. The lockfile records the chosen Git revision.
@@ -48,18 +48,18 @@ Run the same integration checks locally from this repository:
 cargo run --manifest-path tools/compatibility/Cargo.toml -- \
   --generator /absolute/path/to/fluent_typed_codegen \
   --target-dir /absolute/path/to/build-cache \
-  0.20.0-rc.1
+  0.20.0-rc.2
 ```
 
 The generator checkout must match the revision pinned by `.github/workflows/ci.yml`.
 The tool rejects unreviewed RCs, validates the exact engine release family and
 keeps its temporary fixtures and diagnostics. It does not alter application files.
 
-The existing annotated Git-only tag `bevy-0.20.0-rc.1` identifies the earlier
-verified checkpoint for this Bevy candidate. For the 0.2.2 API, use the
-current branch or pin a reviewed commit `rev` in both dependency sections.
-The existing preview and stable crate release tags remain unchanged by this
-branch update. Do not publish RC packages from this branch to crates.io.
+Use this branch or pin a reviewed commit `rev` in both dependency sections
+for RC.2. The earlier `bevy-0.20.0-rc.1` tag preserves the final RC.1 checkpoint
+with the 0.2.2 API; RC.1 is no longer a supported input on the current branch.
+Stable crate release tags remain fixed. Do not publish RC packages from this
+branch to crates.io.
 
 When stable Bevy 0.20 arrives, review the final dependency/API changes and run CI
 again before merging support into `main`. Publish only the subsequent stable
