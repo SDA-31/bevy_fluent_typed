@@ -9,10 +9,13 @@
 use crate::bevy::ecs::world::{FilteredResources, FilteredResourcesBuilder};
 use crate::bevy::prelude::*;
 use crate::catalog::SharedScope;
-use crate::{FluentCatalog, FluentScope, ModuleError, ModuleStatus, bindings};
+use crate::{
+	FluentCatalog, FluentScope, LoadingProgress, ModuleDiagnostic, ModuleError, ModuleStatus,
+	bindings,
+};
 use std::{
 	any::TypeId,
-	collections::{BTreeMap, HashMap},
+	collections::{BTreeMap, BTreeSet, HashMap},
 	sync::Arc,
 };
 
@@ -113,6 +116,54 @@ impl<C: FluentCatalog> ModuleStore<C> {
 		}
 
 		result
+	}
+
+	/// Inspect all unique leaves required by a scope without requesting or loading it.
+	///
+	/// The total includes unrequested leaves. Missing states are `Unloaded`, and an
+	/// empty scope has zero counts. Snapshot availability is counted independently
+	/// from the latest attempt, so failed reloads may remain usable. Inspection
+	/// allocates diagnostics only when called; no background tracking is installed.
+	pub fn progress<S: FluentScope<Catalog = C>>(&self) -> LoadingProgress<C::Locale> {
+		let paths: BTreeSet<_> = S::module_paths().iter().copied().collect();
+		let mut progress = LoadingProgress {
+			locale: self.locale,
+			total: paths.len(),
+			ready: 0,
+			loading: 0,
+			failed: 0,
+			unloaded: 0,
+			available: 0,
+			modules: Vec::with_capacity(paths.len()),
+		};
+
+		for path in paths {
+			let status = self
+				.states
+				.get(path)
+				.cloned()
+				.unwrap_or(ModuleStatus::Unloaded);
+			let usable = self
+				.leaves
+				.get(path)
+				.is_some_and(|id| self.values.contains_key(id));
+
+			match &status {
+				ModuleStatus::Ready => progress.ready += 1,
+				ModuleStatus::Loading => progress.loading += 1,
+				ModuleStatus::Failed(_) => progress.failed += 1,
+				ModuleStatus::Unloaded => progress.unloaded += 1,
+			}
+
+			progress.available += usize::from(usable);
+			progress.modules.push(ModuleDiagnostic {
+				path,
+				status,
+				usable,
+			});
+		}
+
+		progress
 	}
 
 	pub(crate) fn insert_leaf(&mut self, path: &'static str, value: SharedScope) {

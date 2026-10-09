@@ -70,6 +70,8 @@ mod mode;
 #[cfg(feature = "runtime")]
 mod plugin;
 #[cfg(feature = "runtime")]
+mod progress;
+#[cfg(feature = "runtime")]
 mod resources;
 #[cfg(feature = "runtime")]
 mod scope;
@@ -116,6 +118,8 @@ pub use message::{CatalogUpdate, CatalogUpdateReader, LocalizedText, Message, Re
 pub use mode::{Full, Lazy, LoadingMode};
 #[cfg(feature = "runtime")]
 pub use plugin::{LocalizationPlugin, LocalizationSystems};
+#[cfg(feature = "runtime")]
+pub use progress::{LoadingProgress, ModuleDiagnostic};
 #[cfg(feature = "runtime")]
 pub use scope::{ModuleStore, ScopeRegistration};
 #[cfg(feature = "runtime")]

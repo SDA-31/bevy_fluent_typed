@@ -4,7 +4,9 @@ use crate::assets::ModuleAsset;
 #[cfg(feature = "manifest")]
 use crate::bevy::prelude::Handle;
 use crate::bevy::{ecs as bevy_ecs, prelude::Resource, tasks::Task};
-use crate::{FluentCatalog, FluentScope, Full, Lazy, LoadingMode, ModuleStatus, ModuleStore};
+use crate::{
+	FluentCatalog, FluentScope, Full, Lazy, LoadingMode, LoadingProgress, ModuleStatus, ModuleStore,
+};
 use std::{
 	any::TypeId,
 	collections::{BTreeMap, BTreeSet, HashMap},
@@ -141,6 +143,12 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	/// Inspect the latest loading attempt across a scope's required leaves.
 	pub fn status<S: FluentScope<Catalog = C>>(&self) -> ModuleStatus {
 		self.store.status::<S>()
+	}
+
+	/// Inspect a scope's unique leaves, latest attempts and usable snapshots.
+	/// Includes unrequested leaves without starting I/O or changing logical demand.
+	pub fn progress<S: FluentScope<Catalog = C>>(&self) -> LoadingProgress<C::Locale> {
+		self.store.progress::<S>()
 	}
 
 	pub(crate) fn desired(&self) -> Arc<BTreeSet<&'static str>> {

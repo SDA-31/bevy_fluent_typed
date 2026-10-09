@@ -249,6 +249,22 @@ wait. An invalid same-language reload preserves the last good value, so its
 consumers can run while the latest attempt has status `Failed`. Repeating
 `load::<Scope>()` retries failed leaves.
 
+### Optional loading diagnostics
+
+Use `localization.progress::<Scope>()` to inspect a loading screen or report a
+partial group's state. The returned `LoadingProgress<Locale>` contains the
+selected locale, `total`, `ready`, `loading`, `failed`, `unloaded` and `available`
+leaf counts, plus sorted `modules` diagnostics with `path`, `status` and `usable`.
+The same query is available on `ModuleStore` through a handwritten provider's
+view. It neither requests modules nor starts I/O; diagnostics are built only
+when queried.
+
+`total` counts all unique leaves in the scope, including unrequested leaves.
+The four attempt counts sum to `total`; `available` counts usable snapshots
+separately, so a failed or loading reload may still contribute to it. Failed
+diagnostics retain the original error. Unknown states are `Unloaded`, and empty
+scopes return zero counts. These are module counts, not byte-download progress.
+
 ## Navigate from the root or a parent
 
 The controller's views work with a partially loaded tree:
