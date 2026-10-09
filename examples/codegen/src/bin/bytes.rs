@@ -1,6 +1,6 @@
 //! Generated accessors with application-supplied bytes; no runtime manifest.
 use bevy_fluent_typed::bevy::prelude::*;
-use bevy_fluent_typed::{Localization, LocalizationPlugin};
+use bevy_fluent_typed::{Localization, LocalizationPlugin, LocalizedText};
 
 bevy_fluent_typed::translations!(mod texts);
 
@@ -25,6 +25,10 @@ fn main() {
 	.expect("known locale/module keys");
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, plugin));
+	app.world_mut()
+		.spawn(LocalizedText::<texts::ui::Greeting>::new(|greeting| {
+			greeting.msg_hello()
+		}));
 	app.finish();
 	app.cleanup();
 

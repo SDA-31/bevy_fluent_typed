@@ -12,9 +12,11 @@ fn observe(hud: Res<texts::presentation::Hud>, mut observations: ResMut<Observat
 fn app() -> App {
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, AssetPlugin::default()))
-		.insert_resource(Localization::<Translations>::new(Locale::En))
+		.insert_resource(Localization::<Translations, localization_runtime::Full>::new(Locale::En))
 		.init_resource::<Observations>()
-		.add_plugins(LocalizationPlugin::<Translations>::new(super::EMBEDDED));
+		.add_plugins(
+			LocalizationPlugin::<Translations, localization_runtime::Full>::new(super::EMBEDDED),
+		);
 	app.finish();
 	app.cleanup();
 	app.update();
@@ -29,7 +31,7 @@ fn group_chain_and_direct_resources_share_data_after_update_and_after_switch() {
 	for &locale in Translations::locales() {
 		if locale != Locale::En {
 			app.world_mut()
-				.resource_mut::<Localization<Translations>>()
+				.resource_mut::<Localization<Translations, localization_runtime::Full>>()
 				.set_locale(locale);
 			app.update();
 		}
@@ -52,11 +54,11 @@ fn group_chain_and_direct_resources_share_data_after_update_and_after_switch() {
 	assert!(!app.world().resource::<Observations>().0.last().unwrap().1);
 	let unchanged_locale = app
 		.world()
-		.resource::<Localization<Translations>>()
+		.resource::<Localization<Translations, localization_runtime::Full>>()
 		.locale();
 
 	app.world_mut()
-		.resource_mut::<Localization<Translations>>()
+		.resource_mut::<Localization<Translations, localization_runtime::Full>>()
 		.set_locale(unchanged_locale);
 	app.update();
 	assert!(!app.world().resource::<Observations>().0.last().unwrap().1);
@@ -64,7 +66,7 @@ fn group_chain_and_direct_resources_share_data_after_update_and_after_switch() {
 
 #[test]
 fn an_update_language_change_is_published_before_post_update_consumers() {
-	fn switch(mut texts: ResMut<Localization<Translations>>) {
+	fn switch(mut texts: ResMut<Localization<Translations, localization_runtime::Full>>) {
 		texts.set_locale(Locale::Es);
 	}
 

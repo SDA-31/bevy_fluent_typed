@@ -59,6 +59,8 @@ mod bytes;
 mod catalog;
 #[cfg(feature = "runtime")]
 mod compatibility;
+#[cfg(feature = "runtime")]
+mod demand;
 #[cfg(feature = "build")]
 mod generation;
 #[cfg(feature = "runtime")]
@@ -113,7 +115,7 @@ pub use fluent_typed_codegen::{CatalogConfig, ConfigError, ConfigField, FieldErr
 #[cfg(feature = "runtime")]
 pub use message::{CatalogUpdate, CatalogUpdateReader, LocalizedText, Message, ReloadCatalogs};
 #[cfg(feature = "runtime")]
-pub use mode::{Full, Lazy, LoadingMode};
+pub use mode::{Auto, Full, Lazy, LoadingMode};
 #[cfg(feature = "runtime")]
 pub use plugin::{LocalizationPlugin, LocalizationSystems};
 #[cfg(feature = "runtime")]

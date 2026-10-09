@@ -55,11 +55,12 @@ The native `FromTemplate` implementation supplies Bevy's scene template;
 no `template(...)` callback or default localized message is needed. A scene
 that omits its message constructor returns an error rather than an empty binding.
 
-Scene construction needs no ready `Res<Interface>`. Full mode loads the module
-automatically. In Lazy mode, the screen owner still calls
-`localization.load::<Interface>()` and releases that request with
-`localization.unload::<Interface>()` when appropriate. Creating a scene or
-cloning a binding never requests translations.
+Scene construction needs no ready `Res<Interface>`. With default Auto, inserting
+the scene's `LocalizedText<Interface>` component requests and retains its scope.
+Removing the last binding releases its demand unless another binding or localized
+system still needs the module. Constructing a scene or cloning a binding before
+insertion is passive. Explicit Full loads every module; explicit Lazy still uses
+application-owned `load`/`unload` calls.
 
 ## Reuse a message or binding
 
@@ -86,7 +87,7 @@ Clone it first when several entities need it. Bevy 0.20 also accepts a component
 variable directly, such as `Text binding`; on 0.19 use the typed constructor above.
 `LocalizedText::clone()` shares its formatter and owned arguments through `Arc`.
 Each label follows the current catalog independently, including language changes
-and translation reloads. Unloading its scope clears its text until that scope
+and translation reloads. In explicit Lazy, unloading its scope clears its text until that scope
 is ready again. Replace a binding when its captured arguments change.
 
 ## Bevy 0.19 dependencies

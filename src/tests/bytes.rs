@@ -15,7 +15,7 @@ use std::{
 
 mod tree;
 
-fn pump(app: &mut App, ready: impl Fn(&World) -> bool) {
+pub(super) fn pump(app: &mut App, ready: impl Fn(&World) -> bool) {
 	let deadline = Instant::now() + Duration::from_secs(10);
 
 	loop {

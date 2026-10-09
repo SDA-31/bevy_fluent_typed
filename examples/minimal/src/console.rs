@@ -1,7 +1,7 @@
 //! Terminal-only runner for the external-load and live-edit demonstration.
 use crate::texts::{Locale, Translations};
 use localization_runtime::bevy::{ecs as bevy_ecs, prelude::*};
-use localization_runtime::{CatalogUpdate, CatalogUpdateReader, Localization};
+use localization_runtime::{CatalogUpdate, CatalogUpdateReader};
 use std::time::{Duration, Instant};
 
 // Bound failed external loads in one-shot mode; watch mode runs until interrupted.
@@ -34,12 +34,7 @@ pub(super) fn run_until_loaded(app: &mut App, label: Entity, watch: bool) -> Res
 				return Err("external catalogs failed; see diagnostic above".into());
 			}
 
-			if app
-				.world()
-				.resource::<Localization<Translations>>()
-				.catalog()
-				.is_some()
-			{
+			if app.world().contains_resource::<crate::texts::Ui>() {
 				break;
 			}
 

@@ -1,9 +1,9 @@
 //! Public mode selection and scheduling for independently loaded scopes.
 use crate::bevy::{ecs as bevy_ecs, prelude::*};
 use crate::{
-	FluentCatalog, Full, LoadingMode, Localization,
+	Auto, FluentCatalog, LoadingMode, Localization,
 	bytes::{self, ByteLoader, ByteSource},
-	compatibility,
+	compatibility, demand,
 	loading::reload_catalogs,
 	resources,
 	systems::CatalogReadiness,
@@ -43,10 +43,13 @@ enum Source<C: FluentCatalog> {
 /// Register loading and typed resources from a manifest or application-owned byte source.
 ///
 /// Manifest sources require AssetPlugin; byte sources need only MinimalPlugins.
-/// Full mode requests all modules of the selected locale;
-/// Lazy mode waits for explicit requests. Creating this value performs no I/O.
+/// Default Auto loads scopes used by inserted text bindings and required `Res`
+/// systems registered through localization helpers. Plain systems, optional
+/// resources and world inspection do not establish demand. Explicit Full requests
+/// every module; explicit Lazy waits for `load` calls. Creating this value
+/// performs no I/O.
 /// Only one plugin/controller mode may own a given root provider in an App.
-pub struct LocalizationPlugin<C: FluentCatalog, M: LoadingMode = Full> {
+pub struct LocalizationPlugin<C: FluentCatalog, M: LoadingMode = Auto> {
 	source: Source<C>,
 	marker: PhantomData<fn() -> (C, M)>,
 }
@@ -67,7 +70,8 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 		}
 	}
 
-	/// Retain readable module bytes, parsing only the modules requested by Full/Lazy.
+	/// Retain readable module bytes, parsing only modules requested by the loading mode.
+	/// Default Auto waits for inserted bindings or localized required-resource systems.
 	/// Each tuple contains a compiled locale, a logical leaf path (e.g. `Hud::PATH`)
 	/// and owned bytes. The provider's default locale is selected initially.
 	/// Missing modules fail when requested. Retained buffers survive `unload`;
@@ -137,7 +141,7 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 }
 
 #[cfg(feature = "manifest")]
-impl<C: FluentCatalog> LocalizationPlugin<C, Full> {
+impl<C: FluentCatalog> LocalizationPlugin<C, Auto> {
 	/// Short form of `LocalizationPlugin::<C, Lazy>::new(manifest)`.
 	pub fn new_lazy(manifest: LocalizationManifest) -> LocalizationPlugin<C, Lazy> {
 		LocalizationPlugin::new(manifest)
@@ -171,7 +175,7 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 
 		for scope in C::scopes() {
 			CatalogReadiness::register::<C, M>(app.world_mut(), &scope);
-			(scope.bindings)(app);
+			(scope.bindings)(app, M::AUTOMATIC);
 		}
 
 		match &self.source {
@@ -186,6 +190,7 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 				.add_systems(
 					PreUpdate,
 					(
+						demand::synchronize::<C, M>,
 						reload_catalogs::<C, M>,
 						bytes::reconcile::<C, M>,
 						resources::synchronize::<C, M>,
@@ -195,7 +200,11 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 				)
 				.add_systems(
 					PostUpdate,
-					(bytes::reconcile::<C, M>, resources::synchronize::<C, M>)
+					(
+						demand::synchronize::<C, M>,
+						bytes::reconcile::<C, M>,
+						resources::synchronize::<C, M>,
+					)
 						.chain()
 						.before(LocalizationSystems::Refresh),
 				);
@@ -225,6 +234,7 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 				app.add_systems(
 					PreUpdate,
 					(
+						demand::synchronize::<C, M>,
 						reload_catalogs::<C, M>,
 						report_failures::<C, M>,
 						reconcile::<C, M>,
@@ -235,7 +245,11 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 				)
 				.add_systems(
 					PostUpdate,
-					(reconcile::<C, M>, resources::synchronize::<C, M>)
+					(
+						demand::synchronize::<C, M>,
+						reconcile::<C, M>,
+						resources::synchronize::<C, M>,
+					)
 						.chain()
 						.before(LocalizationSystems::Refresh),
 				);

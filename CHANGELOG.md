@@ -24,6 +24,11 @@ remains `fluent_typed_codegen` 0.2.2.
 
 ### Changed
 
+- **Breaking:** plugin and controller loading default to `Auto` instead of
+  `Full`. Inserted text bindings and localized required-resource systems request
+  and retain only their scopes; without consumers, modules are not loaded.
+  Select explicit `Full` for eager loading or direct world polling, or retain
+  explicit `Lazy` for manual requests. See the [migration guide](docs/migration-0.3.md).
 - **Breaking:** default features select Bevy 0.20 instead of 0.19. Older
   applications disable defaults and select their backend explicitly.
 - **Breaking:** the Rust minimum is 1.97.1, matching stable Bevy 0.20. Runtime

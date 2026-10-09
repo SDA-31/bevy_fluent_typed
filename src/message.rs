@@ -57,14 +57,16 @@ impl<C: FluentScope> fmt::Debug for Message<C> {
 /// Bind an existing Bevy `Text` or `Text2d` to a leaf, group or root message.
 ///
 /// The plugin changes text in place when the catalog or binding changes. It does
-/// not spawn/despawn the entity or request a module. An unavailable scope clears
+/// not spawn/despawn the entity. In default Auto, inserting the component requests
+/// and retains its scope until removed; the last consumer releases demand.
+/// Explicit Lazy requires manual requests. An unavailable scope clears
 /// bound text until that scope becomes ready. Prefer the smallest scope the
 /// message needs, so unrelated modules do not delay it.
 /// Bound text contents are replaced, so keep editable drafts separate; this
 /// binding does not manage or preserve text-editor state.
 /// Cloning shares the formatter and its captured arguments, without capturing
-/// a catalog snapshot or requesting a module. Each inserted clone refreshes
-/// against the current catalog independently.
+/// a catalog snapshot. Creating or cloning an unattached binding is passive.
+/// Each inserted clone owns demand in Auto and refreshes independently.
 /// On Bevy 0.19/0.20, native BSN accepts `LocalizedText::<Scope>::new(...)`
 /// and `LocalizedText::<Scope>::from(...)` directly through `FromTemplate`.
 /// Number formatting belongs to the closure (see [`Message`]); shaping, visual

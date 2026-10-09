@@ -438,7 +438,7 @@ fn malformed_source_contract_is_rejected_without_panicking() {
 		app.add_plugins((
 			MinimalPlugins,
 			AssetPlugin::default(),
-			LocalizationPlugin::<TestCatalog>::new(contract),
+			LocalizationPlugin::<TestCatalog, crate::Full>::new(contract),
 		));
 		app.finish();
 		app.cleanup();
@@ -446,7 +446,7 @@ fn malformed_source_contract_is_rejected_without_panicking() {
 		assert!(!app.world().contains_resource::<TestCatalog>());
 		assert!(matches!(
 			app.world()
-				.resource::<Localization<TestCatalog>>()
+				.resource::<Localization<TestCatalog, crate::Full>>()
 				.status::<TestCatalog>(),
 			ModuleStatus::Failed(_)
 		));
@@ -537,10 +537,12 @@ fn manifest_startup_policy_selects_a_known_locale_and_schema_mismatch_rejects() 
 	app.add_plugins((
 		MinimalPlugins,
 		AssetPlugin::default(),
-		LocalizationPlugin::<TestCatalog>::new(source),
+		LocalizationPlugin::<TestCatalog, crate::Full>::new(source),
 	));
 	assert_eq!(
-		app.world().resource::<Localization<TestCatalog>>().locale(),
+		app.world()
+			.resource::<Localization<TestCatalog, crate::Full>>()
+			.locale(),
 		"es"
 	);
 	app.finish();
@@ -558,7 +560,7 @@ fn manifest_startup_policy_selects_a_known_locale_and_schema_mismatch_rejects() 
 	rejected.add_plugins((
 		MinimalPlugins,
 		AssetPlugin::default(),
-		LocalizationPlugin::<TestCatalog>::new(source),
+		LocalizationPlugin::<TestCatalog, crate::Full>::new(source),
 	));
 	rejected.finish();
 	rejected.cleanup();
@@ -567,7 +569,7 @@ fn manifest_startup_policy_selects_a_known_locale_and_schema_mismatch_rejects() 
 	assert!(matches!(
 		rejected
 			.world()
-			.resource::<Localization<TestCatalog>>()
+			.resource::<Localization<TestCatalog, crate::Full>>()
 			.status::<TestCatalog>(),
 		ModuleStatus::Failed(_)
 	));

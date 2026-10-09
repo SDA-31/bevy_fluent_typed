@@ -2,12 +2,13 @@
 
 Start with the [complete quickstart](README.md#setup), including its
 dependencies, build script and first FTL file. The snippets below use those
-generated types and Bevy 0.19.
+generated types and Bevy 0.20.
 
 ## Contents
 
-- [Choose Full, Lazy or hybrid](#choose-what-stays-loaded)
-- [Complete Lazy application](#fully-lazy-complete-mainrs)
+- [Choose automatic or manual loading](#choose-what-stays-loaded)
+- [Automatic module lifetime](#automatic-module-lifetime)
+- [Manual Lazy loading](#manual-lazy-loading)
 - [Custom byte sources](#custom-byte-sources)
 - [Without code generation](#without-code-generation)
 - [Headless application](#headless-application)
@@ -27,12 +28,55 @@ leaves, or the whole `Translations` tree. Loading a scope requests all its leave
 
 | Need | Plugin/controller mode | Requests |
 | --- | --- | --- |
-| A small catalog, keep the selected language ready | `Full` (default) | All modules automatically |
-| Load screens or chapters only when needed | `Lazy` | Explicit `load` and `unload` |
-| Keep a HUD ready, release optional screens | `Lazy` | Keep the HUD request; add/remove others |
+| Load only modules used by text or resource systems | `Auto` (default) | Inserted bindings and localized systems own their scopes |
+| Keep the whole selected language ready, including direct world polling | `Full` | All modules automatically |
+| Manage loading explicitly, including hybrid lifetimes | `Lazy` | Explicit `load` and `unload` |
 
-“Hybrid” is a way of using Lazy, not another type. Reading an accessor or creating
-a text binding never loads data. Full has no `load` or `unload` methods.
+Use `LocalizationPlugin::<texts::Translations>::new(texts::manifest())` for the
+usual automatic path. With no consumers, no FTL modules are read or parsed.
+A scope requests complete FTL leaves, not individual messages. Creating an
+unattached `Message` or binding, inspecting the world, or navigating a controller
+view is passive. `Auto` and `Full` have no `load` or `unload` methods.
+
+## Automatic module lifetime
+
+Insert a binding and let the plugin manage its scope:
+
+```rust,ignore
+commands.spawn((
+    Text::default(),
+    LocalizedText::<texts::presentation::Hud>::new(|hud| hud.msg_title()),
+));
+```
+
+In `Auto`, every inserted `LocalizedText<Scope>` requests and retains its scope.
+Removing the last binding releases that demand. Other bindings and localized
+systems using overlapping scopes keep their required leaves loaded. No explicit
+screen-entry or screen-exit loading calls are needed for bound text.
+
+Register required resource systems with `add_localized_systems` or `localized`.
+They acquire scope ownership when Bevy initializes the system, then wait until
+its direct required `Res<Scope>` parameters are ready. Recurring systems retain
+ownership while their system state exists, including when `run_if` is false;
+a condition controls execution, not module lifetime. Remove the owning schedule
+or use entity-bound text for lifetime that follows a screen's entities.
+
+`add_localized_startup_systems` releases its temporary demand after the function
+body returns, including returned errors. Bindings inserted through deferred
+commands take over ownership before unneeded modules are released. A one-time
+read does not keep the catalog loaded afterward.
+
+Plain `app.add_systems(Update, function_with_res)` does not infer loading demand.
+Use the existing localization helper for automatic required-resource consumers.
+`Option<Res<Scope>>`, standalone messages, and `World::get_resource` inspection
+neither request nor retain a module. For an application that polls resources
+directly, select `LocalizationPlugin::<texts::Translations, Full>::new(manifest)`
+and use the matching `Localization<texts::Translations, Full>` controller type.
+
+After the last automatic consumer disappears, the plugin releases parsed
+snapshots and strong asset handles at synchronization. Bevy may retire assets
+on later updates. Application-owned clones may keep parsed data alive; embedded
+static bytes and buffers passed to `from_bytes` have their own source lifetime.
 
 The following examples add a pause screen and Spanish. Keep the quickstart's
 manifest and English HUD; add these files:
@@ -58,9 +102,11 @@ title = En pausa
 All languages have the same module/message contract. Rebuild to generate the
 new `texts::screens::Pause` type and `texts::Locale::Es` variant.
 
-## Fully Lazy: complete main.rs
+## Manual Lazy loading
 
+Use this advanced recipe only when the application owns explicit requests.
 Keep the quickstart's imports, `translations!` declaration and `show_title`.
+Unlike Auto, Lazy does not let bindings or localized systems request modules.
 Add the Lazy controller types:
 
 ```rust,ignore
@@ -96,15 +142,15 @@ fn request_hud(mut localization: ResMut<AppLocalization>) {
 This requests the HUD and prints `Ready` once it arrives. The pause module is
 not requested, read or parsed. The request stays active until you unload it.
 `LocalizationPlugin::<texts::Translations>::new_lazy(texts::manifest())` returns
-the same plugin type. Full and Lazy use the same `Res<texts::presentation::Hud>`.
+the same plugin type. All three modes use the same `Res<texts::presentation::Hud>`.
 
 With a file-backed manifest, `load::<Scope>()` starts the requested Bevy asset
 loads at synchronization. The AssetLoader reads and parses each module during
-that load, then the plugin publishes its typed resource. Both Full and Lazy use
+that load, then the plugin publishes its typed resource. All modes use
 Bevy's asynchronous loading; Lazy lets the application choose which scopes to
 request and retain. No additional parsing is deferred until accessor use.
 
-Use the same 0.2.2 facade in both normal and build dependencies for this recipe.
+Use the same 0.3.0 facade in both normal and build dependencies for this recipe.
 Then embed only the HUD by declaring its source next to `translations!`:
 
 ```rust,ignore
@@ -142,16 +188,16 @@ Consumers use the exported types and constant directly:
 use localization::{HUD, Interface, Translations};
 
 // During plugin setup:
-app.add_plugins(LocalizationPlugin::<Translations, Lazy>::new(HUD));
+app.add_plugins(LocalizationPlugin::<Translations>::new(HUD));
 ```
 
-Request `localization.load::<Interface>()` through `ResMut<Localization<Translations, Lazy>>`
-and register consumers with `add_localized_systems` and `Res<Interface>`.
+Insert `LocalizedText<Interface>` or register a direct `Res<Interface>` consumer
+with `add_localized_systems`; Auto requests its scope without manual calls.
 `Interface` names the catalog resource; `HUD` describes its embedded source.
 The macro's selectors always use the original relative schema names. Multiple
 constants, visibility and per-declaration `#[cfg(...)]` attributes are supported.
 A constant includes bytes but does not parse a Fluent catalog. Source bytes stay
-static after `unload`; parsed catalogs follow the usual resource lifetime.
+static after their last consumer disappears; parsed catalogs follow the usual resource lifetime.
 
 ## Load and release a screen
 
@@ -213,10 +259,14 @@ The library infers the required catalog types from direct `Res<Scope>` parameter
 Before loading, after unloading and during a locale transition, the system waits
 without blocking the frame. It resumes when its catalogs are ready. A complete
 parent waits for all its children; a HUD leaf does not wait for the pause module.
-In Lazy mode, keep the explicit `load::<Scope>()` and `unload::<Scope>()` calls:
-registering a system does not request or retain a module. Keep the loading
-request active for as long as that screen needs its translations. Full mode
+In Auto, the helper requests and retains the required scopes from system
+initialization until the system state is dropped. This applies even when an
+additional `run_if` is false. Explicit Lazy still needs `load`/`unload`; Full
 keeps all modules of the selected language loaded automatically.
+
+For systems that must also run while a catalog is absent, such as UI cleanup,
+Bevy's `Option<Res<Scope>>` remains available. That optional parameter neither
+waits for the catalog nor requests or retains it.
 
 Functions and tuples are supported; tuple members wait independently. To add
 normal Bevy scheduling configuration, wrap functions before configuring them:
@@ -238,8 +288,9 @@ fn setup_hud(mut commands: Commands, hud: Res<texts::presentation::Hud>) {
 ```
 
 This helper runs in `Update`, remembers actual invocation and applies normal
-Bevy deferred commands. It does not rerun after unloading or language changes;
-use `LocalizedText` for text that must stay live. A function returning an error
+Bevy deferred commands. In Auto it releases its temporary scope ownership after
+the body returns; inserted bindings retain their own demand. It does not rerun
+after unloading or language changes; use `LocalizedText` for text that must stay live. A function returning an error
 still counts as invoked, and Bevy handles that error normally. These functions
 have no ordering relationship with ordinary `Startup` systems beyond running
 later. Tuple members are independent. This helper wraps each function, so
@@ -249,8 +300,10 @@ Combine dependent initialization steps in one function, or use recurring
 
 Readiness inference supports direct native `Res<Scope>` parameters of functions
 and closures. Custom derived `SystemParam`s, `ParamSet` and nested parameter tuples
-are not inspected: expose each required catalog as a direct parameter or retain
-explicit conditions for those advanced forms. Apply configuration after
+are not inspected: expose each required catalog as a direct parameter. For
+advanced forms, manage demand with explicit Full/Lazy and provide readiness
+conditions separately. Install the localization plugin before the schedule is
+initialized so its catalog types are registered. Apply configuration after
 `localized`; already configured systems have erased their parameter types.
 Missing ordinary resources retain Bevy's normal validation behavior.
 
@@ -264,8 +317,9 @@ avoid silently losing an initialization step.
 Use `status::<Scope>()` to distinguish `Unloaded`, `Loading`, `Ready` and
 `Failed(error)`. A separate observer can report load errors while required systems
 wait. An invalid same-language reload preserves the last good value, so its
-consumers can run while the latest attempt has status `Failed`. Repeating
-`load::<Scope>()` retries failed leaves.
+consumers can run while the latest attempt has status `Failed`. Send
+`ReloadCatalogs` to retry requested leaves; in explicit Lazy, repeating
+`load::<Scope>()` also retries failed leaves.
 
 ## Navigate from the root or a parent
 
@@ -317,15 +371,18 @@ fn spawn_title(mut commands: Commands) {
 ```
 
 Register `spawn_title` in `Startup`; it is safe to create a binding before its
-module loads. Your application still requests the HUD and owns the usual Bevy
-UI/camera/font setup. Missing or unloaded resources clear bound text, and it
+module loads. In Auto, insertion requests the HUD and removal releases that
+binding's demand. Your application owns the usual Bevy UI/camera/font setup.
+Missing or unloaded resources clear bound text, and it
 refreshes when the resource becomes available. Bind to the smallest scope the
 message uses: a `LocalizedText<Translations>` would wait for the entire tree.
 
 Bindings can be cloned and used in native Bevy 0.19/0.20 scenes; see the
-[BSN recipe](docs/bsn.md) for the syntax of each backend.
+[BSN recipe](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bsn.md) for the syntax of each backend.
 
-For stored notices, use `Message<Scope>` and render only when its scope is ready:
+For stored notices, use `Message<Scope>` and render only when its scope is ready.
+A stored message does not establish demand until inserted as a `LocalizedText`
+binding; render it in a localized required-resource system when needed:
 
 ```rust,ignore
 use bevy_fluent_typed::Message;
@@ -345,7 +402,14 @@ formatting stays application-owned; see the ICU4X example.
 
 ## Change language and reload files
 
-For the quickstart's locales and Lazy type alias:
+For the quickstart's locales, use the matching default controller alias:
+
+```rust,ignore
+use bevy_fluent_typed::Localization;
+type AppLocalization = Localization<texts::Translations>;
+```
+
+Then select Spanish:
 
 ```rust,ignore
 fn select_spanish(mut localization: ResMut<AppLocalization>) {
@@ -359,7 +423,7 @@ Bindings update as their resources become ready. No old-language fallback is use
 For a different initial language, insert `AppLocalization::new(texts::Locale::Es)`
 before installing the plugin. Otherwise the manifest's default language is used.
 
-To retry all requested FTL files on Bevy 0.17–0.19:
+To retry all requested FTL files on Bevy 0.17–0.20:
 
 ```rust,ignore
 use bevy_fluent_typed::ReloadCatalogs;
@@ -407,20 +471,21 @@ a custom reader must supply coherent data as well.
 
 ## Custom byte sources
 
-For on-demand reading and unloading, use [Lazy loading](#fully-lazy-complete-mainrs)
-with Bevy's asset system. [Custom asset sources](docs/asset-sources.md) let the
+For on-demand reading and unloading, use [Auto](#automatic-module-lifetime)
+with Bevy's asset system, or [manual Lazy loading](#manual-lazy-loading). [Custom asset sources](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/asset-sources.md) let the
 application supply transport, decompression and caching through an `AssetReader`.
 
 `from_bytes` is for data the application has already obtained and intends to keep
 in memory. **The plugin retains all supplied buffers for later loads and language
-changes.** With `Lazy`, only parsing and resource creation wait for a request;
-`unload` releases unneeded parsed resources, but retains the input buffers.
+changes.** In Auto, only parsing and resource creation wait for consumers;
+removing consumers releases unneeded parsed resources, but retains input buffers.
+Explicit Lazy follows manual requests with the same buffer lifetime.
 
 Keep `codegen`, `build.rs` and `translations!`. Generated accessors work with
 these buffers too; only the plugin constructor changes. This path needs
 `MinimalPlugins` or `DefaultPlugins`, without `AssetPlugin`.
 
-For the guide's two English modules, read both files and use `Full` (the default):
+For the guide's two English modules, read both files and keep the default Auto:
 
 ```rust,ignore
 let hud = std::fs::read("assets/localizations/translations/en/presentation/hud.ftl")?;
@@ -432,17 +497,16 @@ let plugin = LocalizationPlugin::<texts::Translations>::from_bytes([
 app.add_plugins(plugin);
 ```
 
-`Full` automatically requests every module of the selected language. Keep the
-usual required `Res<texts::presentation::Hud>` systems and readiness helpers;
-no explicit `load` call is needed. Supply Spanish buffers too if the application
-will switch to Spanish.
+The usual inserted bindings and localized required `Res` systems request only
+the modules they need; no explicit `load` call is needed. Supply Spanish buffers
+too if the application will switch to Spanish.
 
 `from_bytes` accepts `(locale, leaf path, bytes)` tuples, checks their keys
 immediately, and validates FTL when a module is parsed. A missing buffer becomes
 `ModuleStatus::Failed` when requested. The provider's default locale is selected
 initially, unless a `Localization<C>` resource was inserted before the plugin.
 
-For a runnable complete example, see [generated bytes](examples/codegen/src/bin/bytes.rs):
+For a runnable complete example, see [generated bytes](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/codegen/src/bin/bytes.rs):
 
 ```sh
 cargo run --manifest-path examples/codegen/Cargo.toml --bin bytes
@@ -454,8 +518,8 @@ returning a future with owned readable bytes or an error. It runs the checked
 parser and drops the temporary input afterward. Application captures and caches
 can still retain data. The callback and parser run on Bevy's I/O task pool;
 futures must be nonblocking and any required executor integration is owned by
-the application. Reload notifications and failed `load::<Scope>()` retries use
-the same callback. This path has no AssetServer file watching; send
+the application. Reload notifications and explicit Lazy retries use the same
+callback. This path has no AssetServer file watching; send
 `ReloadCatalogs` after source changes. See `LocalizationPlugin::from_loader`
 for cancellation, scheduling and reload guarantees.
 
@@ -465,11 +529,11 @@ This is an advanced integration for applications supplying their own provider.
 Most applications should keep the generated API above, including when they
 provide their own bytes.
 
-For Bevy 0.19, the minimal dependency is:
+For Bevy 0.20, the minimal dependency is:
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.2.2", default-features = false, features = ["bevy-0-19"] }
+bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["bevy-0-20"] }
 ```
 
 There is no build-dependency, `build.rs`, `translations!`, TOML manifest or
@@ -477,14 +541,14 @@ There is no build-dependency, `build.rs`, `translations!`, TOML manifest or
 and `FluentScope`, register checked leaf parsers through `Module::new`, and pass
 bytes with `from_bytes` or `from_loader`. The application owns the locale/module
 schema, accessor API and validation. Bytes alone cannot create typed Rust methods.
-The plugin still manages Full/Lazy requests, typed resources, readiness, bindings,
-language changes, retries and unloading.
+The plugin still manages automatic consumers or explicit Full/Lazy requests,
+typed resources, readiness, bindings, language changes, retries and unloading.
 
-Follow the [complete handwritten example](examples/no_codegen) for these
+Follow the [complete handwritten example](https://github.com/SDA-31/bevy_fluent_typed/tree/main/examples/no_codegen) for these
 implementations. Add `manifest` if that provider needs the existing manifest/file
 constructors. `manifest` is enabled by default and by `codegen`; it uses the
 generator package's small runtime manifest API, without enabling generation.
-See the [feature table](docs/build.md#features) for host/target separation.
+See the [feature table](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/build.md#features) for host/target separation.
 
 ## Headless application
 
@@ -556,14 +620,16 @@ asset configuration and event loop, as in the quickstart.
 
 ## Migration from registry 0.1.3
 
-Follow the [migration guide to 0.2.2](docs/migration-0.2.md) for dependency updates, before/after
+Follow the [migration guide to 0.3.0](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) for dependency updates, before/after
 initialization, readiness handling, optional Lazy adoption and handwritten providers.
-The shortest upgrade keeps Full mode and existing typed message calls.
+The standard upgrade uses Auto with inserted bindings and localized systems;
+choose explicit Full to preserve eager loading or direct world polling.
 
 ## Compile-time mode boundaries
 
-`Full` and `Lazy` implement the sealed `LoadingMode` trait. The compiler rejects
-explicit requests on Full and scopes belonging to another root:
+`Auto`, `Full` and `Lazy` implement the sealed `LoadingMode` trait. Explicit
+requests exist only on Lazy. The compiler rejects requests on Full and scopes
+belonging to another root:
 
 ```compile_fail,E0599
 use bevy_fluent_typed::{FluentCatalog, Full, Localization};
@@ -594,6 +660,6 @@ impl LoadingMode for Other { const FULL: bool = false; }
 
 ## More recipes
 
-- [Custom sources](docs/asset-sources.md): supply files through your own reader.
-- [Decimal and percentage arguments](docs/formatting.md): reuse ICU4X formatters.
-- [Build API](docs/build.md): explicit generation and feature selection.
+- [Custom sources](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/asset-sources.md): supply files through your own reader.
+- [Decimal and percentage arguments](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/formatting.md): reuse ICU4X formatters.
+- [Build API](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/build.md): explicit generation and feature selection.

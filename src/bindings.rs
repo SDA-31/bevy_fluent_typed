@@ -3,6 +3,7 @@ use crate::bevy::{
 	ecs::{self as bevy_ecs, world::DeferredWorld},
 	prelude::*,
 };
+use crate::demand::{self, Consumer};
 use crate::{FluentScope, LocalizationSystems, LocalizedText, compatibility};
 use std::{
 	any::TypeId,
@@ -17,11 +18,13 @@ type WithoutTextTargets = (Without<Text>, Without<Text2d>);
 struct BindingEntry {
 	users: usize,
 	refresh: Refresh,
+	_consumer: Option<Arc<Consumer>>,
 }
 
 #[derive(Resource, Default)]
 struct BindingRegistry {
 	enabled: HashSet<TypeId>,
+	automatic: HashSet<TypeId>,
 	entries: HashMap<TypeId, BindingEntry>,
 	active: Arc<[Refresh]>,
 	dirty: bool,
@@ -42,7 +45,7 @@ impl BindingRegistry {
 #[derive(Resource)]
 struct Installed;
 
-pub(crate) fn register<S: FluentScope>(app: &mut App) {
+pub(crate) fn register<S: FluentScope>(app: &mut App, automatic: bool) {
 	if !app.world().contains_resource::<Installed>() {
 		app.insert_resource(Installed)
 			.init_resource::<BindingRegistry>()
@@ -55,11 +58,32 @@ pub(crate) fn register<S: FluentScope>(app: &mut App) {
 			);
 	}
 
-	let mut registry = app.world_mut().resource_mut::<BindingRegistry>();
 	let id = TypeId::of::<S>();
+	let world = app.world_mut();
+	let mut registry = world.resource_mut::<BindingRegistry>();
 
 	if registry.enabled.insert(id) && registry.entries.contains_key(&id) {
 		registry.dirty = true;
+	}
+
+	if automatic {
+		registry.automatic.insert(id);
+	}
+
+	let adopt = automatic
+		&& registry
+			.entries
+			.get(&id)
+			.is_some_and(|entry| entry._consumer.is_none());
+
+	if adopt {
+		let consumer = demand::acquire::<S>(world);
+		world
+			.resource_mut::<BindingRegistry>()
+			.entries
+			.get_mut(&id)
+			.unwrap()
+			._consumer = Some(consumer);
 	}
 }
 
@@ -68,14 +92,30 @@ pub(crate) fn added<S: FluentScope>(mut world: DeferredWorld, _: compatibility::
 	// immediate removal with a queued addition would leave a phantom binding.
 	world.commands().queue(|world: &mut World| {
 		world.init_resource::<BindingRegistry>();
+		let id = TypeId::of::<S>();
+
+		if !world
+			.resource::<BindingRegistry>()
+			.entries
+			.contains_key(&id)
+		{
+			let automatic = world.resource::<BindingRegistry>().automatic.contains(&id);
+			let consumer = automatic.then(|| demand::acquire::<S>(world));
+			world.resource_mut::<BindingRegistry>().entries.insert(
+				id,
+				BindingEntry {
+					users: 0,
+					refresh: refresh::<S>,
+					_consumer: consumer,
+				},
+			);
+		}
+
 		let mut registry = world.resource_mut::<BindingRegistry>();
 		let entry = registry
 			.entries
-			.entry(TypeId::of::<S>())
-			.or_insert(BindingEntry {
-				users: 0,
-				refresh: refresh::<S>,
-			});
+			.get_mut(&id)
+			.expect("registered binding consumer");
 		entry.users += 1;
 
 		if entry.users == 1 {

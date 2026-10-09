@@ -3,10 +3,11 @@
 This guide upgrades runtime 0.1.3 to 0.3.0.
 It includes the generated manifest helper and native required-resource waiting.
 
-Start with **Full**, the default mode. It keeps all modules of the selected
-language requested, so you can retain existing full-tree message closures.
-Unlike 0.1.3, resources are not ready immediately when the plugin is added.
-Adopt **Lazy** separately if you want explicit module lifetimes.
+Start with default **Auto**: inserted text bindings and localized systems request
+their scopes automatically. Existing full-tree bindings request the whole tree;
+prefer smaller scopes where appropriate. Resources become ready asynchronously.
+Select explicit **Full** for eager loading or direct world polling, or **Lazy**
+when the application must own requests manually.
 
 ## 1. Update the public facade
 
@@ -121,7 +122,8 @@ readiness follows the [publication schedule](../GUIDE.md#scheduling-and-reload-g
 
 ## 4. Keep existing messages, or narrow their scope
 
-Existing root-bound closures still work in Full mode:
+Existing root-bound closures still work: in Auto an inserted root binding
+requests the entire tree; explicit Full keeps it loaded independently of bindings:
 
 ```rust
 use bevy_fluent_typed::Message;
@@ -146,8 +148,9 @@ or an old scope snapshot. Typed message accessor signatures remain unchanged.
 
 ## 5. Optionally adopt Lazy
 
-Full is enough for the minimal migration. To request only selected modules,
-replace plugin construction with:
+Auto already requests only consumer scopes. Choose Lazy only to control requests
+explicitly; its bindings and waiting systems do not create demand. Replace plugin
+construction with:
 
 ```rust
 LocalizationPlugin::<texts::Translations>::new_lazy(manifest)
@@ -170,7 +173,8 @@ fn close_hud(mut localization: ResMut<Localization<texts::Translations, Lazy>>) 
 ```
 
 Schedule these on screen entry and exit, or request an always-needed scope in
-`Startup`. Reading a resource, navigation or a message does not request a module.
+`Startup`. In this explicit Lazy mode, resource systems, bindings, navigation and messages
+do not request modules automatically.
 Requests for a type are idempotent, not reference-counted: one unload releases
 all repeated loads of that same type. Independent parent/child requests can still
 keep a leaf loaded. Full has no `load` or `unload` methods.
@@ -178,7 +182,7 @@ keep a leaf loaded. Full has no `load` or `unload` methods.
 Lazy also works with the no-argument embedded manifest from step 2. It controls
 which catalogs are parsed and retained; embedded static bytes remain for the
 executable's lifetime. Application-held catalog clones can keep parsed scopes
-alive after unloading. See the [complete Lazy application](../GUIDE.md#fully-lazy-complete-mainrs).
+alive after unloading. See the [complete Lazy application](../GUIDE.md#manual-lazy-loading).
 For selective constant manifests, follow the
 [embedded recipe](../README.md#explicit-embedding).
 
@@ -186,7 +190,7 @@ For selective constant manifests, follow the
 
 | In 0.1.3 | In 0.3.0 |
 | --- | --- |
-| All embedded languages were initialized | Full requests only the selected language; Lazy requests selected scopes |
+| All embedded languages were initialized | Auto requests consumer scopes in the selected language; explicit Full requests that entire language |
 | Locale changes could select a retained catalog immediately | Logical requests persist, old-language data is released and the new language loads |
 | A complete language was checked and published together | Checked leaves publish independently; a bad same-language reload retains only that leaf's last good value |
 | Unavailable bindings retained their old displayed text | Unavailable bindings clear until their scope is available |

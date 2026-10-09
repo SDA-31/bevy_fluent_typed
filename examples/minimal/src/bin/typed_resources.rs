@@ -18,12 +18,7 @@ fn main() {
 	app.finish();
 	app.cleanup();
 	app.update();
-
-	// Typed borrows: whole tree -> folder -> file.
-	let translations: &texts::Translations = app.world().resource();
-	let presentation: &texts::Presentation = translations.presentation();
-	let hud: &texts::presentation::Hud = presentation.hud();
-	println!("{}", hud.msg_title());
+	app.update(); // Allow the once-helper to run after automatic publication.
 
 	app.world_mut()
 		.resource_mut::<Localization<texts::Translations>>()
@@ -39,13 +34,15 @@ fn main() {
 	println!("{}", label.0);
 }
 
-fn show_hud(mut commands: Commands, hud: Res<texts::presentation::Hud>) {
+fn show_hud(mut commands: Commands, translations: Res<texts::Translations>) {
+	// This demonstration explicitly consumes the whole tree for chained borrows.
+	let presentation: &texts::Presentation = translations.presentation();
+	let hud: &texts::presentation::Hud = presentation.hud();
 	println!("{}: {}", hud.msg_title(), hud.msg_detail("Ada"));
+	println!("{}", hud.msg_title());
 
 	commands.spawn((
 		Text::default(),
-		LocalizedText::<texts::Translations>::new(|catalog| {
-			catalog.presentation().hud().msg_detail("Ada")
-		}),
+		LocalizedText::<texts::presentation::Hud>::new(|hud| hud.msg_detail("Ada")),
 	));
 }

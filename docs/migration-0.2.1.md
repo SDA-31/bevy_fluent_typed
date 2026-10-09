@@ -3,8 +3,8 @@
 Use native required resources with registration helpers that infer catalog
 readiness. Existing manual conditions and explicit Lazy requests keep working.
 Use matching 0.3.0 facade dependencies. For catalog path and embedding changes,
-follow the [0.2.2 migration](migration-0.2.2.md); the scheduling helpers below retain
-their existing behavior.
+follow the [0.2.2 migration](migration-0.2.2.md). The current default Auto also
+requests scopes for these helpers; see [0.3 automatic loading](migration-0.3.md#adopt-automatic-module-loading).
 
 ## Use the build-configured file manifest
 
@@ -46,7 +46,7 @@ app.add_localized_systems(Update, update_hud);
 ```
 
 `Res` is Bevy's normal resource parameter. The registration helper infers the
-required catalog and skips the system until it is ready. It does not block the
+required catalog, requests it in Auto and skips the system until ready. It does not block the
 frame or change the behavior of ordinary `add_systems`. With several required
 catalog parameters, all must be ready.
 
@@ -79,7 +79,8 @@ fn setup_hud(mut commands: Commands, hud: Res<texts::presentation::Hud>) {
 ```
 
 The helper runs in `Update`, after ordinary startup, and records completion only
-when the function body returns. Each tuple member completes independently. It
+when the function body returns. In Auto, temporary scope demand is then released;
+deferred inserted bindings take over their own demand. Each tuple member completes independently. It
 does not rerun after a locale change; use `LocalizedText` for live bindings.
 A returned error still counts as one invocation and follows normal Bevy error
 handling. The helper wraps each function, so
@@ -95,14 +96,19 @@ one-time helper.
 
 ## Loading ownership and supported parameters
 
-Full mode still requests the selected language automatically. Lazy mode still
-needs `load::<Scope>()` and `unload::<Scope>()`; waiting systems do not create
-requests or prevent unloading. This keeps module lifetime under application control.
+Default Auto requests required scopes when localized systems initialize. A
+recurring system retains them until its system state is dropped, including when
+`run_if` is false. Inserted `LocalizedText` bindings independently retain their
+scopes until removed. Explicit Full requests the complete selected language;
+explicit Lazy still requires application-owned `load`/`unload` calls. Plain
+`add_systems`, optional resources and world inspection do not create demand.
 
 Inference covers direct native `Res<Scope>` parameters of functions and closures.
 Custom derived `SystemParam`s, `ParamSet` and nested parameter tuples are not
-inspected. Expose required catalogs directly or retain explicit conditions for
-these forms. Missing non-catalog resources and application errors keep their
+inspected. Expose required catalogs directly, or manage demand with explicit
+Full/Lazy and separate readiness conditions for those advanced forms. Install
+the localization plugin before schedule initialization. Missing non-catalog
+resources and application errors keep their
 normal Bevy behavior. No global error handler is replaced.
 
 See the [loading guide](../GUIDE.md#read-resources-and-handle-readiness) for

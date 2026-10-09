@@ -27,14 +27,16 @@ For application dependencies and the native syntax for each backend, see the
 2. [build.rs](build.rs) explicitly generates `texts::presentation::Hud`.
 3. [scene.rs](src/scene.rs) captures an owned name in a `LocalizedText<Interface>`
    and returns a native `bsn!` scene with an explicit `Text` target. `Interface` is an ordinary imported alias.
-4. [app.rs](src/app.rs) installs the asset, scene and localization plugins. Full
+4. [app.rs](src/app.rs) installs the asset, scene and localization plugins. Auto
    loading uses the generated manifest helper.
 5. [main.rs](src/main.rs) spawns the scene and prints its label after the required
    `Res<Interface>` is ready and text refresh has run.
 
-Creating a scene or cloning a binding does not request a module. In Lazy mode,
-the screen owner requests/releases scopes as usual. Clones share the formatter
-and arguments, and each label follows the current translations independently.
+Creating a scene or cloning an unattached binding is passive. Inserting its
+`LocalizedText<Interface>` requests and retains the scope in default Auto.
+Removing the last binding releases that demand unless another consumer remains.
+Explicit Lazy still requires manual requests. Clones share the formatter and
+arguments; each inserted label follows the current translations independently.
 
 ## Verification
 
