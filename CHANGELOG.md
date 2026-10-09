@@ -12,6 +12,9 @@ remains `fluent_typed_codegen` 0.2.2.
 
 ### Added
 
+- Explicit locale preparation and validated commit at the publication boundary,
+  keeping active resources available while target translations load. Supports
+  Full/Lazy demand, cancellation, byte sources and private typed Bevy assets.
 - Stable Bevy 0.20 support through `bevy-0-20`, including typed resources,
   readiness, deferred startup, custom asset sources and translation hot reload.
 - Cloneable `LocalizedText` bindings and native `FromTemplate` integration for
