@@ -207,7 +207,7 @@ fn inline_from_constructors_preserve_message_and_component_arguments() {
 		.world_mut()
 		.spawn_scene(bsn! {
 			Text2d
-			LocalizedText::<Interface>::from(message)
+			LocalizedText::<_>::from(message)
 		})
 		.unwrap()
 		.id();

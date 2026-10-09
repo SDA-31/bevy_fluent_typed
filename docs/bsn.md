@@ -74,10 +74,12 @@ fn spawn_notice(mut commands: Commands) {
 
     commands.spawn_scene(bsn! {
         Text
-        LocalizedText::<Interface>::from(message)
+        LocalizedText::<_>::from(message)
     });
 }
 ```
+
+The scope is inferred from `Message<Interface>`; BSN still needs the `::<_>` placeholder.
 
 For an existing binding, use `LocalizedText::<Interface>::from(binding)`.
 Clone it first when several entities need it. Bevy 0.20 also accepts a component
