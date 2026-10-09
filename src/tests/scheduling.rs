@@ -69,7 +69,6 @@ fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 	let ui = app
 		.world_mut()
 		.spawn((
-			Text::default(),
 			LocalizedText::<TestCatalog>::new(|catalog| catalog.0.clone()),
 			Name::new("preserved"),
 		))

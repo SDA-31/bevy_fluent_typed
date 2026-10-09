@@ -59,9 +59,18 @@ impl<C: FluentScope> fmt::Debug for Message<C> {
 /// message needs, so unrelated modules do not delay it.
 /// Bound text contents are replaced, so keep editable drafts separate; this
 /// binding does not manage or preserve text-editor state.
+/// Cloning shares the formatter and its captured arguments, without capturing
+/// a catalog snapshot or requesting a module. Each inserted clone refreshes
+/// against the current catalog independently.
 /// Number formatting belongs to the closure (see [`Message`]); shaping, visual
 /// bidi ordering and font coverage belong to the renderer, not this component.
 pub struct LocalizedText<C: FluentScope>(pub(crate) Message<C>);
+
+impl<C: FluentScope> Clone for LocalizedText<C> {
+	fn clone(&self) -> Self {
+		Self(self.0.clone())
+	}
+}
 
 impl<C: FluentScope> LocalizedText<C> {
 	/// Construct a binding; replace the component when captured arguments change.

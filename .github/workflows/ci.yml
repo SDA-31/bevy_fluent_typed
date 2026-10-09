@@ -64,13 +64,13 @@ jobs:
             bevy-quality-${{ runner.os }}-${{ runner.arch }}-${{ env.GENERATOR_REV }}-${{ hashFiles('runtime/**/Cargo.toml') }}-
       - name: Check formatting in every package
         run: |
-          for manifest in Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml tools/compatibility/Cargo.toml; do
+          for manifest in Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml examples/bsn/Cargo.toml tools/compatibility/Cargo.toml; do
             cargo fmt --manifest-path "$manifest" --all -- --check
           done
       - name: Resolve independent package graphs
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
-          for manifest in Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml tools/compatibility/Cargo.toml; do
+          for manifest in Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml examples/bsn/Cargo.toml tools/compatibility/Cargo.toml; do
             cargo generate-lockfile --manifest-path "$manifest" --config "$generator_config"
           done
       - name: Clippy
@@ -81,7 +81,7 @@ jobs:
           cargo clippy --locked --all-targets --no-default-features --features build --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path examples/minimal/Cargo.toml --all-targets --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path tools/compatibility/Cargo.toml --all-targets -- -D warnings
-          for manifest in examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml; do
+          for manifest in examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml examples/bsn/Cargo.toml; do
             cargo clippy --locked --manifest-path "$manifest" --all-targets --config "$generator_config" -- -D warnings
           done
       - name: Test build facade and maintainer tool
@@ -116,6 +116,7 @@ jobs:
           grep -Fx docs/quickstart.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/runtime.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/asset-sources.md "$CARGO_TARGET_DIR/runtime-package.txt"
+          grep -Fx docs/bsn.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/build.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/formatting.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/migration-0.3.md "$CARGO_TARGET_DIR/runtime-package.txt"

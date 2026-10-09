@@ -12,6 +12,8 @@ use std::{
 
 type Refresh = fn(&mut World);
 
+type WithoutTextTargets = (Without<Text>, Without<Text2d>);
+
 struct BindingEntry {
 	users: usize,
 	refresh: Refresh,
@@ -94,6 +96,7 @@ pub(crate) fn removed<S: FluentScope>(mut world: DeferredWorld, _: compatibility
 		if entry.users == 0 {
 			registry.entries.remove(&TypeId::of::<S>());
 			registry.dirty = true;
+			let _ = world.unregister_system_cached(default_ui::<S>);
 			let _ = world.unregister_system_cached(refresh_ui::<S>);
 			let _ = world.unregister_system_cached(refresh_world::<S>);
 		}
@@ -116,11 +119,25 @@ pub(crate) fn dispatch(world: &mut World) {
 
 fn refresh<S: FluentScope>(world: &mut World) {
 	world
+		.run_system_cached(default_ui::<S>)
+		.expect("valid localization default UI query");
+	world
 		.run_system_cached(refresh_ui::<S>)
 		.expect("valid localization UI query");
 	world
 		.run_system_cached(refresh_world::<S>)
 		.expect("valid localization world-text query");
+}
+
+// Run after scene/bundle construction and deferred commands, so an explicit
+// Text2d wins regardless of the order in which scene components were inserted.
+fn default_ui<S: FluentScope>(
+	mut commands: Commands,
+	missing: Query<Entity, (With<LocalizedText<S>>, WithoutTextTargets)>,
+) {
+	for entity in &missing {
+		commands.entity(entity).insert(Text::default());
+	}
 }
 
 pub(crate) fn refresh_ui<S: FluentScope>(

@@ -241,6 +241,7 @@ transports, fonts and shaping remain application responsibilities.
 
 - [Loading guide](GUIDE.md): Full, Lazy, hybrid, typed resources, deferred text,
   language switching, hot reload and migration.
+- [BSN scenes](docs/bsn.md): typed text bindings in Bevy 0.19 and 0.20 scenes.
 - [Custom asset sources](docs/asset-sources.md): archives, network-backed readers
   and named Bevy sources.
 - [Number formatting](docs/formatting.md): application-owned ICU4X formatters.
@@ -253,7 +254,8 @@ transports, fonts and shaping remain application responsibilities.
 
 Runnable headless examples live in [examples/codegen](examples/codegen),
 [examples/no_codegen](examples/no_codegen), [examples/minimal](examples/minimal),
-[examples/icu](examples/icu) and [examples/asset_source](examples/asset_source).
+[examples/icu](examples/icu), [examples/asset_source](examples/asset_source) and
+[examples/bsn](examples/bsn).
 Their README commands start from a checkout of this repository. Their local path
 dependencies test that checkout; use the registry setup above for your application.
 The [compatibility runner](tools/compatibility/README.md) is for maintainers.

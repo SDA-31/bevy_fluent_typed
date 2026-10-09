@@ -1,0 +1,198 @@
+use crate::{greeting_scene, texts};
+use bevy::{asset::AssetPlugin, prelude::*, scene::ScenePlugin};
+use bevy_fluent_typed::{
+	Lazy, Localization, LocalizationPlugin, LocalizedText, ModuleStatus, ReloadCatalogs,
+};
+use std::{
+	collections::HashMap,
+	sync::{Arc, Mutex},
+	time::{Duration, Instant},
+};
+use texts::presentation::Hud as Interface;
+
+#[path = "tests/native/bevy_0_20.rs"]
+mod native;
+
+type Source = Arc<Mutex<HashMap<String, Vec<u8>>>>;
+
+fn test_app() -> (App, Source) {
+	let source: Source = Arc::new(Mutex::new(HashMap::from([
+		("en".into(), b"hello = Hello, { $name }!".to_vec()),
+		("es".into(), "hello = Hola, { $name }!".as_bytes().to_vec()),
+		(
+			"ru".into(),
+			"hello = Привет, { $name }!".as_bytes().to_vec(),
+		),
+	])));
+	let loader_source = source.clone();
+	let plugin =
+		LocalizationPlugin::<texts::Translations, Lazy>::from_loader(move |locale, path| {
+			assert_eq!(path, Interface::PATH);
+			let bytes = loader_source
+				.lock()
+				.unwrap()
+				.get(locale.as_ref())
+				.cloned()
+				.ok_or_else(|| "missing test locale".to_string());
+			std::future::ready(bytes)
+		});
+	let mut app = App::new();
+	app.add_plugins((MinimalPlugins, AssetPlugin::default(), ScenePlugin, plugin));
+	app.finish();
+	app.cleanup();
+	(app, source)
+}
+
+fn pump(app: &mut App, ready: impl Fn(&World) -> bool) {
+	let deadline = Instant::now() + Duration::from_secs(10);
+
+	loop {
+		app.update();
+
+		if ready(app.world()) {
+			return;
+		}
+
+		assert!(Instant::now() < deadline, "BSN localization timed out");
+		std::thread::sleep(Duration::from_millis(1));
+	}
+}
+
+fn load(app: &mut App) {
+	app.world_mut()
+		.resource_mut::<Localization<texts::Translations, Lazy>>()
+		.load::<Interface>();
+}
+
+fn reload(app: &mut App) {
+	app.world_mut()
+		.write_message(ReloadCatalogs::<texts::Translations>::default());
+}
+
+fn pair_ready(world: &World, pair: (Entity, Entity), prefix: &str) -> bool {
+	world
+		.get::<Text>(pair.0)
+		.is_some_and(|text| text.0.starts_with(prefix))
+		&& world
+			.get::<Text2d>(pair.1)
+			.is_some_and(|text| text.0.starts_with(prefix))
+}
+
+#[test]
+fn native_bsn_bindings_wait_switch_locale_and_clear_on_unload() {
+	let (mut app, _) = test_app();
+	let name = String::from("Ada");
+	let binding = LocalizedText::<Interface>::new(move |hud| hud.msg_hello(&name));
+	let pair = native::spawn(app.world_mut(), binding);
+	app.update();
+	assert!(!app.world().contains_resource::<Interface>());
+	assert!(app.world().get::<Text>(pair.0).unwrap().0.is_empty());
+	assert!(app.world().get::<Text2d>(pair.1).unwrap().0.is_empty());
+	assert!(app.world().get::<Text>(pair.1).is_none());
+	load(&mut app);
+
+	for (locale, prefix) in [
+		(texts::Locale::En, "Hello"),
+		(texts::Locale::Es, "Hola"),
+		(texts::Locale::Ru, "Привет"),
+	] {
+		app.world_mut()
+			.resource_mut::<Localization<texts::Translations, Lazy>>()
+			.set_locale(locale);
+		pump(&mut app, |world| pair_ready(world, pair, prefix));
+		assert!(app.world().get::<Text>(pair.0).unwrap().0.contains("Ada"));
+		assert_eq!(
+			app.world().get::<Text>(pair.0).unwrap().0,
+			app.world().get::<Text2d>(pair.1).unwrap().0
+		);
+	}
+
+	app.world_mut()
+		.resource_mut::<Localization<texts::Translations, Lazy>>()
+		.unload::<Interface>();
+	app.update();
+	assert!(!app.world().contains_resource::<Interface>());
+	assert!(app.world().get::<Text>(pair.0).unwrap().0.is_empty());
+	assert!(app.world().get::<Text2d>(pair.1).unwrap().0.is_empty());
+	assert!(app.world().get::<Text>(pair.1).is_none());
+	load(&mut app);
+	pump(&mut app, |world| pair_ready(world, pair, "Привет"));
+}
+
+#[test]
+fn native_bsn_reload_preserves_last_good_text_and_recovers() {
+	let (mut app, source) = test_app();
+	let pair = native::spawn(
+		app.world_mut(),
+		LocalizedText::<Interface>::new(|hud| hud.msg_hello("Lin")),
+	);
+	load(&mut app);
+	pump(&mut app, |world| pair_ready(world, pair, "Hello"));
+	source
+		.lock()
+		.unwrap()
+		.insert("en".into(), b"hello = Updated, { $name }!".to_vec());
+	reload(&mut app);
+	pump(&mut app, |world| pair_ready(world, pair, "Updated"));
+	let good = app.world().get::<Text>(pair.0).unwrap().0.clone();
+	source
+		.lock()
+		.unwrap()
+		.insert("en".into(), b"hello = Broken contract".to_vec());
+	reload(&mut app);
+	pump(&mut app, |world| {
+		matches!(
+			world
+				.resource::<Localization<texts::Translations, Lazy>>()
+				.status::<Interface>(),
+			ModuleStatus::Failed(_)
+		)
+	});
+	assert_eq!(app.world().get::<Text>(pair.0).unwrap().0, good);
+	assert_eq!(app.world().get::<Text2d>(pair.1).unwrap().0, good);
+	source
+		.lock()
+		.unwrap()
+		.insert("en".into(), b"hello = Recovered, { $name }!".to_vec());
+	reload(&mut app);
+	pump(&mut app, |world| pair_ready(world, pair, "Recovered"));
+}
+
+#[test]
+fn common_scene_factory_keeps_each_instances_owned_arguments() {
+	let (mut app, _) = test_app();
+	let first = app
+		.world_mut()
+		.spawn_scene(greeting_scene("Ada".into()))
+		.unwrap()
+		.id();
+	let second = app
+		.world_mut()
+		.spawn_scene(greeting_scene("Lin".into()))
+		.unwrap()
+		.id();
+	load(&mut app);
+	pump(&mut app, |world| {
+		world
+			.get::<Text>(first)
+			.is_some_and(|text| text.0.starts_with("Hello"))
+			&& world
+				.get::<Text>(second)
+				.is_some_and(|text| text.0.starts_with("Hello"))
+	});
+	assert!(app.world().get::<Text>(first).unwrap().0.contains("Ada"));
+	assert!(app.world().get::<Text>(second).unwrap().0.contains("Lin"));
+	app.world_mut()
+		.resource_mut::<Localization<texts::Translations, Lazy>>()
+		.set_locale(texts::Locale::Es);
+	pump(&mut app, |world| {
+		world
+			.get::<Text>(first)
+			.is_some_and(|text| text.0.starts_with("Hola"))
+			&& world
+				.get::<Text>(second)
+				.is_some_and(|text| text.0.starts_with("Hola"))
+	});
+	assert!(app.world().get::<Text>(first).unwrap().0.contains("Ada"));
+	assert!(app.world().get::<Text>(second).unwrap().0.contains("Lin"));
+}

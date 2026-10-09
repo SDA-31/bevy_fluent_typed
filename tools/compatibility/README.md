@@ -31,6 +31,11 @@ package is not a dependency of the library or example and is not published.
 The `examples/asset_source` generated-resource example is additionally tested on
 0.19 and stable 0.20, including its loading/recovery tests and executable.
 The runtime's virtual-source regression runs on every backend in this matrix.
+The `examples/bsn` example is tested on 0.19/0.20 with native scene syntax for
+each backend: late loading, locale changes, UI/world labels, unload/reload,
+invalid-translation rejection/recovery and independent instance arguments.
+Its common scene factory and headless file-backed executable run on both.
+Scene packages must remain absent from the backend-only runtime graph.
 
 Run these checks with Rust 1.97.1 or newer. Prerelease backends are preserved
 only in the `bevy-0.20.0-rc.1` and `bevy-0.20.0-rc.2` tags.
