@@ -20,7 +20,9 @@ remains `fluent_typed_codegen` 0.2.2.
   [scene recipe](docs/bsn.md) and an executable example covering module lifetime
   and translation updates.
 - A UI text default for standalone `LocalizedText` components: refresh inserts
-  `Text::default()` only when neither `Text` nor `Text2d` is present.
+  `Text::default()` only when no `Text`, `Text2d` or `TextSpan` is present.
+- `LocalizedText` bindings on `TextSpan` children of UI and world-text roots,
+  including native BSN constructors, locale changes and module unloading.
 
 ### Changed
 

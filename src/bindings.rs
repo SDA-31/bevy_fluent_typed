@@ -12,7 +12,7 @@ use std::{
 
 type Refresh = fn(&mut World);
 
-type WithoutTextTargets = (Without<Text>, Without<Text2d>);
+type WithoutTextTargets = (Without<Text>, Without<Text2d>, Without<TextSpan>);
 
 struct BindingEntry {
 	users: usize,
@@ -99,6 +99,7 @@ pub(crate) fn removed<S: FluentScope>(mut world: DeferredWorld, _: compatibility
 			let _ = world.unregister_system_cached(default_ui::<S>);
 			let _ = world.unregister_system_cached(refresh_ui::<S>);
 			let _ = world.unregister_system_cached(refresh_world::<S>);
+			let _ = world.unregister_system_cached(refresh_span::<S>);
 		}
 	});
 }
@@ -127,10 +128,13 @@ fn refresh<S: FluentScope>(world: &mut World) {
 	world
 		.run_system_cached(refresh_world::<S>)
 		.expect("valid localization world-text query");
+	world
+		.run_system_cached(refresh_span::<S>)
+		.expect("valid localization text-span query");
 }
 
 // Run after scene/bundle construction and deferred commands, so an explicit
-// Text2d wins regardless of the order in which scene components were inserted.
+// Explicit Text2d/TextSpan targets win regardless of scene insertion order.
 fn default_ui<S: FluentScope>(
 	mut commands: Commands,
 	missing: Query<Entity, (With<LocalizedText<S>>, WithoutTextTargets)>,
@@ -162,6 +166,25 @@ pub(crate) fn refresh_ui<S: FluentScope>(
 pub(crate) fn refresh_world<S: FluentScope>(
 	catalog: Option<Res<S>>,
 	mut texts: Query<(Ref<LocalizedText<S>>, &mut Text2d)>,
+) {
+	for (binding, mut text) in &mut texts {
+		let value = match &catalog {
+			Some(catalog) if catalog.is_changed() || binding.is_changed() || text.is_added() => {
+				binding.0.render(catalog)
+			}
+			Some(_) => continue,
+			None => String::new(),
+		};
+
+		if text.0 != value {
+			text.0 = value;
+		}
+	}
+}
+
+fn refresh_span<S: FluentScope>(
+	catalog: Option<Res<S>>,
+	mut texts: Query<(Ref<LocalizedText<S>>, &mut TextSpan)>,
 ) {
 	for (binding, mut text) in &mut texts {
 		let value = match &catalog {
