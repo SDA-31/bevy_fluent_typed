@@ -37,7 +37,8 @@ invalid-translation rejection/recovery and independent instance arguments.
 Its common scene factory and headless file-backed executable run on both.
 Scene packages must remain absent from the backend-only runtime graph.
 
-Run these checks with Rust 1.97.1 or newer. Prerelease backends are preserved
+Run these checks with Rust 1.97.1 or newer and Clippy installed for the selected
+toolchain (`rustup component add clippy`). Prerelease backends are preserved
 only in the `bevy-0.20.0-rc.1` and `bevy-0.20.0-rc.2` tags.
 
 From the library repository, with a separate generator checkout:
