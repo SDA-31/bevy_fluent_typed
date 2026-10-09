@@ -122,6 +122,7 @@ pub type CatalogUpdateReader<'w, 's, C> =
 	crate::compatibility::MessageReader<'w, 's, CatalogUpdate<C>>;
 
 /// Retry all currently requested modules without exposing asset handles.
+/// Also retries requested target leaves during locale preparation.
 ///
 /// Per-module requests wait for the current localization-owned load, then coalesce
 /// into one fresh read. Works without watching, including recovery

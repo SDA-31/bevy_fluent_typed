@@ -55,13 +55,43 @@ pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 	source: Res<ByteSource<C>>,
 	mut updates: MessageWriter<CatalogUpdate<C>>,
 ) {
+	let needs_reconcile = |state: &Localization<C, M>| {
+		state.requests_changed || !state.retry.is_empty() || state.pending > 0
+	};
+	let target_needs_reconcile = localization
+		.preparation
+		.as_ref()
+		.is_some_and(|preparation| {
+			preparation.locale() != localization.locale() && needs_reconcile(preparation)
+		});
+
+	if !needs_reconcile(&localization) && !target_needs_reconcile {
+		return;
+	}
+
+	reconcile_state(&mut localization, &source, &mut updates);
+
+	if localization
+		.prepared_locale()
+		.is_some_and(|locale| locale != localization.locale())
+		&& let Some(preparation) = localization.preparation.as_mut()
+	{
+		reconcile_state(preparation, &source, &mut updates);
+	}
+}
+
+fn reconcile_state<C: FluentCatalog, M: LoadingMode>(
+	localization: &mut Localization<C, M>,
+	source: &ByteSource<C>,
+	updates: &mut MessageWriter<CatalogUpdate<C>>,
+) {
 	if !localization.requests_changed && localization.retry.is_empty() && localization.pending == 0
 	{
 		return;
 	}
 
 	localization.requests_changed = false;
-	release_unrequested(&mut localization);
+	release_unrequested(localization);
 	let locale = localization.locale();
 
 	for &path in localization.desired().iter() {
@@ -102,6 +132,6 @@ pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 		// makes an old result unreachable, even if external I/O keeps running.
 		debug_assert!(entry.locale == locale);
 		localization.finish_request(path).task = None;
-		publish(&mut localization, path, candidate, &mut updates);
+		publish(localization, path, candidate, updates);
 	}
 }

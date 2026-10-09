@@ -11,7 +11,7 @@ use crate::{
 #[cfg(feature = "manifest")]
 use crate::{
 	Lazy, LocalizationManifest,
-	assets::{ModuleAsset, ModuleLoader},
+	assets::{ModuleAsset, ModuleLoader, PreparedModuleAsset, PreparedModuleLoader},
 	loading::{CatalogSource, reconcile, report_failures},
 };
 use std::{
@@ -188,6 +188,7 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 					(
 						reload_catalogs::<C, M>,
 						bytes::reconcile::<C, M>,
+						crate::preparation::commit::<C, M>,
 						resources::synchronize::<C, M>,
 					)
 						.chain()
@@ -220,7 +221,9 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 					marker: PhantomData,
 				})
 				.init_asset::<ModuleAsset<C>>()
-				.register_asset_loader(ModuleLoader::<C>::new(manifest));
+				.init_asset::<PreparedModuleAsset<C>>()
+				.register_asset_loader(ModuleLoader::<C>::new(manifest))
+				.register_asset_loader(PreparedModuleLoader(ModuleLoader::<C>::new(manifest)));
 
 				app.add_systems(
 					PreUpdate,
@@ -228,6 +231,7 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 						reload_catalogs::<C, M>,
 						report_failures::<C, M>,
 						reconcile::<C, M>,
+						crate::preparation::commit::<C, M>,
 						resources::synchronize::<C, M>,
 					)
 						.chain()

@@ -572,3 +572,264 @@ fn manifest_startup_policy_selects_a_known_locale_and_schema_mismatch_rejects() 
 		ModuleStatus::Failed(_)
 	));
 }
+
+#[test]
+fn prepared_file_locale_waits_for_retirement_and_survives_canceled_late_reads() {
+	for inside_loader in [false, true] {
+		let (mut app, gate, files) = asynchronous_app();
+		gate.pass_new_reads.store(true, Ordering::SeqCst);
+		app.world_mut()
+			.resource_mut::<Localization<TestCatalog, Lazy>>()
+			.load::<TestCatalog>();
+		pump(&mut app, |world| world.contains_resource::<TestCatalog>());
+		gate.pass_new_reads.store(false, Ordering::SeqCst);
+		gate.in_loader.store(inside_loader, Ordering::SeqCst);
+		files.insert_asset_text(Path::new("nested/data/es/ui.ftl"), "old target");
+		app.world_mut()
+			.resource_mut::<Localization<TestCatalog, Lazy>>()
+			.prepare_locale("es");
+		pump(&mut app, |_| !gate.state.lock().unwrap().2.is_empty());
+		let first_request = app
+			.world()
+			.resource::<Localization<TestCatalog, Lazy>>()
+			.preparation
+			.as_ref()
+			.unwrap()
+			.entries["ui.ftl"]
+			.preparation_request;
+		assert!(first_request.is_some());
+		assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
+		{
+			let mut localization = app
+				.world_mut()
+				.resource_mut::<Localization<TestCatalog, Lazy>>();
+			localization.cancel_preparation();
+			localization.prepare_locale("de");
+			localization.prepare_locale("es");
+		}
+		files.insert_asset_text(Path::new("nested/data/es/ui.ftl"), "fresh target");
+		gate.pass_new_reads.store(true, Ordering::SeqCst);
+		app.update();
+		assert_eq!(
+			app.world()
+				.resource::<Localization<TestCatalog, Lazy>>()
+				.preparation_status(),
+			crate::PreparationStatus::Preparing
+		);
+		gate.release();
+		pump(&mut app, |world| {
+			world
+				.resource::<Localization<TestCatalog, Lazy>>()
+				.preparation_status()
+				== crate::PreparationStatus::Ready
+		});
+		let second_request = app
+			.world()
+			.resource::<Localization<TestCatalog, Lazy>>()
+			.preparation
+			.as_ref()
+			.unwrap()
+			.entries["ui.ftl"]
+			.preparation_request;
+		assert_ne!(first_request, second_request);
+		assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
+		app.world_mut()
+			.resource_mut::<Localization<TestCatalog, Lazy>>()
+			.commit_locale()
+			.unwrap();
+		app.update();
+		assert_eq!(app.world().resource::<TestCatalog>().0, "fresh target");
+		gate.release();
+		for _ in 0..20 {
+			app.update();
+			std::thread::sleep(Duration::from_millis(2));
+			assert_eq!(app.world().resource::<TestCatalog>().0, "fresh target");
+		}
+		files.insert_asset_text(Path::new("nested/data/es/ui.ftl"), "active reload");
+		request_reload(app.world_mut());
+		pump(&mut app, |world| {
+			world.resource::<TestCatalog>().0 == "active reload"
+		});
+		assert_eq!(
+			app.world()
+				.resource::<Localization<TestCatalog, Lazy>>()
+				.locale(),
+			"es"
+		);
+	}
+}
+
+#[test]
+fn failed_target_file_attempt_and_retry_leave_active_snapshot_usable() {
+	for corrupt in [false, true] {
+		let (mut app, gate, files) = asynchronous_app();
+		gate.pass_new_reads.store(true, Ordering::SeqCst);
+		app.world_mut()
+			.resource_mut::<Localization<TestCatalog, Lazy>>()
+			.load::<TestCatalog>();
+		pump(&mut app, |world| world.contains_resource::<TestCatalog>());
+		if corrupt {
+			files.insert_asset(Path::new("nested/data/es/ui.ftl"), vec![0xff]);
+		} else {
+			files.remove_asset(Path::new("nested/data/es/ui.ftl"));
+		}
+		app.world_mut()
+			.resource_mut::<Localization<TestCatalog, Lazy>>()
+			.prepare_locale("es");
+		pump(&mut app, |world| {
+			matches!(
+				world
+					.resource::<Localization<TestCatalog, Lazy>>()
+					.preparation_status(),
+				crate::PreparationStatus::Failed(_)
+			)
+		});
+		if !corrupt {
+			// Acquisition failed before settings could be applied. Its source
+			// failure event remains authoritative over the completion fallback.
+			pump(
+				&mut app,
+				|world| matches!(world.resource::<Localization<TestCatalog, Lazy>>().preparation_status(), crate::PreparationStatus::Failed(ref failure) if matches!(failure.status, ModuleStatus::Failed(ref error) if !error.contains("compatible loader settings"))),
+			);
+			for _ in 0..3 {
+				app.update();
+			}
+			assert!(
+				matches!(app.world().resource::<Localization<TestCatalog, Lazy>>().preparation_status(), crate::PreparationStatus::Failed(ref failure) if matches!(failure.status, ModuleStatus::Failed(ref error) if !error.contains("compatible loader settings")))
+			);
+		}
+
+		assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
+		assert!(matches!(
+			app.world_mut()
+				.resource_mut::<Localization<TestCatalog, Lazy>>()
+				.commit_locale(),
+			Err(crate::CommitLocaleError::Failed(_))
+		));
+		files.insert_asset_text(Path::new("nested/data/es/ui.ftl"), "repaired");
+		app.world_mut()
+			.resource_mut::<Localization<TestCatalog, Lazy>>()
+			.prepare_locale("es");
+		pump(&mut app, |world| {
+			world
+				.resource::<Localization<TestCatalog, Lazy>>()
+				.preparation_status()
+				== crate::PreparationStatus::Ready
+		});
+		app.world_mut()
+			.resource_mut::<Localization<TestCatalog, Lazy>>()
+			.commit_locale()
+			.unwrap();
+		app.update();
+		assert_eq!(app.world().resource::<TestCatalog>().0, "repaired");
+	}
+}
+
+#[test]
+fn canceled_manifest_preparation_releases_private_assets_after_io_settles() {
+	let (mut app, gate, _) = asynchronous_app();
+	gate.pass_new_reads.store(true, Ordering::SeqCst);
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.load::<TestCatalog>();
+	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
+	gate.pass_new_reads.store(false, Ordering::SeqCst);
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.prepare_locale("es");
+	pump(&mut app, |_| !gate.state.lock().unwrap().2.is_empty());
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.cancel_preparation();
+	gate.release();
+	pump(&mut app, |world| {
+		world
+			.resource::<Assets<crate::assets::ModuleAsset<TestCatalog>>>()
+			.iter()
+			.all(|(_, asset)| asset.locale == "ja")
+	});
+	// Let detached loader completion reach Bevy and run handle retirement too.
+	for _ in 0..30 {
+		app.update();
+		std::thread::sleep(Duration::from_millis(2));
+	}
+	assert_eq!(
+		app.world()
+			.resource::<Assets<crate::assets::ModuleAsset<TestCatalog>>>()
+			.len(),
+		1
+	);
+	assert!(
+		app.world()
+			.resource::<Assets<crate::assets::PreparedModuleAsset<TestCatalog>>>()
+			.is_empty()
+	);
+	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
+}
+
+#[test]
+fn incompatible_explicit_loader_metadata_fails_preparation_and_can_recover() {
+	let (mut app, gate, files) = asynchronous_app();
+	gate.pass_new_reads.store(true, Ordering::SeqCst);
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.load::<TestCatalog>();
+	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
+	let loader = std::any::type_name::<crate::assets::ModuleLoader<TestCatalog>>();
+	let path = Path::new("nested/data/es/ui.ftl");
+	files.insert_meta_text(
+		path,
+		&format!("(meta_format_version: \"1.0\", asset: Load(loader: \"{loader}\", settings: ()))"),
+	);
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.prepare_locale("es");
+	pump(&mut app, |world| {
+		matches!(
+			world
+				.resource::<Localization<TestCatalog, Lazy>>()
+				.preparation_status(),
+			crate::PreparationStatus::Failed(_)
+		)
+	});
+	let error = app
+		.world_mut()
+		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.commit_locale()
+		.unwrap_err();
+	assert!(
+		matches!(&error, crate::CommitLocaleError::Failed(module) if module.path == "ui.ftl" && module.locale == "es")
+	);
+	assert!(std::error::Error::source(&error).is_some());
+	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
+	assert_eq!(
+		app.world()
+			.resource::<Localization<TestCatalog, Lazy>>()
+			.locale(),
+		"ja"
+	);
+	#[cfg(any(feature = "bevy-0-18", feature = "bevy-0-19", feature = "bevy-0-20"))]
+	let repaired_locale = {
+		files.remove_metadata(path);
+		"es"
+	};
+	// Older memory fixtures expose no metadata removal API; recover by replacing
+	// the target. Same-target metadata repair is covered on the newer backends.
+	#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17"))]
+	let repaired_locale = "de";
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.prepare_locale(repaired_locale);
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<TestCatalog, Lazy>>()
+			.preparation_status()
+			== crate::PreparationStatus::Ready
+	});
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.commit_locale()
+		.unwrap();
+	app.update();
+	assert_eq!(app.world().resource::<TestCatalog>().0, repaired_locale);
+}

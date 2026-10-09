@@ -15,6 +15,7 @@ mod documentation;
 mod lazy;
 #[cfg(feature = "manifest")]
 mod loader;
+mod preparation;
 #[cfg(feature = "manifest")]
 mod scheduling;
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]

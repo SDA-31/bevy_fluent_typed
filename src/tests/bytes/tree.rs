@@ -380,3 +380,216 @@ fn full_byte_collection_publishes_complete_groups_despite_a_missing_sibling() {
 	assert_eq!(*root.presentation.panel.0, "es panel");
 	assert_eq!(*root.other.0, "es other");
 }
+
+#[test]
+fn preparation_keeps_active_tree_and_commits_all_target_leaves_together() {
+	let (mut app, source) = controlled();
+	app.world_mut()
+		.resource_mut::<Localization<Root, Lazy>>()
+		.load::<Root>();
+	pump(&mut app, |_| source.count() == 3);
+	let hud = source.release::<Hud>("en", 0);
+	let panel = source.release::<Panel>("en", 0);
+	let other = source.release::<Other>("en", 0);
+	pump(&mut app, |world| world.contains_resource::<Root>());
+	let old = app.world().resource::<Root>().clone();
+	let label = app
+		.world_mut()
+		.spawn((
+			Text::default(),
+			crate::LocalizedText::<Presentation>::new(|presentation| {
+				format!("{}|{}", presentation.hud.0, presentation.panel.0)
+			}),
+		))
+		.id();
+	app.update();
+	let old_text = app.world().get::<Text>(label).unwrap().0.clone();
+	app.world_mut()
+		.resource_mut::<Localization<Root, Lazy>>()
+		.prepare_locale("es");
+	pump(&mut app, |_| source.count() == 6);
+	let next_panel = source.release::<Panel>("es", 0);
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<Root, Lazy>>()
+			.preparation
+			.as_ref()
+			.unwrap()
+			.store
+			.status::<Panel>()
+			== ModuleStatus::Ready
+	});
+	assert_eq!(app.world().resource::<Panel>().0.as_str(), panel);
+	assert_eq!(app.world().get::<Text>(label).unwrap().0, old_text);
+	assert!(Arc::ptr_eq(
+		&old.presentation.panel.0,
+		&app.world().resource::<Root>().presentation.panel.0
+	));
+	assert_eq!(
+		app.world_mut()
+			.resource_mut::<Localization<Root, Lazy>>()
+			.commit_locale(),
+		Err(crate::CommitLocaleError::Pending)
+	);
+	let next_hud = source.release::<Hud>("es", 0);
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<Root, Lazy>>()
+			.preparation
+			.as_ref()
+			.unwrap()
+			.store
+			.status::<Hud>()
+			== ModuleStatus::Ready
+	});
+	assert_eq!(app.world().resource::<Hud>().0.as_str(), hud);
+	assert_eq!(app.world().resource::<Other>().0.as_str(), other);
+	let next_other = source.release::<Other>("es", 0);
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<Root, Lazy>>()
+			.preparation_status()
+			== crate::PreparationStatus::Ready
+	});
+	app.world_mut()
+		.resource_mut::<Localization<Root, Lazy>>()
+		.commit_locale()
+		.unwrap();
+	app.update();
+	let root = app.world().resource::<Root>();
+	assert_eq!(root.presentation.hud.0.as_str(), next_hud);
+	assert_eq!(root.presentation.panel.0.as_str(), next_panel);
+	assert_eq!(root.other.0.as_str(), next_other);
+	assert_eq!(
+		app.world().get::<Text>(label).unwrap().0,
+		format!("{next_hud}|{next_panel}")
+	);
+	assert_eq!(old.presentation.hud.0.as_str(), hud);
+}
+
+#[test]
+fn changing_demand_releases_staged_siblings_and_revokes_a_queued_commit() {
+	let (mut app, source) = controlled();
+	{
+		let mut localization = app.world_mut().resource_mut::<Localization<Root, Lazy>>();
+		localization.load::<Presentation>();
+		localization.load::<Hud>();
+	}
+	pump(&mut app, |_| source.count() == 2);
+	source.release::<Hud>("en", 0);
+	source.release::<Panel>("en", 0);
+	pump(&mut app, |world| world.contains_resource::<Presentation>());
+	app.world_mut()
+		.resource_mut::<Localization<Root, Lazy>>()
+		.prepare_locale("es");
+	pump(&mut app, |_| source.count() == 4);
+	let target_hud = source.release::<Hud>("es", 0);
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<Root, Lazy>>()
+			.preparation
+			.as_ref()
+			.unwrap()
+			.store
+			.status::<Hud>()
+			== ModuleStatus::Ready
+	});
+	app.world_mut()
+		.resource_mut::<Localization<Root, Lazy>>()
+		.unload::<Presentation>();
+	assert_eq!(
+		app.world()
+			.resource::<Localization<Root, Lazy>>()
+			.preparation_status(),
+		crate::PreparationStatus::Ready
+	);
+	source.release::<Panel>("es", 0);
+	app.update();
+	assert!(!app.world().contains_resource::<Panel>());
+	{
+		let mut localization = app.world_mut().resource_mut::<Localization<Root, Lazy>>();
+		localization.commit_locale().unwrap();
+		localization.load::<Other>();
+		assert!(!localization.commit_requested);
+		assert_eq!(
+			localization.preparation_status(),
+			crate::PreparationStatus::Preparing
+		);
+	}
+	pump(&mut app, |_| source.count() == 6);
+	assert_eq!(
+		app.world().resource::<Localization<Root, Lazy>>().locale(),
+		"en"
+	);
+	source.release::<Other>("en", 0);
+	source.release::<Other>("es", 0);
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<Root, Lazy>>()
+			.preparation_status()
+			== crate::PreparationStatus::Ready
+	});
+	app.world_mut()
+		.resource_mut::<Localization<Root, Lazy>>()
+		.commit_locale()
+		.unwrap();
+	app.update();
+	assert_eq!(app.world().resource::<Hud>().0.as_str(), target_hud);
+	assert!(!app.world().contains_resource::<Panel>());
+	assert!(!app.world().contains_resource::<Presentation>());
+	assert!(app.world().contains_resource::<Other>());
+}
+
+#[test]
+fn canceled_byte_preparation_cannot_satisfy_a_later_target_attempt() {
+	let (mut app, source) = controlled();
+	app.world_mut()
+		.resource_mut::<Localization<Root, Lazy>>()
+		.load::<Hud>();
+	pump(&mut app, |_| source.count() == 1);
+	let active = source.release::<Hud>("en", 0);
+	pump(&mut app, |world| world.contains_resource::<Hud>());
+	app.world_mut()
+		.resource_mut::<Localization<Root, Lazy>>()
+		.prepare_locale("es");
+	pump(&mut app, |_| source.count() == 2);
+	{
+		let mut localization = app.world_mut().resource_mut::<Localization<Root, Lazy>>();
+		localization.cancel_preparation();
+		localization.prepare_locale("es");
+	}
+	pump(&mut app, |_| source.count() == 3);
+	source.release::<Hud>("es", 0);
+	app.update();
+	assert_eq!(
+		app.world()
+			.resource::<Localization<Root, Lazy>>()
+			.preparation_status(),
+		crate::PreparationStatus::Preparing
+	);
+	assert_eq!(app.world().resource::<Hud>().0.as_str(), active);
+	let target = source.release::<Hud>("es", 1);
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<Root, Lazy>>()
+			.preparation_status()
+			== crate::PreparationStatus::Ready
+	});
+	let weak = Arc::downgrade(
+		&app.world()
+			.resource::<Localization<Root, Lazy>>()
+			.preparation
+			.as_ref()
+			.unwrap()
+			.store
+			.get::<Hud>()
+			.unwrap()
+			.0,
+	);
+	app.world_mut()
+		.resource_mut::<Localization<Root, Lazy>>()
+		.cancel_preparation();
+	assert!(weak.upgrade().is_none());
+	assert_eq!(app.world().resource::<Hud>().0.as_str(), active);
+	assert!(target.starts_with("es:"));
+}

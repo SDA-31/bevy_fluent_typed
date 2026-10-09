@@ -341,6 +341,55 @@ Bindings update as their resources become ready. No old-language fallback is use
 For a different initial language, insert `AppLocalization::new(texts::Locale::Es)`
 before installing the plugin. Otherwise the manifest's default language is used.
 
+To keep the active language usable while acquiring a target, prepare it first:
+
+```rust,ignore
+use bevy_fluent_typed::PreparationStatus;
+
+localization.prepare_locale(texts::Locale::Es);
+// Poll in a later update; required Res<Scope> consumers keep using the active locale.
+if localization.preparation_status() == PreparationStatus::Ready {
+    localization.commit_locale()?;
+}
+```
+
+`prepared_locale()` reports the target, including during acquisition. Preparation
+loads exactly the current requests in either Full or Lazy mode, using the plugin's
+existing source and checked parsers. Target leaves remain private: native resources,
+controller views and bound text continue using the active locale. `commit_locale()`
+returns `CommitLocaleError::NotPrepared`, `Pending` or `Failed(ModuleError)` until
+all requested target leaves passed their latest attempt; a retained earlier good
+snapshot cannot satisfy a failed retry. A successful call queues an atomic locale
+swap for the next PreUpdate `LocalizationSystems::Publish` boundary. `locale()`
+changes there, together with every available native scope; bindings refresh in
+PostUpdate. No target loading notifications appear in `CatalogUpdate` before
+commit; committed requested leaves emit `Loaded`.
+
+Repeating `prepare_locale` for the same target keeps its successful leaves and
+retries failures. A different target replaces it. Lazy `load`/`unload` requests
+also update target demand; changing demand or requesting a retry revokes a queued
+commit. Poll readiness and commit again. Publication rechecks readiness and revokes
+the commit if a newly observed target source failure makes it unavailable.
+`cancel_preparation()` drops target snapshots and tasks/handles. External I/O may
+finish later, but canceled attempts cannot satisfy a replacement preparation.
+`set_locale()` cancels preparation, including when selecting the active locale.
+Preparing the active locale is immediately ready, preserves snapshots and performs
+no extra I/O. An empty Lazy request set is also ready without loading any modules.
+
+Preparation retains active and target parsed leaves until cancellation or commit;
+there is no retained locale cache. Application-owned clones and the source's own
+buffers retain their usual lifetime. File sources use Bevy's normal AssetReader
+and AssetLoader with a private typed preparation asset and per-attempt identities.
+Repreparing or retrying the same file waits asynchronously for the previous
+preparation handle to retire; an uncancelable source reader may delay that
+retirement. Cancellation returns immediately and active catalog consumers keep
+running throughout. Source metadata must allow Bevy to select the requested
+asset type; explicit `.meta` files selecting a different loader cause preparation
+to fail. Remove that loader override or configure Bevy's metadata policy for your
+source. Automatic watching and `ReloadCatalogs` continue to work after commit.
+This does not snapshot a changing archive or order overlapping external reloads;
+keep the source coherent while preparing, as described below.
+
 To retry all requested FTL files on Bevy 0.17–0.20:
 
 ```rust,ignore
@@ -376,8 +425,8 @@ follow at publication. Consumers that must observe the synchronized result in
 that frame should run in PostUpdate after `LocalizationSystems::Refresh`.
 
 Checked leaves publish independently. A bad same-language reload keeps that
-leaf's last good value; valid siblings can still change. There is no multi-file
-transaction. Successful reloads publish fresh snapshots even if text is identical;
+leaf's last good value; valid siblings can still change. Ordinary same-language reloads have no multi-file
+transaction; explicit locale preparation commits its requested target leaves together. Successful reloads publish fresh snapshots even if text is identical;
 idle frames and unchanged siblings preserve resource identity and change ticks.
 
 The plugin serializes its own reload requests per module and coalesces pending
