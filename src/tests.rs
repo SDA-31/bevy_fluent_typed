@@ -17,6 +17,8 @@ mod lazy;
 mod loader;
 #[cfg(feature = "manifest")]
 mod scheduling;
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+mod template;
 #[cfg(feature = "manifest")]
 mod waiting;
 
@@ -99,6 +101,7 @@ fn selected_locale_releases_previous_data_but_keeps_logical_requests() {
 fn deferred_messages_refresh_and_clear_existing_ui_and_world_labels() {
 	let message = Message::<TestCatalog>::new(|catalog| catalog.0.clone());
 	let cloned = message.clone();
+	let binding = LocalizedText::from(message);
 	let mut app = App::new();
 	app.insert_resource(TestCatalog("ja".into())).add_systems(
 		Update,
@@ -109,12 +112,9 @@ fn deferred_messages_refresh_and_clear_existing_ui_and_world_labels() {
 	);
 	let ui = app
 		.world_mut()
-		.spawn((Text::default(), LocalizedText::from(message)))
+		.spawn((Text::default(), binding.clone()))
 		.id();
-	let world = app
-		.world_mut()
-		.spawn((Text2d::default(), LocalizedText::from(cloned.clone())))
-		.id();
+	let world = app.world_mut().spawn((Text2d::default(), binding)).id();
 	app.update();
 	assert_eq!(app.world().get::<Text>(ui).unwrap().0, "ja");
 	app.world_mut().insert_resource(TestCatalog("es".into()));
@@ -126,4 +126,48 @@ fn deferred_messages_refresh_and_clear_existing_ui_and_world_labels() {
 	app.update();
 	assert!(app.world().get::<Text>(ui).unwrap().0.is_empty());
 	assert!(app.world().get::<Text2d>(world).unwrap().0.is_empty());
+}
+
+#[test]
+fn default_ui_respects_explicit_targets_and_waits_for_a_catalog() {
+	let mut app = App::new();
+	bindings::register::<TestCatalog>(&mut app);
+	let binding = LocalizedText::<TestCatalog>::new(|catalog| catalog.0.clone());
+	let implicit = app.world_mut().spawn(binding.clone()).id();
+	let ui = app
+		.world_mut()
+		.spawn((binding.clone(), Text::default()))
+		.id();
+	let world = app
+		.world_mut()
+		.spawn((binding.clone(), Text2d::default()))
+		.id();
+	let late_world = app.world_mut().spawn(binding.clone()).id();
+	app.world_mut()
+		.entity_mut(late_world)
+		.insert(Text2d::default());
+	let cancelled = app.world_mut().spawn(binding.clone()).id();
+	app.world_mut()
+		.entity_mut(cancelled)
+		.remove::<LocalizedText<TestCatalog>>();
+	let despawned = app.world_mut().spawn(binding).id();
+	app.world_mut().despawn(despawned);
+	app.update();
+
+	assert!(app.world().get::<Text>(implicit).unwrap().0.is_empty());
+	assert!(app.world().get::<Text>(ui).unwrap().0.is_empty());
+	assert!(app.world().get::<Text>(world).is_none());
+	assert!(app.world().get::<Text>(late_world).is_none());
+	assert!(app.world().get::<Text>(cancelled).is_none());
+	app.world_mut().insert_resource(TestCatalog("ready".into()));
+	app.update();
+
+	for entity in [implicit, ui] {
+		assert_eq!(app.world().get::<Text>(entity).unwrap().0, "ready");
+	}
+
+	for entity in [world, late_world] {
+		assert_eq!(app.world().get::<Text2d>(entity).unwrap().0, "ready");
+		assert!(app.world().get::<Text>(entity).is_none());
+	}
 }

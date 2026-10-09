@@ -35,7 +35,12 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 		&features,
 	];
 	let graph = metadata(&fixture, &args)?;
-	let active = dependency_tree(&fixture, "localization-example", "")?;
+	let mut active = dependency_tree(&fixture, "localization-example", "")?;
+
+	if matches!(backend.as_str(), "bevy-0-19" | "bevy-0-20") {
+		active.extend(dependency_tree(&fixture, "localization-bsn-example", "")?);
+	}
+
 	let family = official_packages(&graph)
 		.filter(|package| {
 			active.contains(&(
@@ -47,7 +52,12 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 		.collect::<BTreeSet<_>>();
 	fixture.pin(&family.into_iter().collect::<Vec<_>>(), version)?;
 	let graph = metadata(&fixture, &args)?;
-	let active = dependency_tree(&fixture, "localization-example", "")?;
+	let mut active = dependency_tree(&fixture, "localization-example", "")?;
+
+	if matches!(backend.as_str(), "bevy-0-19" | "bevy-0-20") {
+		active.extend(dependency_tree(&fixture, "localization-bsn-example", "")?);
+	}
+
 	validate_engine_versions(&graph, &active, version)?;
 
 	fs::write(
@@ -125,11 +135,15 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 	if runtime.iter().any(|(name, _)| {
 		matches!(
 			name.as_str(),
-			"bevy_fluent_codegen_bridge" | "fluent_typed_codegen" | "prettyplease"
+			"bevy_fluent_codegen_bridge"
+				| "fluent_typed_codegen"
+				| "prettyplease"
+				| "bevy_scene"
+				| "bevy_scene_macros"
 		)
 	}) {
 		return Err(
-			"minimal runtime unexpectedly depends on the generator, manifest parser or bridge"
+			"minimal runtime unexpectedly depends on the generator, manifest parser, bridge or scenes"
 				.into(),
 		);
 	}
@@ -171,6 +185,18 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 			"localization-asset-source-example",
 		])?;
 		fixture.success(&["run", "--locked", "-p", "localization-asset-source-example"])?;
+		fixture.success(&["test", "--locked", "-p", "localization-bsn-example"])?;
+		fixture.success(&["run", "--locked", "-p", "localization-bsn-example"])?;
+		fixture.success(&[
+			"clippy",
+			"--locked",
+			"-p",
+			"localization-bsn-example",
+			"--all-targets",
+			"--",
+			"-D",
+			"warnings",
+		])?;
 	}
 
 	fixture.success(&[

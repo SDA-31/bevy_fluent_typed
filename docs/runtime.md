@@ -304,6 +304,9 @@ UI/camera/font setup. Missing or unloaded resources clear bound text, and it
 refreshes when the resource becomes available. Bind to the smallest scope the
 message uses: a `LocalizedText<Translations>` would wait for the entire tree.
 
+Bindings can be cloned and used in native Bevy 0.19/0.20 scenes; see the
+[BSN recipe](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bsn.md) for the syntax of each backend.
+
 For stored notices, use `Message<Scope>` and render only when its scope is ready:
 
 ```rust,ignore
