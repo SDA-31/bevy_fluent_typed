@@ -1,7 +1,7 @@
 use crate::{greeting_scene, texts};
 use bevy::{asset::AssetPlugin, prelude::*, scene::ScenePlugin};
 use bevy_fluent_typed::{
-	Lazy, Localization, LocalizationPlugin, LocalizedText, ModuleStatus, ReloadCatalogs,
+	Lazy, Localization, LocalizationPlugin, LocalizedText, Message, ModuleStatus, ReloadCatalogs,
 };
 use std::{
 	collections::HashMap,
@@ -195,4 +195,72 @@ fn common_scene_factory_keeps_each_instances_owned_arguments() {
 	});
 	assert!(app.world().get::<Text>(first).unwrap().0.contains("Ada"));
 	assert!(app.world().get::<Text>(second).unwrap().0.contains("Lin"));
+}
+
+#[test]
+fn inline_from_constructors_preserve_message_and_component_arguments() {
+	let (mut app, _) = test_app();
+	let name = String::from("Ada");
+	let message = Message::<Interface>::new(move |hud| hud.msg_hello(&name));
+	let binding = LocalizedText::from(message.clone());
+	let label = app
+		.world_mut()
+		.spawn_scene(bsn! {
+			Text2d
+			LocalizedText::<Interface>::from(message)
+		})
+		.unwrap()
+		.id();
+	let from_binding = app
+		.world_mut()
+		.spawn_scene(bsn! {
+			Text
+			LocalizedText::<Interface>::from(binding)
+		})
+		.unwrap()
+		.id();
+	load(&mut app);
+	pump(&mut app, |world| {
+		world
+			.get::<Text2d>(label)
+			.is_some_and(|text| text.0.contains("Ada"))
+			&& world
+				.get::<Text>(from_binding)
+				.is_some_and(|text| text.0.contains("Ada"))
+	});
+	assert!(app.world().get::<Text>(label).is_none());
+	app.world_mut()
+		.resource_mut::<Localization<texts::Translations, Lazy>>()
+		.set_locale(texts::Locale::Es);
+	pump(&mut app, |world| {
+		world
+			.get::<Text2d>(label)
+			.is_some_and(|text| text.0.starts_with("Hola"))
+			&& world
+				.get::<Text>(from_binding)
+				.is_some_and(|text| text.0.starts_with("Hola"))
+	});
+	assert!(app.world().get::<Text2d>(label).unwrap().0.contains("Ada"));
+	assert!(
+		app.world()
+			.get::<Text>(from_binding)
+			.unwrap()
+			.0
+			.contains("Ada")
+	);
+}
+
+#[test]
+fn scene_without_a_message_formatter_returns_an_error() {
+	let (mut app, _) = test_app();
+	let result = app.world_mut().spawn_scene(bsn! {
+		Text
+		LocalizedText::<Interface>
+	});
+	let error = result.err().expect("a message formatter is mandatory");
+	assert!(
+		error
+			.to_string()
+			.contains("LocalizedText requires a message")
+	);
 }

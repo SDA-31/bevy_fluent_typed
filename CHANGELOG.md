@@ -14,7 +14,9 @@ remains `fluent_typed_codegen` 0.2.2.
 
 - Stable Bevy 0.20 support through `bevy-0-20`, including typed resources,
   readiness, deferred startup, custom asset sources and translation hot reload.
-- Cloneable `LocalizedText` bindings for native Bevy 0.19/0.20 BSN scenes, with a
+- Cloneable `LocalizedText` bindings and native `FromTemplate` integration for
+  Bevy 0.19/0.20 BSN scenes. Typed `new`/`from` constructors work directly inside
+  scene blocks; a missing message is an error. Includes a
   [scene recipe](docs/bsn.md) and an executable example covering module lifetime
   and translation updates.
 - A UI text default for standalone `LocalizedText` components: refresh inserts

@@ -1,4 +1,7 @@
 //! Deferred typed messages and catalog reload notifications.
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+mod template;
+
 use crate::bevy::{ecs as bevy_ecs, prelude::Component};
 use crate::{FluentCatalog, FluentScope};
 use std::{fmt, marker::PhantomData, sync::Arc};
@@ -62,6 +65,8 @@ impl<C: FluentScope> fmt::Debug for Message<C> {
 /// Cloning shares the formatter and its captured arguments, without capturing
 /// a catalog snapshot or requesting a module. Each inserted clone refreshes
 /// against the current catalog independently.
+/// On Bevy 0.19/0.20, native BSN accepts `LocalizedText::<Scope>::new(...)`
+/// and `LocalizedText::<Scope>::from(...)` directly through `FromTemplate`.
 /// Number formatting belongs to the closure (see [`Message`]); shaping, visual
 /// bidi ordering and font coverage belong to the renderer, not this component.
 pub struct LocalizedText<C: FluentScope>(pub(crate) Message<C>);

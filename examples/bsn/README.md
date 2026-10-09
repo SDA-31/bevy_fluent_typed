@@ -40,7 +40,8 @@ and arguments, and each label follows the current translations independently.
 
 [tests.rs](src/tests.rs) uses a controllable byte source to test late requests,
 all three locales, unload/reload, invalid translation rejection and recovery,
-and independent scene-instance arguments. The runnable application reads files;
+independent scene-instance arguments, inline message input and rejection of
+scenes that omit their formatter. The runnable application reads files;
 it does not keep a test byte map in memory.
 
 [The process test](tests/output.rs) checks the rendered output and bounds the
@@ -48,7 +49,8 @@ headless runner with a test-only timeout.
 
 The [compatibility runner](../../tools/compatibility/README.md) tests the same
 example against exact Bevy 0.19.0 and 0.20.0. It selects the matching scene test
-syntax: a `template` factory on 0.19 and direct component values on 0.20. Backend
+syntax: inline typed `new`/`from` constructors on both backends and
+direct component variables on 0.20. Backend
 selection is made on the normal dependency, never forwarded to the host build.
 
 These are compiled Rust scenes, not external `.bsn` file assets.
