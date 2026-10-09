@@ -46,6 +46,10 @@ pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 	mut changes: MessageReader<AssetEvent<ModuleAsset<C>>>,
 	mut updates: MessageWriter<CatalogUpdate<C>>,
 ) {
+	if localization.has_dropped_leases() {
+		localization.release_dropped_leases();
+	}
+
 	// Older Bevy versions mark Assets changed while tracking handles on idle
 	// frames. Events identify real changes; pending reads are also polled so a
 	// completion can publish before Bevy flushes its asset-event queue.
@@ -188,6 +192,7 @@ pub(crate) fn release_unrequested<C: FluentCatalog, M: LoadingMode>(
 	localization: &mut Localization<C, M>,
 ) {
 	let desired = localization.desired();
+	localization.retry.retain(|path| desired.contains(path));
 	let removed: Vec<_> = localization
 		.entries
 		.keys()
@@ -204,7 +209,6 @@ pub(crate) fn release_unrequested<C: FluentCatalog, M: LoadingMode>(
 			localization.pending -= 1;
 		}
 
-		localization.retry.remove(path);
 		localization.store.states.remove(path);
 
 		if let Some(id) = localization.store.leaves.get(path).copied() {
@@ -250,6 +254,10 @@ pub(crate) fn report_failures<C: FluentCatalog, M: LoadingMode>(
 	mut localization: ResMut<Localization<C, M>>,
 	mut updates: MessageWriter<CatalogUpdate<C>>,
 ) {
+	if localization.has_dropped_leases() {
+		localization.release_dropped_leases();
+	}
+
 	let desired = localization.desired();
 
 	for event in events.read() {

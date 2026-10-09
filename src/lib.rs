@@ -62,6 +62,8 @@ mod compatibility;
 #[cfg(feature = "build")]
 mod generation;
 #[cfg(feature = "runtime")]
+mod leases;
+#[cfg(feature = "runtime")]
 mod loading;
 #[cfg(feature = "runtime")]
 mod message;
@@ -110,6 +112,8 @@ pub use fluent_typed_codegen::{LocalizationManifest, ManifestError};
 /// Typed configuration failures shared by manifest parsing and host generation.
 #[cfg(any(feature = "manifest", feature = "build"))]
 pub use fluent_typed_codegen::{CatalogConfig, ConfigError, ConfigField, FieldError, PathError};
+#[cfg(feature = "runtime")]
+pub use leases::ModuleLease;
 #[cfg(feature = "runtime")]
 pub use message::{CatalogUpdate, CatalogUpdateReader, LocalizedText, Message, ReloadCatalogs};
 #[cfg(feature = "runtime")]
