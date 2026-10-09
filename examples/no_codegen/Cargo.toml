@@ -2,7 +2,7 @@
 name = "localization-no-codegen-example"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.95"
+rust-version = "1.97.1"
 license = "MIT"
 publish = false
 
@@ -10,8 +10,9 @@ publish = false
 bevy_fluent_typed = { path = "../..", default-features = false }
 
 [features]
-default = ["bevy-0-19"]
+default = ["bevy-0-20"]
 bevy-0-16 = ["bevy_fluent_typed/bevy-0-16"]
 bevy-0-17 = ["bevy_fluent_typed/bevy-0-17"]
 bevy-0-18 = ["bevy_fluent_typed/bevy-0-18"]
 bevy-0-19 = ["bevy_fluent_typed/bevy-0-19"]
+bevy-0-20 = ["bevy_fluent_typed/bevy-0-20"]

@@ -2,7 +2,7 @@
 name = "bevy-fluent-compatibility"
 version = "0.0.0"
 edition = "2024"
-rust-version = "1.95"
+rust-version = "1.97.1"
 license = "MIT"
 publish = false
 description = "Maintainer-only exact-version compatibility checks"

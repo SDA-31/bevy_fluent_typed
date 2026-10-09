@@ -55,7 +55,7 @@ enables only `build`. The build adapter lives inside the public crate. This publ
 facade is available since 0.1.1. Repository-local paths test this checkout;
 external applications use the [application setup](../../README.md#setup).
 
-The normal dependency selects Bevy 0.19 by default. To use 0.16, 0.17 or 0.18,
+The normal dependency selects Bevy 0.20 by default. To use 0.16, 0.17, 0.18 or 0.19,
 disable its defaults and select the corresponding backend feature; leave the
 build-dependency unchanged. Compatible patches are accepted, starting at 0.16.1
 for the oldest backend and .0 for the others.

@@ -14,8 +14,9 @@ cargo test --manifest-path examples/codegen/Cargo.toml
 ```
 
 Run these from the runtime repository. In an enclosing workspace you can also use
-`cargo run -p localization-codegen-example`. For Bevy 0.16/0.17/0.18, disable defaults
-and add the matching `bevy-0-16` / `bevy-0-17` / `bevy-0-18` to the **normal dependency** features in Cargo.toml.
+`cargo run -p localization-codegen-example`. For Bevy 0.16/0.17/0.18/0.19,
+disable defaults and add the matching `bevy-0-16` / `bevy-0-17` / `bevy-0-18` /
+`bevy-0-19` to the **normal dependency** features in Cargo.toml.
 Leave the build-dependency unchanged.
 
 The complete setup is [Cargo.toml](Cargo.toml), the explicit generation call in

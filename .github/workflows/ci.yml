@@ -77,6 +77,7 @@ jobs:
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
           cargo clippy --locked --all-targets --features codegen,watch --config "$generator_config" -- -D warnings
+          cargo clippy --locked --all-targets --no-default-features --features bevy-0-19,codegen,watch --config "$generator_config" -- -D warnings
           cargo clippy --locked --all-targets --no-default-features --features build --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path examples/minimal/Cargo.toml --all-targets --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path tools/compatibility/Cargo.toml --all-targets -- -D warnings
@@ -91,7 +92,7 @@ jobs:
       - name: Check minimal runtime dependency isolation
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
-          cargo tree --locked --no-default-features --features bevy-0-19 --edges normal,build,no-proc-macro --prefix none --config "$generator_config" > "$CARGO_TARGET_DIR/minimal-dependencies.txt"
+          cargo tree --locked --no-default-features --features bevy-0-20 --edges normal,build,no-proc-macro --prefix none --config "$generator_config" > "$CARGO_TARGET_DIR/minimal-dependencies.txt"
           if grep -E '^(fluent_typed_codegen|bevy_fluent_codegen_bridge|toml_edit|prettyplease) v' "$CARGO_TARGET_DIR/minimal-dependencies.txt"; then
             echo 'Generator or manifest dependencies leaked into the minimal runtime.' >&2
             exit 1
@@ -105,6 +106,7 @@ jobs:
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
           cargo doc --locked --no-deps --features codegen,watch,build --config "$generator_config"
+          cargo doc --locked --no-deps --no-default-features --features bevy-0-19,codegen,watch,build --config "$generator_config"
           cargo doc --locked --no-deps --no-default-features --features build --config "$generator_config"
       - name: Inspect library archives without uploading
         run: |
@@ -116,6 +118,7 @@ jobs:
           grep -Fx docs/asset-sources.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/build.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/formatting.md "$CARGO_TARGET_DIR/runtime-package.txt"
+          grep -Fx docs/migration-0.3.md "$CARGO_TARGET_DIR/runtime-package.txt"
           # The already-published generator is the runtime's only localization
           # package dependency. No separate bridge release is needed.
           if grep -E '^(examples|tools/compatibility)/' "$CARGO_TARGET_DIR/runtime-package.txt"; then
@@ -145,14 +148,20 @@ jobs:
             rust: stable
             bevy: '0.19.0'
           - os: ubuntu-latest
-            rust: '1.95.0'
+            rust: '1.97.1'
             bevy: '0.19.0'
           - os: windows-latest
             rust: stable
-            bevy: '0.19.0'
+            bevy: '0.20.0'
           - os: macos-latest
             rust: stable
-            bevy: '0.19.0'
+            bevy: '0.20.0'
+          - os: ubuntu-latest
+            rust: stable
+            bevy: '0.20.0'
+          - os: ubuntu-latest
+            rust: '1.97.1'
+            bevy: '0.20.0'
     env:
       RUSTUP_TOOLCHAIN: ${{ matrix.rust }}
       BEVY_VERSION: ${{ matrix.bevy }}

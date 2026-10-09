@@ -3,7 +3,7 @@
 Load a generated `texts::ui::Hud` resource through a named Bevy asset source.
 The headless application prints `Ready` after the source has loaded, then exits.
 It uses Bevy's built-in `MemoryAssetReader`, not a ZIP reader. This example targets
-the default Bevy 0.19 backend and adds no archive dependency.
+the default Bevy 0.20 backend and adds no archive dependency.
 
 ## Run
 

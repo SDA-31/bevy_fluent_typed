@@ -5,6 +5,30 @@ Notable changes to the runtime (and its former companion bridge) are recorded he
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html);
 before 1.0, a minor release can introduce incompatible API changes.
 
+## [0.3.0] - 2026-10-09
+
+See the [migration from 0.2.2](docs/migration-0.3.md). The generator dependency
+remains `fluent_typed_codegen` 0.2.2.
+
+### Added
+
+- Stable Bevy 0.20 support through `bevy-0-20`, including typed resources,
+  readiness, deferred startup, custom asset sources and translation hot reload.
+
+### Changed
+
+- **Breaking:** default features select Bevy 0.20 instead of 0.19. Older
+  applications disable defaults and select their backend explicitly.
+- **Breaking:** the Rust minimum is 1.97.1, matching stable Bevy 0.20. Runtime
+  0.2.2 is the last release supporting Rust 1.95.
+- Compatibility checks and examples target stable Bevy 0.20. Bevy 0.16.1,
+  0.17, 0.18 and 0.19 remain supported with the new compiler minimum.
+
+### Removed
+
+- Prerelease-only dependency setup; the final RC.1 and RC.2 snapshots remain
+  available through their preview tags.
+
 ## [0.2.2] - 2026-10-06
 
 Runtime and its build adapter require generator 0.2.2. See the
@@ -153,6 +177,7 @@ This documentation release changes no public runtime API or behavior.
 Bridge 0.1.3 changes only dependency minimums and documentation.
 Earlier releases predate this changelog; their source is retained in Git tags.
 
+[0.3.0]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.2.1...v0.2.2
 [0.2.1]: https://docs.rs/crate/bevy_fluent_typed/0.2.1
 [0.2.0]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.1.3...v0.2.0

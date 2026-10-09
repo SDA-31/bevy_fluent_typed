@@ -1,4 +1,12 @@
 //! Narrow, dynamically selected read access for inferred catalog parameters.
+#![cfg_attr(
+	feature = "bevy-0-20",
+	allow(
+		deprecated,
+		reason = "Bevy 0.20 retains the narrow resource views shared with older backends."
+	)
+)]
+
 use crate::bevy::{
 	ecs::{
 		system::{
@@ -12,10 +20,15 @@ use crate::bevy::{
 use crate::systems::{CatalogReadiness, ParameterTypes};
 use std::{marker::PhantomData, sync::Arc};
 
-#[cfg(any(feature = "bevy-0-18", feature = "bevy-0-19"))]
+#[cfg(any(feature = "bevy-0-18", feature = "bevy-0-19", feature = "bevy-0-20"))]
 use crate::bevy::ecs::change_detection::Tick;
-#[cfg(not(any(feature = "bevy-0-18", feature = "bevy-0-19")))]
+#[cfg(not(any(feature = "bevy-0-18", feature = "bevy-0-19", feature = "bevy-0-20")))]
 use crate::bevy::ecs::component::Tick;
+
+#[cfg(all(not(feature = "bevy-0-16"), not(feature = "bevy-0-20")))]
+use crate::bevy::ecs::query::FilteredAccessSet as SystemAccess;
+#[cfg(feature = "bevy-0-20")]
+use crate::bevy::ecs::system::SystemAccess;
 
 pub(crate) struct Probe {
 	pub(crate) access: Box<dyn Fn(&mut FilteredResourcesBuilder) + Send + Sync>,
@@ -92,13 +105,13 @@ unsafe impl<P: ParameterTypes + 'static> SystemParam for Readiness<'_, '_, P> {
 	fn init_access(
 		state: &Self::State,
 		meta: &mut SystemMeta,
-		access: &mut crate::bevy::ecs::query::FilteredAccessSet,
+		access: &mut SystemAccess,
 		world: &mut World,
 	) {
 		FilteredResources::init_access(&state.resources, meta, access, world);
 	}
 
-	#[cfg(not(feature = "bevy-0-19"))]
+	#[cfg(not(any(feature = "bevy-0-19", feature = "bevy-0-20")))]
 	unsafe fn get_param<'w, 's>(
 		state: &'s mut Self::State,
 		meta: &SystemMeta,
@@ -117,7 +130,7 @@ unsafe impl<P: ParameterTypes + 'static> SystemParam for Readiness<'_, '_, P> {
 		}
 	}
 
-	#[cfg(feature = "bevy-0-19")]
+	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 	unsafe fn get_param<'w, 's>(
 		state: &'s mut Self::State,
 		meta: &SystemMeta,

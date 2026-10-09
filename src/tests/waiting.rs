@@ -149,6 +149,11 @@ fn inferred_condition_does_not_conflict_with_unrelated_writes() {
 	{
 		let gate_access = gate.initialize(app.world_mut());
 		let unrelated_access = unrelated.initialize(app.world_mut());
+
+		#[cfg(feature = "bevy-0-20")]
+		assert!(gate_access.is_compatible(&unrelated_access));
+
+		#[cfg(not(feature = "bevy-0-20"))]
 		assert!(
 			gate_access
 				.combined_access()
@@ -284,7 +289,7 @@ fn fallible_system_outputs_retain_normal_bevy_error_handling() {
 }
 
 #[test]
-#[cfg(feature = "bevy-0-19")]
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 fn deferred_setup_returning_an_error_is_not_repeated_by_a_nonpanicking_handler() {
 	use crate::bevy::ecs::error::{FallbackErrorHandler, ignore};
 

@@ -2,7 +2,7 @@
 
 Use native required resources with registration helpers that infer catalog
 readiness. Existing manual conditions and explicit Lazy requests keep working.
-Use matching 0.2.2 facade dependencies. For catalog path and embedding changes,
+Use matching 0.3.0 facade dependencies. For catalog path and embedding changes,
 follow the [0.2.2 migration](migration-0.2.2.md); the scheduling helpers below retain
 their existing behavior.
 

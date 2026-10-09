@@ -1,6 +1,6 @@
-# Migrate from bevy_fluent_typed 0.1.3 to 0.2.2
+# Migrate from bevy_fluent_typed 0.1.3 to 0.3.0
 
-This guide upgrades runtime 0.1.3 to 0.2.2.
+This guide upgrades runtime 0.1.3 to 0.3.0.
 It includes the generated manifest helper and native required-resource waiting.
 
 Start with **Full**, the default mode. It keeps all modules of the selected
@@ -14,22 +14,23 @@ Replace the localization entries in your Cargo.toml:
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.2.2", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.3.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.2.2", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["build"] }
 ```
 
-Keep your existing Bevy dependency; update localization metadata as shown in
-[Catalog-only build configuration](#catalog-only-build-configuration). This example uses
-the default Bevy 0.19 backend. For 0.16, 0.17 or 0.18, retain your matching backend
-feature and `default-features = false` on the normal dependency only. Rust 1.95
-and the supported Bevy families are unchanged. Use Cargo resolver 2 or 3.
+The dependency snippet selects Bevy 0.20 by default. Upgrade the application's
+Bevy dependency to `"0.20"`, or retain Bevy 0.16, 0.17, 0.18 or 0.19 by selecting
+its matching backend with `default-features = false` on the normal dependency.
+See the [0.3 migration](migration-0.3.md) for both setups. Rust 1.97.1 is required.
+Use Cargo resolver 2 or 3 and update localization metadata as shown in
+[Catalog-only build configuration](#catalog-only-build-configuration).
 
 Remove development Git/path patches for the runtime, bridge and generator when
 switching to the registry. Standard consumers do not declare a bridge or generator
-dependency; the facade resolves the matching 0.2.2 packages. If you rename the
-facade, use the same alias in both dependency sections.
+dependency; runtime 0.3.0 uses generator 0.2.2. If you rename the facade, use the
+same alias in both dependency sections.
 
 Keep your existing `build.rs`:
 
@@ -183,7 +184,7 @@ For selective constant manifests, follow the
 
 ## 6. Account for changed reload behavior
 
-| In 0.1.3 | In 0.2.2 |
+| In 0.1.3 | In 0.3.0 |
 | --- | --- |
 | All embedded languages were initialized | Full requests only the selected language; Lazy requests selected scopes |
 | Locale changes could select a retained catalog immediately | Logical requests persist, old-language data is released and the new language loads |
@@ -246,8 +247,8 @@ settings, keep only `Settings { catalog: ... }`. Generated `CATALOG_PATH` replac
 `..` to share source translations across packages. Runtime logical module paths
 and `translations-directory` still cannot escape their declared scope.
 
-Use generator and runtime 0.2.2 together. See the
-[0.2.1 to 0.2.2 migration](migration-0.2.2.md) for the complete metadata and embedding changes.
+Use runtime 0.3.0 with generator 0.2.2. See the
+[catalog path and embedding migration](migration-0.2.2.md) for the complete changes.
 
 `texts::manifest()` retains `CATALOG_PATH` verbatim. Configure the application's
 Bevy asset source root so that origin resolves, or supply a contract with the

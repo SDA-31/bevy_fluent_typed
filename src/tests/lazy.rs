@@ -67,7 +67,7 @@ impl<R: Reader> AsyncRead for ControlledStream<R> {
 	}
 }
 
-#[cfg(not(any(feature = "bevy-0-18", feature = "bevy-0-19")))]
+#[cfg(not(any(feature = "bevy-0-18", feature = "bevy-0-19", feature = "bevy-0-20")))]
 impl<R: Reader> crate::bevy::asset::io::AsyncSeekForward for ControlledStream<R> {
 	fn poll_seek_forward(
 		mut self: Pin<&mut Self>,
@@ -79,7 +79,7 @@ impl<R: Reader> crate::bevy::asset::io::AsyncSeekForward for ControlledStream<R>
 }
 
 impl<R: Reader> Reader for ControlledStream<R> {
-	#[cfg(any(feature = "bevy-0-18", feature = "bevy-0-19"))]
+	#[cfg(any(feature = "bevy-0-18", feature = "bevy-0-19", feature = "bevy-0-20"))]
 	fn seekable(
 		&mut self,
 	) -> Result<
@@ -146,9 +146,9 @@ fn asynchronous_app() -> (App, Arc<Gate>, Dir) {
 			gate: reader_gate.clone(),
 		}) as Box<dyn crate::bevy::asset::io::ErasedAssetReader>
 	};
-	#[cfg(any(feature = "bevy-0-18", feature = "bevy-0-19"))]
+	#[cfg(any(feature = "bevy-0-18", feature = "bevy-0-19", feature = "bevy-0-20"))]
 	let source = AssetSourceBuilder::new(reader);
-	#[cfg(not(any(feature = "bevy-0-18", feature = "bevy-0-19")))]
+	#[cfg(not(any(feature = "bevy-0-18", feature = "bevy-0-19", feature = "bevy-0-20")))]
 	let source = AssetSourceBuilder::default().with_reader(reader);
 	let contract = crate::LocalizationManifest::from_config(
 		crate::CatalogConfig {

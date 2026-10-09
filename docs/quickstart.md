@@ -10,11 +10,11 @@ Add these dependencies to `Cargo.toml`:
 
 ```toml
 [dependencies]
-bevy = "0.19"
-bevy_fluent_typed = { version = "0.2.2", features = ["codegen"] }
+bevy = "0.20"
+bevy_fluent_typed = { version = "0.3.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.2.2", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["build"] }
 ```
 
 The normal dependency provides the plugin; the build dependency generates the
@@ -128,7 +128,7 @@ so readiness checks still apply. Static source bytes stay in the executable for
 its lifetime; no compressor or decompressor is involved.
 
 The macro accepts only an empty invocation or a block of constants. For the
-constant-declaration recipe, use the same 0.2.2 dependency in both Cargo sections.
+constant-declaration recipe, use the same 0.3.0 dependency in both Cargo sections.
 A Lazy application can then declare a manifest for just its HUD:
 
 ```rust,ignore
@@ -153,19 +153,20 @@ a private localization module can export the manifest constant and its catalog t
 
 | Normal-dependency feature | Bevy release family |
 | --- | --- |
-| `bevy-0-19` (default) | 0.19.0 and compatible patches |
+| `bevy-0-20` (default) | 0.20.0 and compatible patches |
+| `bevy-0-19` | 0.19.0 and compatible patches |
 | `bevy-0-18` | 0.18.0 and compatible patches |
 | `bevy-0-17` | 0.17.0 and compatible patches |
 | `bevy-0-16` | 0.16.1 and compatible patches |
 
-Select exactly one backend. For an older backend, disable defaults on the normal
+Rust minimum: **1.97.1**. Select exactly one backend. For an older backend, disable defaults on the normal
 runtime dependency, enable that backend plus `codegen`, and select the same
 version family for `bevy`. Leave the build-dependency unchanged. Do not use
 runtime/workspace `--all-features`. Examples that send exit or update notifications
-use Bevy 0.19 message APIs;
+use Bevy 0.20 message APIs;
 Bevy 0.16 uses `EventWriter`/`send` instead of `MessageWriter`/`write`.
 
-Bevy 0.19 enforces immutable generated resources in ECS. Older backends expose
+Bevy 0.19 and 0.20 enforce immutable generated resources in ECS. Older backends expose
 the same read-only catalog API without that ECS guarantee. `watch` is an
 optional normal-dependency feature for filesystem change notifications.
 
@@ -181,5 +182,6 @@ for a minimal runtime and a handwritten provider.
 ## Further reading
 
 - [Loading guide](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md): Lazy requests, module lifetime and headless applications.
-- [Migration from 0.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) and [Migration from 0.2.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.2.md).
+- [Migration to 0.3](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.3.md): Bevy 0.20, Rust minimum and older backends.
+- [Migration from 0.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) and [catalog path and embedding migration](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.2.md).
 - [Changelog](https://github.com/SDA-31/bevy_fluent_typed/blob/main/CHANGELOG.md).

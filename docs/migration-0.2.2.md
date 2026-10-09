@@ -7,14 +7,16 @@ keep their signatures. Changes affect generation paths and selective embedding.
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.2.2", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.3.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.2.2", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["build"] }
 ```
 
-Retain your Bevy version and backend selection. The facade requires generator
-0.2.2; no separate bridge package is needed. Keep `bevy_fluent_typed::build()` in
+These dependency snippets target runtime 0.3.0. Follow the
+[0.3 migration](migration-0.3.md) to select Bevy 0.20 or retain an older backend.
+The facade requires generator 0.2.2; no separate bridge package is needed.
+Keep `bevy_fluent_typed::build()` in
 `build.rs` and the `translations!` declaration. Remove local overrides when
 switching to registry dependencies.
 

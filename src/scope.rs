@@ -1,4 +1,11 @@
 //! Immutable scope storage and type-erased publication hooks for generated providers.
+#[cfg_attr(
+	feature = "bevy-0-20",
+	allow(
+		deprecated,
+		reason = "Private readiness hooks use the narrow resource view retained by Bevy 0.20."
+	)
+)]
 use crate::bevy::ecs::world::{FilteredResources, FilteredResourcesBuilder};
 use crate::bevy::prelude::*;
 use crate::catalog::SharedScope;
@@ -135,6 +142,13 @@ impl<C: FluentCatalog> ModuleStore<C> {
 
 /// Type-erased registration for one root, group or leaf resource.
 /// Provider integrations construct these with `new`; applications use typed resources.
+#[cfg_attr(
+	feature = "bevy-0-20",
+	allow(
+		deprecated,
+		reason = "Private readiness hooks use the narrow resource view retained by Bevy 0.20."
+	)
+)]
 pub struct ScopeRegistration<C: FluentCatalog> {
 	pub(crate) id: TypeId,
 	pub(crate) parameter: TypeId,
