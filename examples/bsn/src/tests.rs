@@ -261,6 +261,6 @@ fn scene_without_a_message_formatter_returns_an_error() {
 	assert!(
 		error
 			.to_string()
-			.contains("LocalizedText requires a message")
+			.contains("LocalizedText requires a formatting closure or Message")
 	);
 }

@@ -64,7 +64,7 @@ struct MissingFormatter;
 impl fmt::Display for MissingFormatter {
 	fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
 		formatter.write_str(
-			"LocalizedText requires a message: use LocalizedText::new(...) or LocalizedText::from(...)",
+			"LocalizedText requires a formatting closure or Message: use LocalizedText::new(|scope| ...) or LocalizedText::from(message)",
 		)
 	}
 }
