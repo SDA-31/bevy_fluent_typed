@@ -7,9 +7,11 @@ use crate::bevy::{
 };
 use std::{
 	any::type_name,
+	collections::BTreeMap,
 	io,
+	marker::PhantomData,
 	sync::{
-		Arc,
+		Arc, Mutex, Weak,
 		atomic::{AtomicBool, Ordering},
 	},
 };
@@ -31,7 +33,10 @@ impl<C: FluentCatalog> TypePath for PreparedModuleAsset<C> {
 	}
 }
 
-pub(crate) struct PreparedModuleLoader<C: FluentCatalog>(pub(crate) ModuleLoader<C>);
+pub(crate) struct PreparedModuleLoader<C: FluentCatalog> {
+	pub(crate) loader: ModuleLoader<C>,
+	pub(crate) attempts: PreparationAttempts<C>,
+}
 
 impl<C: FluentCatalog> TypePath for PreparedModuleLoader<C> {
 	fn type_path() -> &'static str {
@@ -54,7 +59,9 @@ impl<C: FluentCatalog> AssetLoader for PreparedModuleLoader<C> {
 		request: &(u64, ()),
 		context: &mut LoadContext<'_>,
 	) -> Result<Self::Asset, Self::Error> {
-		let asset = self.0.load(reader, &(), context).await?;
+		self.attempts.mark_started(request.0);
+
+		let asset = self.loader.load(reader, &(), context).await?;
 		Ok(PreparedModuleAsset {
 			asset,
 			request: request.0,
@@ -62,24 +69,94 @@ impl<C: FluentCatalog> AssetLoader for PreparedModuleLoader<C> {
 	}
 }
 
-/// A completed task with incompatible settings cannot ever produce our asset.
-/// This also covers Bevy's early metadata/type-mismatch return without an event.
-#[derive(Default)]
-pub(crate) struct AssetAttempt {
-	pub(crate) settings_applied: AtomicBool,
-	finished: AtomicBool,
+type AttemptMap = Mutex<BTreeMap<u64, Weak<AssetAttempt>>>;
+
+/// Each installed catalog owns a separate registry; settings shape is not identity.
+#[derive(Clone)]
+pub(crate) struct PreparationAttempts<C: FluentCatalog> {
+	attempts: Arc<AttemptMap>,
+	marker: PhantomData<fn() -> C>,
 }
 
-impl AssetAttempt {
-	pub(crate) fn finished_without_settings(&self) -> bool {
-		self.finished.load(Ordering::Acquire) && !self.settings_applied.load(Ordering::Acquire)
+impl<C: FluentCatalog> Default for PreparationAttempts<C> {
+	fn default() -> Self {
+		Self {
+			attempts: Arc::default(),
+			marker: PhantomData,
+		}
 	}
 }
 
-pub(crate) struct PreparationGuard(pub(crate) Arc<AssetAttempt>);
+impl<C: FluentCatalog> PreparationAttempts<C> {
+	pub(crate) fn register(&self, request: u64) -> Arc<AssetAttempt> {
+		let attempt = Arc::new(AssetAttempt {
+			settings_applied: AtomicBool::new(false),
+			started: AtomicBool::new(false),
+			finished: AtomicBool::new(false),
+			request,
+			registry: Arc::downgrade(&self.attempts),
+		});
+		self.attempts
+			.lock()
+			.expect("preparation attempt registry")
+			.insert(request, Arc::downgrade(&attempt));
+		attempt
+	}
+
+	fn mark_started(&self, request: u64) {
+		let attempt = self
+			.attempts
+			.lock()
+			.expect("preparation attempt registry")
+			.get(&request)
+			.and_then(Weak::upgrade);
+
+		if let Some(attempt) = attempt {
+			attempt.started.store(true, Ordering::Release);
+		}
+	}
+
+	#[cfg(test)]
+	pub(crate) fn len(&self) -> usize {
+		self.attempts
+			.lock()
+			.expect("preparation attempt registry")
+			.len()
+	}
+}
+
+/// A completed task which never entered this catalog's loader cannot publish its asset.
+pub(crate) struct AssetAttempt {
+	pub(crate) settings_applied: AtomicBool,
+	started: AtomicBool,
+	finished: AtomicBool,
+	request: u64,
+	registry: Weak<AttemptMap>,
+}
+
+impl AssetAttempt {
+	pub(crate) fn finished_without_loader(&self) -> bool {
+		self.finished.load(Ordering::Acquire) && !self.started.load(Ordering::Acquire)
+	}
+}
+
+impl Drop for AssetAttempt {
+	fn drop(&mut self) {
+		if let Some(registry) = self.registry.upgrade() {
+			registry
+				.lock()
+				.expect("preparation attempt registry")
+				.remove(&self.request);
+		}
+	}
+}
+
+pub(crate) struct PreparationGuard(pub(crate) Weak<AssetAttempt>);
 
 impl Drop for PreparationGuard {
 	fn drop(&mut self) {
-		self.0.finished.store(true, Ordering::Release);
+		if let Some(attempt) = self.0.upgrade() {
+			attempt.finished.store(true, Ordering::Release);
+		}
 	}
 }

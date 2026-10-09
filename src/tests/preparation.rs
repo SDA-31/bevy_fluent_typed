@@ -607,3 +607,97 @@ fn preparation_preserves_foreign_ftl_loader_and_multiple_provider_namespaces() {
 	#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17"))]
 	assert_eq!(registered.type_name(), ForeignLoader::type_path());
 }
+
+#[cfg(feature = "manifest")]
+#[test]
+fn matching_settings_on_another_catalog_loader_fail_without_entering_expected_loader() {
+	use crate::bevy::asset::io::{
+		AssetSourceBuilder,
+		memory::{Dir, MemoryAssetReader},
+	};
+	use crate::{CatalogConfig, LocalizationManifest};
+	use std::path::Path;
+
+	let files = Dir::default();
+	files.insert_asset_text(Path::new("data/ja/ui.ftl"), "ja");
+	files.insert_asset_text(Path::new("data/es/ui.ftl"), "es");
+	let loader = std::any::type_name::<crate::assets::PreparedModuleLoader<SecondCatalog>>();
+	files.insert_meta_text(
+		Path::new("data/es/ui.ftl"),
+		&format!(
+			"(meta_format_version: \"1.0\", asset: Load(loader: \"{loader}\", settings: (0, ())))"
+		),
+	);
+	let manifest = LocalizationManifest::from_config(
+		CatalogConfig {
+			source_language: "ja".into(),
+			default_language: "ja".into(),
+			languages_directory: "data".into(),
+		},
+		"wrong-provider://contract.toml",
+	);
+	let reader = move || {
+		Box::new(MemoryAssetReader {
+			root: files.clone(),
+		}) as Box<dyn crate::bevy::asset::io::ErasedAssetReader>
+	};
+	#[cfg(any(feature = "bevy-0-18", feature = "bevy-0-19", feature = "bevy-0-20"))]
+	let source = AssetSourceBuilder::new(reader);
+	#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17"))]
+	let source = AssetSourceBuilder::default().with_reader(reader);
+	let mut app = App::new();
+	app.register_asset_source("wrong-provider", source)
+		.add_plugins((
+			MinimalPlugins,
+			AssetPlugin::default(),
+			LocalizationPlugin::<TestCatalog>::new(manifest.clone()),
+			LocalizationPlugin::<SecondCatalog>::new(manifest),
+		));
+	app.finish();
+	app.cleanup();
+	pump(&mut app, |world| {
+		world.contains_resource::<TestCatalog>() && world.contains_resource::<SecondCatalog>()
+	});
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog>>()
+		.prepare_locale("es");
+	pump(&mut app, |world| {
+		matches!(
+			world
+				.resource::<Localization<TestCatalog>>()
+				.preparation_status(),
+			PreparationStatus::Failed(_)
+		)
+	});
+	let state = app.world().resource::<Localization<TestCatalog>>();
+	let attempt = state.preparation.as_ref().unwrap().entries["ui.ftl"]
+		.preparation_attempt
+		.as_ref()
+		.unwrap();
+	assert!(attempt.settings_applied.load(Ordering::Acquire));
+	assert!(attempt.finished_without_loader());
+	assert!(matches!(
+		state.preparation_status(),
+		PreparationStatus::Failed(_)
+	));
+	assert_eq!(state.locale(), "ja");
+	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
+	assert_eq!(app.world().resource::<SecondCatalog>().0, "second:ja");
+	assert_eq!(
+		app.world()
+			.resource::<crate::loading::CatalogSource<TestCatalog>>()
+			.attempts
+			.len(),
+		1
+	);
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog>>()
+		.cancel_preparation();
+	assert_eq!(
+		app.world()
+			.resource::<crate::loading::CatalogSource<TestCatalog>>()
+			.attempts
+			.len(),
+		0
+	);
+}

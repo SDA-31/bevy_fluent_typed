@@ -55,6 +55,10 @@ pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 	source: Res<ByteSource<C>>,
 	mut updates: MessageWriter<CatalogUpdate<C>>,
 ) {
+	if localization.requests_changed && localization.preparation.is_some() {
+		localization.synchronize_preparation_requests();
+	}
+
 	let needs_reconcile = |state: &Localization<C, M>| {
 		state.requests_changed || !state.retry.is_empty() || state.pending > 0
 	};

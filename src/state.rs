@@ -68,6 +68,8 @@ pub struct Localization<C: FluentCatalog, M: LoadingMode = Full> {
 	pub(crate) preparation: Option<Box<Self>>,
 	pub(crate) staged: bool,
 	pub(crate) commit_requested: bool,
+	#[cfg(feature = "manifest")]
+	pub(crate) handoff_pending: BTreeSet<&'static str>,
 }
 
 impl<C: FluentCatalog, M: LoadingMode> Default for Localization<C, M> {
@@ -112,6 +114,8 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			preparation: None,
 			staged: false,
 			commit_requested: false,
+			#[cfg(feature = "manifest")]
+			handoff_pending: BTreeSet::new(),
 		}
 	}
 

@@ -22,6 +22,7 @@ use std::{collections::HashMap, marker::PhantomData, path::Path};
 #[derive(Resource)]
 pub(crate) struct CatalogSource<C: FluentCatalog> {
 	pub(crate) manifest: LocalizationManifest,
+	pub(crate) attempts: crate::assets::PreparationAttempts<C>,
 	pub(crate) modules: HashMap<&'static str, Module<C>>,
 	pub(crate) error: Option<String>,
 	pub(crate) marker: PhantomData<fn() -> C>,
@@ -59,6 +60,10 @@ pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 	mut assets: CatalogAssets<C>,
 	mut updates: MessageWriter<CatalogUpdate<C>>,
 ) {
+	if localization.requests_changed && localization.preparation.is_some() {
+		localization.synchronize_preparation_requests();
+	}
+
 	// Older Bevy versions mark Assets changed while tracking handles on idle
 	// frames. Events identify real changes; pending reads are also polled so a
 	// completion can publish before Bevy flushes its asset-event queue.
@@ -196,8 +201,12 @@ fn reconcile_state<C: FluentCatalog, M: LoadingMode>(
 						.then(crate::preparation::next_asset_request);
 					let (handle, preparation_handle, preparation_attempt) =
 						if let Some(request) = preparation_request {
-							let (handle, attempt) =
-								crate::preparation::load_asset::<C>(server, address, request);
+							let (handle, attempt) = crate::preparation::load_asset::<C>(
+								server,
+								address,
+								request,
+								&source.attempts,
+							);
 							(None, Some(handle), Some(attempt))
 						} else if let Some(handle) = localization
 							.entries
@@ -265,10 +274,10 @@ fn reconcile_state<C: FluentCatalog, M: LoadingMode>(
 				&& entry
 					.preparation_attempt
 					.as_ref()
-					.is_some_and(|attempt| attempt.finished_without_settings())
+					.is_some_and(|attempt| attempt.finished_without_loader())
 			{
 				localization.finish_request(path);
-				publish(localization, path, Err("locale preparation completed without compatible loader settings; check source acquisition and asset metadata".into()), updates);
+				publish(localization, path, Err("locale preparation completed without the expected catalog loader; check source acquisition and asset metadata".into()), updates);
 			}
 
 			continue;
@@ -290,18 +299,29 @@ fn reconcile_state<C: FluentCatalog, M: LoadingMode>(
 		entry.accepted = Some(asset.revision);
 		publish(localization, path, asset.candidate.clone(), updates);
 	}
+
+	if localization.staged {
+		crate::preparation::refresh_handoff(localization, source, server);
+	}
 }
 
 pub(crate) fn release_unrequested<C: FluentCatalog, M: LoadingMode>(
 	localization: &mut Localization<C, M>,
 ) {
 	let desired = localization.desired();
-	let removed: Vec<_> = localization
+	let removed: std::collections::BTreeSet<_> = localization
 		.entries
 		.keys()
+		.chain(localization.store.states.keys())
+		.chain(localization.retry.iter())
 		.copied()
 		.filter(|path| !desired.contains(path))
 		.collect();
+
+	#[cfg(feature = "manifest")]
+	localization
+		.handoff_pending
+		.retain(|path| desired.contains(path));
 
 	for path in removed {
 		if localization

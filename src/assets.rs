@@ -8,7 +8,7 @@ use crate::bevy::{
 use crate::catalog::SharedScope;
 use crate::{FluentCatalog, Module, compatibility};
 pub(crate) use preparation::{
-	AssetAttempt, PreparationGuard, PreparedModuleAsset, PreparedModuleLoader,
+	AssetAttempt, PreparationAttempts, PreparationGuard, PreparedModuleAsset, PreparedModuleLoader,
 };
 use std::{
 	any::type_name,

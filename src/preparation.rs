@@ -13,6 +13,7 @@ pub enum PreparationStatus {
 	/// Some currently requested target leaves are pending or scheduled for retry.
 	Preparing,
 	/// Every currently requested target leaf passed its latest validation attempt.
+	/// File-source handles are also ready for a safe handoff.
 	Ready,
 	/// A requested target leaf failed its latest attempt.
 	Failed(ModuleError),
@@ -23,7 +24,7 @@ pub enum PreparationStatus {
 pub enum CommitLocaleError {
 	/// Call `prepare_locale` before committing.
 	NotPrepared,
-	/// The target still has pending leaves or retries.
+	/// The target still has pending leaves, retries or file-handle retirement.
 	Pending,
 	/// A target leaf failed validation or acquisition.
 	Failed(ModuleError),
@@ -104,6 +105,10 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 		}
 
 		let mut pending = preparation.pending > 0 || !preparation.retry.is_empty();
+		#[cfg(feature = "manifest")]
+		{
+			pending |= !preparation.handoff_pending.is_empty();
+		}
 
 		for &path in self.desired.iter() {
 			match preparation.store.states.get(path) {
@@ -162,12 +167,11 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			return;
 		};
 
-		preparation.requested.clone_from(&self.requested);
-
 		if preparation.desired == self.desired {
 			return;
 		}
 
+		preparation.requested.clone_from(&self.requested);
 		preparation.desired = self.desired.clone();
 		preparation.requests_changed = true;
 		crate::loading::release_unrequested(preparation);
@@ -181,6 +185,17 @@ pub(crate) fn commit<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
 	}
 
 	world.resource_scope(|world, mut localization: Mut<Localization<C, M>>| {
+		#[cfg(feature = "manifest")]
+		if localization
+			.prepared_locale()
+			.is_some_and(|locale| locale != localization.locale())
+			&& let Some(source) = world.get_resource::<crate::loading::CatalogSource<C>>()
+			&& let Some(server) = world.get_resource::<AssetServer>()
+			&& let Some(preparation) = localization.preparation.as_mut()
+		{
+			refresh_handoff(preparation, source, server);
+		}
+
 		if localization.preparation_status() != PreparationStatus::Ready {
 			localization.commit_requested = false;
 			return;
@@ -263,17 +278,57 @@ pub(crate) fn load_asset<C: FluentCatalog>(
 	server: &AssetServer,
 	address: crate::bevy::asset::AssetPath<'static>,
 	request: u64,
+	attempts: &crate::assets::PreparationAttempts<C>,
 ) -> (
 	Handle<crate::assets::PreparedModuleAsset<C>>,
 	std::sync::Arc<crate::assets::AssetAttempt>,
 ) {
-	let attempt = std::sync::Arc::new(crate::assets::AssetAttempt::default());
-	let applied = attempt.clone();
+	let attempt = attempts.register(request);
+	let applied = std::sync::Arc::downgrade(&attempt);
 	let settings = move |settings: &mut (u64, ())| {
 		*settings = (request, ());
-		applied.settings_applied.store(true, Ordering::Release);
+
+		if let Some(applied) = applied.upgrade() {
+			applied.settings_applied.store(true, Ordering::Release);
+		}
 	};
-	let guard = crate::assets::PreparationGuard(attempt.clone());
+	let guard = crate::assets::PreparationGuard(std::sync::Arc::downgrade(&attempt));
 	let handle = crate::compatibility::load_with_settings(server, address, settings, guard);
 	(handle, attempt)
+}
+
+#[cfg(feature = "manifest")]
+pub(crate) fn refresh_handoff<C: FluentCatalog, M: LoadingMode>(
+	preparation: &mut Localization<C, M>,
+	source: &crate::loading::CatalogSource<C>,
+	server: &AssetServer,
+) {
+	preparation.handoff_pending.clear();
+
+	if source.manifest.embedded_modules().is_some() {
+		return;
+	}
+
+	for &path in preparation.desired.iter() {
+		let Ok(address) =
+			crate::loading::asset_address(&source.manifest, preparation.locale().as_ref(), path)
+		else {
+			continue;
+		};
+
+		// A canceled normal read can still own a path handle before loader entry.
+		// Wait for its identity to retire before commit creates a normal handle;
+		// otherwise server.load() reconnects that obsolete reader and result.
+		if server
+			.get_path_ids(address)
+			.iter()
+			.any(|id| id.type_id() == std::any::TypeId::of::<crate::assets::ModuleAsset<C>>())
+		{
+			preparation.handoff_pending.insert(path);
+		}
+	}
+
+	if !preparation.handoff_pending.is_empty() {
+		preparation.requests_changed = true;
+	}
 }

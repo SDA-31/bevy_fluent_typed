@@ -689,13 +689,13 @@ fn failed_target_file_attempt_and_retry_leave_active_snapshot_usable() {
 			// failure event remains authoritative over the completion fallback.
 			pump(
 				&mut app,
-				|world| matches!(world.resource::<Localization<TestCatalog, Lazy>>().preparation_status(), crate::PreparationStatus::Failed(ref failure) if matches!(failure.status, ModuleStatus::Failed(ref error) if !error.contains("compatible loader settings"))),
+				|world| matches!(world.resource::<Localization<TestCatalog, Lazy>>().preparation_status(), crate::PreparationStatus::Failed(ref failure) if matches!(failure.status, ModuleStatus::Failed(ref error) if !error.contains("expected catalog loader"))),
 			);
 			for _ in 0..3 {
 				app.update();
 			}
 			assert!(
-				matches!(app.world().resource::<Localization<TestCatalog, Lazy>>().preparation_status(), crate::PreparationStatus::Failed(ref failure) if matches!(failure.status, ModuleStatus::Failed(ref error) if !error.contains("compatible loader settings")))
+				matches!(app.world().resource::<Localization<TestCatalog, Lazy>>().preparation_status(), crate::PreparationStatus::Failed(ref failure) if matches!(failure.status, ModuleStatus::Failed(ref error) if !error.contains("expected catalog loader")))
 			);
 		}
 
@@ -832,4 +832,119 @@ fn incompatible_explicit_loader_metadata_fails_preparation_and_can_recover() {
 		.unwrap();
 	app.update();
 	assert_eq!(app.world().resource::<TestCatalog>().0, repaired_locale);
+}
+
+#[test]
+fn unloading_during_retry_retirement_releases_unrequested_target_snapshots() {
+	let (mut app, gate, _) = asynchronous_app();
+	gate.pass_new_reads.store(true, Ordering::SeqCst);
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.load::<TestCatalog>();
+	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.prepare_locale("es");
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<TestCatalog, Lazy>>()
+			.preparation_status()
+			== crate::PreparationStatus::Ready
+	});
+	request_reload(app.world_mut());
+	let mut once = true;
+	app.add_systems(
+		Update,
+		move |mut state: ResMut<Localization<TestCatalog, Lazy>>| {
+			if !once {
+				return;
+			}
+
+			once = false;
+			assert!(state.preparation.as_ref().unwrap().entries.is_empty());
+			assert!(state.preparation.as_ref().unwrap().catalog().is_some());
+			state.unload::<TestCatalog>();
+			assert!(state.preparation.as_ref().unwrap().catalog().is_none());
+			assert_eq!(state.preparation_status(), crate::PreparationStatus::Ready);
+			state.commit_locale().unwrap();
+		},
+	);
+	app.update();
+	assert!(!app.world().contains_resource::<TestCatalog>());
+	app.update();
+	let state = app.world().resource::<Localization<TestCatalog, Lazy>>();
+	assert_eq!(state.locale(), "es");
+	assert!(state.desired().is_empty());
+	assert!(state.catalog().is_none());
+	assert!(!app.world().contains_resource::<TestCatalog>());
+}
+
+#[test]
+fn target_handoff_waits_for_an_obsolete_normal_reader_and_preserves_fresh_commit() {
+	let (mut app, gate, files) = asynchronous_app();
+	gate.pass_new_reads.store(true, Ordering::SeqCst);
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.load::<TestCatalog>();
+	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
+	gate.pass_new_reads.store(false, Ordering::SeqCst);
+	files.insert_asset_text(Path::new("nested/data/es/ui.ftl"), "obsolete es read");
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.set_locale("es");
+	pump(&mut app, |_| !gate.state.lock().unwrap().2.is_empty());
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.set_locale("ja");
+	gate.pass_new_reads.store(true, Ordering::SeqCst);
+	pump(&mut app, |world| {
+		world
+			.get_resource::<TestCatalog>()
+			.is_some_and(|text| text.0 == "ja")
+	});
+	files.insert_asset_text(Path::new("nested/data/es/ui.ftl"), "fresh prepared es");
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.prepare_locale("es");
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<TestCatalog, Lazy>>()
+			.preparation
+			.as_ref()
+			.unwrap()
+			.store
+			.status::<TestCatalog>()
+			== ModuleStatus::Ready
+	});
+	assert_eq!(
+		app.world()
+			.resource::<Localization<TestCatalog, Lazy>>()
+			.preparation_status(),
+		crate::PreparationStatus::Preparing
+	);
+	assert_eq!(
+		app.world_mut()
+			.resource_mut::<Localization<TestCatalog, Lazy>>()
+			.commit_locale(),
+		Err(crate::CommitLocaleError::Pending)
+	);
+	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
+	gate.release();
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<TestCatalog, Lazy>>()
+			.preparation_status()
+			== crate::PreparationStatus::Ready
+	});
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.commit_locale()
+		.unwrap();
+	app.update();
+	assert_eq!(app.world().resource::<TestCatalog>().0, "fresh prepared es");
+	for _ in 0..20 {
+		app.update();
+		std::thread::sleep(Duration::from_millis(1));
+		assert_eq!(app.world().resource::<TestCatalog>().0, "fresh prepared es");
+	}
 }

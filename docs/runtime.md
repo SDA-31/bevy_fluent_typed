@@ -380,10 +380,12 @@ Preparation retains active and target parsed leaves until cancellation or commit
 there is no retained locale cache. Application-owned clones and the source's own
 buffers retain their usual lifetime. File sources use Bevy's normal AssetReader
 and AssetLoader with a private typed preparation asset and per-attempt identities.
-Repreparing or retrying the same file waits asynchronously for the previous
-preparation handle to retire; an uncancelable source reader may delay that
-retirement. Cancellation returns immediately and active catalog consumers keep
-running throughout. Source metadata must allow Bevy to select the requested
+Repreparing or retrying the same file waits asynchronously for its previous
+preparation handle to retire. Before commit, target files also wait for obsolete
+normal catalog handles to retire so the handoff cannot reconnect a canceled
+reader. An uncancelable reader opening the source or another owner retaining
+such a handle may delay readiness. Cancellation returns immediately and active
+catalog consumers keep running throughout. Source metadata must allow Bevy to select the requested
 asset type; explicit `.meta` files selecting a different loader cause preparation
 to fail. Remove that loader override or configure Bevy's metadata policy for your
 source. Automatic watching and `ReloadCatalogs` continue to work after commit.

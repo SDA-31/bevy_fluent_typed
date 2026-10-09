@@ -11,7 +11,9 @@ use crate::{
 #[cfg(feature = "manifest")]
 use crate::{
 	Lazy, LocalizationManifest,
-	assets::{ModuleAsset, ModuleLoader, PreparedModuleAsset, PreparedModuleLoader},
+	assets::{
+		ModuleAsset, ModuleLoader, PreparationAttempts, PreparedModuleAsset, PreparedModuleLoader,
+	},
 	loading::{CatalogSource, reconcile, report_failures},
 };
 use std::{
@@ -211,7 +213,9 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 					None
 				};
 
+				let attempts = PreparationAttempts::<C>::default();
 				app.insert_resource(CatalogSource::<C> {
+					attempts: attempts.clone(),
 					manifest: manifest.clone(),
 					modules: C::modules()
 						.into_iter()
@@ -223,7 +227,10 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 				.init_asset::<ModuleAsset<C>>()
 				.init_asset::<PreparedModuleAsset<C>>()
 				.register_asset_loader(ModuleLoader::<C>::new(manifest))
-				.register_asset_loader(PreparedModuleLoader(ModuleLoader::<C>::new(manifest)));
+				.register_asset_loader(PreparedModuleLoader {
+					loader: ModuleLoader::<C>::new(manifest),
+					attempts,
+				});
 
 				app.add_systems(
 					PreUpdate,

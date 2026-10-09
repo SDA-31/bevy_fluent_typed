@@ -593,3 +593,88 @@ fn canceled_byte_preparation_cannot_satisfy_a_later_target_attempt() {
 	assert_eq!(app.world().resource::<Hud>().0.as_str(), active);
 	assert!(target.starts_with("es:"));
 }
+
+#[test]
+fn physical_demand_changes_synchronize_target_without_changing_scope_ownership() {
+	let (mut app, source) = controlled();
+	app.world_mut()
+		.resource_mut::<Localization<Root, Lazy>>()
+		.load::<Hud>();
+	pump(&mut app, |_| source.count() == 1);
+	source.release::<Hud>("en", 0);
+	pump(&mut app, |world| world.contains_resource::<Hud>());
+	app.world_mut()
+		.resource_mut::<Localization<Root, Lazy>>()
+		.prepare_locale("es");
+	pump(&mut app, |_| source.count() == 2);
+	source.release::<Hud>("es", 0);
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<Root, Lazy>>()
+			.preparation_status()
+			== crate::PreparationStatus::Ready
+	});
+	let requested = app
+		.world()
+		.resource::<Localization<Root, Lazy>>()
+		.requested
+		.clone();
+	{
+		let mut state = app.world_mut().resource_mut::<Localization<Root, Lazy>>();
+		Arc::make_mut(&mut state.desired).insert(Panel::module_paths()[0]);
+		state.requests_changed = true;
+	}
+	pump(&mut app, |_| source.count() == 4);
+	assert_eq!(
+		app.world().resource::<Localization<Root, Lazy>>().requested,
+		requested
+	);
+	assert_eq!(
+		app.world()
+			.resource::<Localization<Root, Lazy>>()
+			.preparation_status(),
+		crate::PreparationStatus::Preparing
+	);
+	source.release::<Panel>("en", 0);
+	source.release::<Panel>("es", 0);
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<Root, Lazy>>()
+			.preparation_status()
+			== crate::PreparationStatus::Ready
+	});
+	app.world_mut()
+		.resource_mut::<Localization<Root, Lazy>>()
+		.commit_locale()
+		.unwrap();
+	{
+		let mut state = app.world_mut().resource_mut::<Localization<Root, Lazy>>();
+		Arc::make_mut(&mut state.desired).remove(Panel::module_paths()[0]);
+		state.requests_changed = true;
+	}
+	app.update();
+	let state = app.world().resource::<Localization<Root, Lazy>>();
+	assert_eq!(state.locale(), "en");
+	assert!(!state.commit_requested);
+	assert!(!app.world().contains_resource::<Panel>());
+	assert!(
+		state
+			.preparation
+			.as_ref()
+			.unwrap()
+			.store
+			.get::<Panel>()
+			.is_err()
+	);
+	assert_eq!(state.preparation_status(), crate::PreparationStatus::Ready);
+	app.world_mut()
+		.resource_mut::<Localization<Root, Lazy>>()
+		.commit_locale()
+		.unwrap();
+	app.update();
+	assert_eq!(
+		app.world().resource::<Localization<Root, Lazy>>().locale(),
+		"es"
+	);
+	assert!(!app.world().contains_resource::<Panel>());
+}
