@@ -382,6 +382,7 @@ fn full_byte_collection_publishes_complete_groups_despite_a_missing_sibling() {
 }
 
 #[test]
+#[cfg(feature = "diagnostics")]
 fn progress_counts_complete_schema_during_partial_group_loading_and_locale_changes() {
 	let (mut app, source) = controlled();
 	app.world_mut()

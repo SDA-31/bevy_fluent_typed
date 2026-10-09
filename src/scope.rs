@@ -9,13 +9,14 @@
 use crate::bevy::ecs::world::{FilteredResources, FilteredResourcesBuilder};
 use crate::bevy::prelude::*;
 use crate::catalog::SharedScope;
-use crate::{
-	FluentCatalog, FluentScope, LoadingProgress, ModuleDiagnostic, ModuleError, ModuleStatus,
-	bindings,
-};
+use crate::{FluentCatalog, FluentScope, ModuleError, ModuleStatus, bindings};
+#[cfg(feature = "diagnostics")]
+use crate::{LoadingProgress, ModuleDiagnostic};
+#[cfg(feature = "diagnostics")]
+use std::collections::BTreeSet;
 use std::{
 	any::TypeId,
-	collections::{BTreeMap, BTreeSet, HashMap},
+	collections::{BTreeMap, HashMap},
 	sync::Arc,
 };
 
@@ -124,6 +125,7 @@ impl<C: FluentCatalog> ModuleStore<C> {
 	/// empty scope has zero counts. Snapshot availability is counted independently
 	/// from the latest attempt, so failed reloads may remain usable. Inspection
 	/// allocates diagnostics only when called; no background tracking is installed.
+	#[cfg(feature = "diagnostics")]
 	pub fn progress<S: FluentScope<Catalog = C>>(&self) -> LoadingProgress<C::Locale> {
 		let paths: BTreeSet<_> = S::module_paths().iter().copied().collect();
 		let mut progress = LoadingProgress {

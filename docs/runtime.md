@@ -251,6 +251,17 @@ consumers can run while the latest attempt has status `Failed`. Repeating
 
 ### Optional loading diagnostics
 
+Enable the optional `diagnostics` feature on the normal dependency:
+
+```toml
+bevy_fluent_typed = { version = "0.3.0", features = ["codegen", "diagnostics"] }
+```
+
+It is disabled by default. `status::<Scope>()` remains available without it;
+`progress`, `LoadingProgress` and `ModuleDiagnostic` require `diagnostics`.
+The feature adds no dependencies or background systems. Keep the build dependency
+unchanged.
+
 Use `localization.progress::<Scope>()` to inspect a loading screen or report a
 partial group's state. The returned `LoadingProgress<Locale>` contains the
 selected locale, `total`, `ready`, `loading`, `failed`, `unloaded` and `available`

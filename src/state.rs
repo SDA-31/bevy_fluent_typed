@@ -1,12 +1,12 @@
 //! Selected locale and explicit logical demand, independent of physical asset handles.
+#[cfg(feature = "diagnostics")]
+use crate::LoadingProgress;
 #[cfg(feature = "manifest")]
 use crate::assets::ModuleAsset;
 #[cfg(feature = "manifest")]
 use crate::bevy::prelude::Handle;
 use crate::bevy::{ecs as bevy_ecs, prelude::Resource, tasks::Task};
-use crate::{
-	FluentCatalog, FluentScope, Full, Lazy, LoadingMode, LoadingProgress, ModuleStatus, ModuleStore,
-};
+use crate::{FluentCatalog, FluentScope, Full, Lazy, LoadingMode, ModuleStatus, ModuleStore};
 use std::{
 	any::TypeId,
 	collections::{BTreeMap, BTreeSet, HashMap},
@@ -147,6 +147,7 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 
 	/// Inspect a scope's unique leaves, latest attempts and usable snapshots.
 	/// Includes unrequested leaves without starting I/O or changing logical demand.
+	#[cfg(feature = "diagnostics")]
 	pub fn progress<S: FluentScope<Catalog = C>>(&self) -> LoadingProgress<C::Locale> {
 		self.store.progress::<S>()
 	}
