@@ -284,6 +284,64 @@ fn older_loader_finishing_after_newer_loader_cannot_regress_published_value() {
 }
 
 #[test]
+fn watcher_handoff_serializes_reload_before_loader_entry() {
+	let (mut app, gate, files) = asynchronous_app();
+	gate.pass_new_reads.store(true, Ordering::SeqCst);
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
+		.load::<TestCatalog>();
+	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
+		.prepare_locale("es");
+	pump(&mut app, |world| {
+		matches!(
+			world
+				.resource::<Localization<TestCatalog, Manual>>()
+				.preparation_status(),
+			crate::PreparationStatus::Ready
+		)
+	});
+
+	// Pause the normal watcher read after it captures old bytes, before the
+	// loader assigns a revision. Reloads must queue behind this owned read.
+	gate.pass_new_reads.store(false, Ordering::SeqCst);
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
+		.commit_locale()
+		.unwrap();
+	pump(&mut app, |_| !gate.state.lock().unwrap().2.is_empty());
+	let state = app.world().resource::<Localization<TestCatalog, Manual>>();
+	assert!(state.entries["ui.ftl"].pending);
+	assert_eq!(state.pending, 1);
+	assert_eq!(app.world().resource::<TestCatalog>().0, "es");
+	let reads = gate.state.lock().unwrap().1.len();
+
+	files.insert_asset_text(Path::new("nested/data/es/ui.ftl"), "fresh");
+	gate.pass_new_reads.store(true, Ordering::SeqCst);
+	request_reload(app.world_mut());
+
+	for _ in 0..3 {
+		app.update();
+	}
+
+	assert_eq!(gate.state.lock().unwrap().1.len(), reads);
+	assert_eq!(app.world().resource::<TestCatalog>().0, "es");
+	gate.release();
+	pump(&mut app, |world| {
+		let state = world.resource::<Localization<TestCatalog, Manual>>();
+
+		state.pending == 0 && state.retry.is_empty() && world.resource::<TestCatalog>().0 == "fresh"
+	});
+	assert_eq!(gate.state.lock().unwrap().1.len(), reads + 1);
+
+	for _ in 0..3 {
+		app.update();
+		assert_eq!(app.world().resource::<TestCatalog>().0, "fresh");
+	}
+}
+
+#[test]
 fn no_io_until_demand_and_pending_locale_results_cannot_publish_into_current_language() {
 	let (mut app, gate, _) = asynchronous_app();
 	for _ in 0..3 {

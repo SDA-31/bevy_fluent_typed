@@ -268,8 +268,8 @@ Runnable headless examples live in [examples/codegen](examples/codegen),
 Their README commands start from a checkout of this repository. Their local path
 dependencies test that checkout; use the registry setup above for your application.
 The [compatibility runner](tools/compatibility/README.md) is for maintainers.
-CI ignores branch pushes and PRs changing only `CHANGELOG.md`; tag pushes and
-manual runs still execute checks.
+CI checks PRs and pushes to `main` or the release-preparation branch, skipping
+changes confined to `CHANGELOG.md`. Tag pushes and manual runs still execute checks.
 
 [MIT](LICENSE) covers this library and its examples, not your application
 or translations.

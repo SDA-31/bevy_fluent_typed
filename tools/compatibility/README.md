@@ -95,3 +95,17 @@ on 0.19/0.20; create a fresh fixture through this command when repeating the sui
 
 The runtime is tested both with manifest support and as a backend-only byte
 loader. The latter graph must contain no generator, TOML parser or bridge package.
+
+CI runs the complete matrix on pull requests, main/release-preparation pushes,
+tags and manual dispatches. A feature-branch push without a PR does not run it.
+Changes confined to the root changelog and commits marked `[skip ci]` still skip
+push/PR checks. The matrix allows six concurrent jobs.
+
+Downloaded crates and compiled dependencies use separate caches. Compiler identity,
+engine family and dependency inputs distinguish build caches; a source-only commit
+does not create another large copy. Main and release-preparation jobs remove
+workspace artifacts with `cargo clean --workspace` before saving dependencies.
+PRs and tags only restore build caches; PRs can reuse their base branch's cache.
+The first run with this configuration or new compiler/dependencies can still be
+cold. A successful base-branch push or manual run seeds subsequent PRs. No
+additional action, external cache service or application dependency is required.

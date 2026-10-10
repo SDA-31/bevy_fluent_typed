@@ -88,6 +88,85 @@ fn inserted_bindings_share_demand_and_last_removal_releases_data() {
 #[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash)]
 struct ConsumerSchedule;
 
+#[cfg(feature = "manifest")]
+#[test]
+fn prepared_failures_follow_current_automatic_demand() {
+	use crate::bevy::asset::{AssetLoadError, AssetLoadFailedEvent, io::AssetReaderError};
+	use crate::{CatalogUpdate, CatalogUpdateReader};
+	use std::sync::Mutex;
+
+	for remove_owner in [false, true] {
+		let rejections = Arc::new(Mutex::new(Vec::new()));
+		let observed = rejections.clone();
+		let mut app = App::new();
+		app.add_plugins((
+			MinimalPlugins,
+			AssetPlugin::default(),
+			LocalizationPlugin::<TestCatalog>::new(super::manifest()),
+		))
+		.add_systems(
+			Update,
+			move |mut updates: CatalogUpdateReader<TestCatalog>| {
+				for update in updates.read() {
+					if let CatalogUpdate::Rejected { locale, path, .. } = update {
+						observed.lock().unwrap().push((*locale, path.clone()));
+					}
+				}
+			},
+		);
+		let owner = app.world_mut().spawn(binding()).id();
+		app.update();
+		app.world_mut()
+			.resource_mut::<Localization<TestCatalog>>()
+			.set_locale("es");
+		let handle = app
+			.world()
+			.resource::<Assets<crate::assets::PreparedModuleAsset<TestCatalog>>>()
+			.reserve_handle();
+
+		// Queue an acquisition failure for the pending target before the next
+		// publication. Removing its owner must invalidate the notification too.
+		{
+			let mut state = app.world_mut().resource_mut::<Localization<TestCatalog>>();
+			let target = state.preparation.as_mut().unwrap();
+			let mut entry = crate::state::RequestedModule::new("es");
+			entry.preparation_handle = Some(handle.clone());
+			entry.pending = true;
+			target.entries.insert("ui.ftl", entry);
+			target.pending = 1;
+		}
+
+		let event = AssetLoadFailedEvent {
+			id: handle.id(),
+			path: "data/es/ui.ftl".into(),
+			error: AssetLoadError::AssetReaderError(AssetReaderError::NotFound(
+				"data/es/ui.ftl".into(),
+			)),
+		};
+		#[cfg(feature = "bevy-0-16")]
+		app.world_mut().send_event(event);
+		#[cfg(not(feature = "bevy-0-16"))]
+		app.world_mut().write_message(event);
+
+		if remove_owner {
+			app.world_mut().despawn(owner);
+		}
+
+		app.update();
+
+		if remove_owner {
+			assert!(rejections.lock().unwrap().is_empty());
+			assert!(!app.world().contains_resource::<TestCatalog>());
+		} else {
+			assert_eq!(
+				*rejections.lock().unwrap(),
+				[(Some("es"), "ui.ftl".to_owned())]
+			);
+			assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
+		}
+	}
+}
+
 #[test]
 fn registered_system_owns_demand_until_its_schedule_is_dropped() {
 	let (mut app, reads) = app();
