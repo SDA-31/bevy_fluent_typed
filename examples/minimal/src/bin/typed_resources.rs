@@ -50,6 +50,8 @@ fn show_hud(mut commands: Commands, translations: Res<texts::Translations>) {
 fn wait_for_hud(app: &mut App, locale: texts::Locale) {
 	let deadline = Instant::now() + Duration::from_secs(10);
 
+	// This headless demo drives Bevy frames manually; normal apps use App::run().
+	// Each update lets Bevy publish completed loads and refresh localized text.
 	loop {
 		app.update();
 		let mut labels = app.world_mut().query::<&Text>();

@@ -108,6 +108,8 @@ fn wait(
 ) -> Result<(), String> {
 	let deadline = Instant::now() + LOAD_TIMEOUT;
 
+	// This headless demo drives Bevy frames manually; normal apps use App::run().
+	// Each update lets Bevy publish completed loads and refresh localized text.
 	loop {
 		app.update();
 		let progress = app

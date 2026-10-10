@@ -38,6 +38,8 @@ fn main() {
 			.set_locale(locale);
 		let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
 
+		// This headless demo drives Bevy frames manually; normal apps use App::run().
+		// Each update lets Bevy publish completed loads and refresh localized text.
 		loop {
 			app.update();
 

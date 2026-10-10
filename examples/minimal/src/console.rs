@@ -24,6 +24,8 @@ pub(super) fn run_until_loaded(
 	let deadline = Instant::now() + LOAD_TIMEOUT;
 	let mut previous = String::new();
 
+	// This console runner drives Bevy frames manually; normal apps use App::run().
+	// Each update lets Bevy publish completed loads and refresh localized text.
 	loop {
 		app.update();
 		let text = &app.world().get::<Text>(label).unwrap().0;

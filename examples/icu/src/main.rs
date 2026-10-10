@@ -33,6 +33,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 			.set_locale(locale);
 		let deadline = Instant::now() + Duration::from_secs(10);
 
+		// This headless demo drives Bevy frames manually; normal apps use App::run().
+		// Each update lets Bevy publish completed loads and refresh localized text.
 		loop {
 			app.update();
 
