@@ -275,25 +275,27 @@ consumers can run while the latest attempt has status `Failed`. Repeating
 
 ### Observe loading progress
 
-Add a progress plugin for each root, group or leaf your loading UI observes:
+One root progress plugin provides native views for the entire registered tree:
 
 ```rust,ignore
 use bevy_fluent_typed::LocalizationProgressPlugin;
 
 app.add_plugins(LocalizationProgressPlugin::<texts::Translations>::default());
-app.add_plugins(LocalizationProgressPlugin::<texts::Presentation>::default());
-app.add_plugins(LocalizationProgressPlugin::<texts::presentation::Hud>::default());
 ```
 
-These may be separate calls in the application's consumer plugins. During App
-setup, either order relative to the owning `LocalizationPlugin` works. Full/Lazy
-is inferred from that base plugin; no Cargo progress feature is required. Each
-scope gets its own `LocalizationProgress<Scope>` resource before `Startup` once
-the base plugin is installed. Repeated registration of the same scope is
-idempotent, and scopes sharing a provider use one tracking dispatcher. Registration
-snapshots any active/prepared state already present during setup; compose these
-plugins before the App is finished. Read a typed view from an existing UI system,
-or gate a dedicated observer on visible changes:
+This includes `LocalizationProgress<texts::presentation::Hud>` automatically;
+no separate HUD registration is needed. To observe only a group's subtree instead,
+use `LocalizationProgressPlugin::<texts::Presentation>::default()`. It includes
+that group and its registered descendants, excluding ancestors and siblings.
+A leaf plugin observes only that leaf. Consumer plugins may register overlapping
+subtrees in separate calls; repeats are idempotent and share one provider dispatcher.
+
+During App setup, either order relative to the owning `LocalizationPlugin` works.
+Full/Lazy is inferred from that base plugin; no Cargo progress feature is required.
+Selected scopes get native resources before `Startup` once the base plugin is
+installed. Registration snapshots any active/prepared state already present
+during setup; compose these plugins before the App is finished. Read a typed view
+from an existing UI system, or gate a dedicated observer on visible changes:
 
 ```rust,ignore
 use bevy::ecs::schedule::common_conditions::resource_changed;
@@ -328,7 +330,8 @@ The root view counts the current demand union: Full counts the whole root; Lazy
 counts the distinct leaves required by explicit requests and leases. Group and
 leaf views count their fixed, deduplicated schema paths, including unrequested
 leaves. Overlapping owners do not inflate the total. Progress plugins and resource
-reads create no loading requests or leases and do not retain parsed catalogs. Each `LoadingProgress<Locale>` contains `locale`, `total`, `ready`,
+reads create no loading requests or leases and do not retain parsed catalogs.
+Each `LoadingProgress<Locale>` contains `locale`, `total`, `ready`,
 `loading`, `failed`, `unloaded` and `available`. The four attempt counts sum to
 `total`; `available` separately counts usable last-good snapshots, including
 during a loading or failed reload. These are module counts, not downloaded bytes
@@ -340,7 +343,8 @@ whole provider's demand. A ready HUD does not mean other requested leaves are
 ready; conversely, an unrequested observed scope can remain unloaded while the
 provider reports `PreparationStatus::Ready`. Check that provider-wide status
 before asking the live controller to `commit_locale`. Scoped `ready == total` is
-insufficient; retries or asset-handle retirement can also prevent a commit. Publication remains an explicit application decision; reading
+insufficient; retries or asset-handle retirement can also prevent a commit.
+Publication remains an explicit application decision; reading
 a ready snapshot does not commit it. Manual preparation failures appear through
 `PreparationStatus::Failed` without emitting precommit `Rejected` notifications.
 Active translations remain usable throughout preparation.
@@ -659,6 +663,19 @@ implementations. Add `manifest` if that provider needs the existing manifest/fil
 constructors. `manifest` is enabled by default and by `codegen`; it uses the
 generator package's small runtime manifest API, without enabling generation.
 See the [feature table](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/build.md#features) for host/target separation.
+
+For advanced handwritten providers with groups, declare the immediate parent
+in each child descriptor:
+
+```rust,ignore
+ScopeRegistration::new::<Hud>().with_parent::<Presentation>()
+```
+
+The parent must share the child's `FluentScope::Catalog`. Descriptors without a
+parent are direct children of the catalog root; root observation includes every
+registered descriptor, including existing providers without parent metadata.
+Generated Bevy providers emit these relationships automatically from their accessor
+hierarchy. The one-file handwritten example needs no parent boilerplate.
 
 ## Headless application
 

@@ -4,14 +4,14 @@ use crate::bevy::prelude::*;
 use crate::{FluentCatalog, FluentScope};
 use std::{any::TypeId, collections::BTreeSet};
 
-pub(super) struct Subscription<C: FluentCatalog> {
+pub(crate) struct Subscription<C: FluentCatalog> {
 	pub(super) paths: Option<BTreeSet<&'static str>>,
 	pub(super) current: fn(&World, &Version<'_, C::Locale>) -> bool,
 	pub(super) publish: fn(&mut World, Snapshot<C>),
 }
 
 impl<C: FluentCatalog> Subscription<C> {
-	pub(super) fn new<S: FluentScope<Catalog = C>>() -> Self {
+	pub(crate) fn new<S: FluentScope<Catalog = C>>() -> Self {
 		Self {
 			paths: (TypeId::of::<S>() != TypeId::of::<C>())
 				.then(|| S::module_paths().iter().copied().collect()),

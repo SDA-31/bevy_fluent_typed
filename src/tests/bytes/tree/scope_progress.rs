@@ -1,5 +1,5 @@
 //! Independent typed progress views share registration without creating demand.
-use super::{Hud, Other, Panel, Presentation, Root, pump};
+use super::{Hud, Other, Panel, Presentation, Root, Singleton, configured, pump};
 use crate::bevy::prelude::*;
 use crate::{
 	FluentScope, Lazy, Localization, LocalizationPlugin, LocalizationProgress,
@@ -11,15 +11,13 @@ use std::sync::{
 };
 
 #[test]
-fn decomposed_scope_plugins_share_schedules_and_do_not_load_unrequested_files() {
+fn recursive_root_plugin_shares_schedules_and_does_not_load_unrequested_files() {
 	use Hud as Interface;
 
 	let calls = Arc::new(AtomicUsize::new(0));
 	let observed = calls.clone();
 	let mut app = App::new();
 	app.add_plugins(MinimalPlugins)
-		.add_plugins(LocalizationProgressPlugin::<Interface>::default())
-		.add_plugins(LocalizationProgressPlugin::<Presentation>::default())
 		.add_plugins(LocalizationProgressPlugin::<Root>::default());
 	assert!(!app.world().contains_resource::<LocalizationProgress<Hud>>());
 
@@ -344,4 +342,61 @@ fn scope_subscriptions_bind_to_their_own_provider_and_loading_mode() {
 			.ready,
 		1
 	);
+}
+
+#[test]
+fn group_recursion_excludes_ancestors_and_siblings_even_with_identical_leaf_sets() {
+	let (mut app, source) = configured();
+	app.add_plugins(LocalizationProgressPlugin::<Singleton>::default());
+	assert!(
+		app.world()
+			.contains_resource::<LocalizationProgress<Singleton>>()
+	);
+	assert!(app.world().contains_resource::<LocalizationProgress<Hud>>());
+	assert!(
+		!app.world()
+			.contains_resource::<LocalizationProgress<Presentation>>()
+	);
+	assert!(
+		!app.world()
+			.contains_resource::<LocalizationProgress<Panel>>()
+	);
+	assert!(
+		!app.world()
+			.contains_resource::<LocalizationProgress<Other>>()
+	);
+	assert!(
+		!app.world()
+			.contains_resource::<LocalizationProgress<Root>>()
+	);
+	let tick = app
+		.world()
+		.get_resource_ref::<LocalizationProgress<Hud>>()
+		.unwrap()
+		.last_changed();
+
+	app.add_plugins(LocalizationProgressPlugin::<Presentation>::default());
+	assert!(
+		app.world()
+			.contains_resource::<LocalizationProgress<Panel>>()
+	);
+	assert!(
+		!app.world()
+			.contains_resource::<LocalizationProgress<Other>>()
+	);
+	assert!(
+		!app.world()
+			.contains_resource::<LocalizationProgress<Root>>()
+	);
+	assert_eq!(
+		app.world()
+			.get_resource_ref::<LocalizationProgress<Hud>>()
+			.unwrap()
+			.last_changed(),
+		tick
+	);
+	app.finish();
+	app.cleanup();
+	app.update();
+	assert_eq!(source.count(), 0);
 }

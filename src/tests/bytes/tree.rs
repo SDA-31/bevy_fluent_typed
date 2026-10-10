@@ -49,6 +49,25 @@ leaf!(Hud, "presentation/hud.ftl");
 leaf!(Panel, "presentation/panel.ftl");
 leaf!(Other, "other.ftl");
 
+#[derive(Resource, Clone)]
+struct Singleton {
+	_hud: Hud,
+}
+
+impl FluentScope for Singleton {
+	type Catalog = Root;
+
+	fn module_paths() -> &'static [&'static str] {
+		Hud::module_paths()
+	}
+
+	fn assemble(modules: &ModuleStore<Root>) -> Option<Self> {
+		Some(Self {
+			_hud: modules.get::<Hud>().ok()?.clone(),
+		})
+	}
+}
+
 impl FluentScope for Presentation {
 	type Catalog = Root;
 
@@ -112,10 +131,11 @@ impl FluentCatalog for Root {
 	fn scopes() -> Vec<ScopeRegistration<Self>> {
 		vec![
 			ScopeRegistration::new::<Root>(),
-			ScopeRegistration::new::<Presentation>(),
-			ScopeRegistration::new::<Hud>(),
-			ScopeRegistration::new::<Panel>(),
-			ScopeRegistration::new::<Other>(),
+			ScopeRegistration::new::<Presentation>().with_parent::<Root>(),
+			ScopeRegistration::new::<Singleton>().with_parent::<Presentation>(),
+			ScopeRegistration::new::<Hud>().with_parent::<Singleton>(),
+			ScopeRegistration::new::<Panel>().with_parent::<Presentation>(),
+			ScopeRegistration::new::<Other>().with_parent::<Root>(),
 		]
 	}
 

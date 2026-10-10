@@ -6,18 +6,20 @@ native resources, readiness helpers and embedded manifest declarations are uncha
 
 ## Native loading progress
 
-Add ordinary progress plugins for the views your loading UI needs:
+Add one root progress plugin for the native views your loading UI needs:
 
 ```rust,ignore
 use bevy_fluent_typed::LocalizationProgressPlugin;
 
 app.add_plugins(LocalizationProgressPlugin::<texts::Translations>::default());
-app.add_plugins(LocalizationProgressPlugin::<texts::presentation::Hud>::default());
 ```
 
+The root recursively includes every registered scope, including the HUD view
+used below. A group plugin is an alternative that observes only its subtree;
+a leaf plugin selects only that leaf. Generated hierarchy metadata is automatic.
 During App setup, either order relative to the base localization plugin works.
-The owning provider supplies Full/Lazy; scope registration is idempotent and shares
-one dispatcher per provider. Native `LocalizationProgress<Scope>` resources are
+The owning provider supplies Full/Lazy; overlapping and repeated registration is
+idempotent and shares one dispatcher per provider. Native `LocalizationProgress<Scope>` resources are
 initialized before `Startup` once the base plugin is installed. No Cargo feature
 is needed. Without progress plugins, their resources and recurring trackers are
 absent; ordinary loading and status remain available. Progress never requests

@@ -183,6 +183,8 @@ impl<C: FluentCatalog> ModuleStore<C> {
 )]
 pub struct ScopeRegistration<C: FluentCatalog> {
 	pub(crate) id: TypeId,
+	pub(crate) parent: Option<TypeId>,
+	pub(crate) progress: fn() -> crate::progress::Subscription<C>,
 	pub(crate) parameter: TypeId,
 	pub(crate) paths: &'static [&'static str],
 	pub(crate) assemble: fn(&ModuleStore<C>) -> Option<SharedScope>,
@@ -199,6 +201,8 @@ impl<C: FluentCatalog> ScopeRegistration<C> {
 	pub fn new<S: FluentScope<Catalog = C>>() -> Self {
 		Self {
 			id: TypeId::of::<S>(),
+			parent: None,
+			progress: crate::progress::Subscription::new::<S>,
 			parameter: TypeId::of::<Res<'static, S>>(),
 			paths: S::module_paths(),
 			assemble: |store| S::assemble(store).map(|scope| Arc::new(scope) as SharedScope),
@@ -220,5 +224,14 @@ impl<C: FluentCatalog> ScopeRegistration<C> {
 			ready_exists: |resources| resources.get::<S>().is_ok(),
 			bindings: bindings::register::<S>,
 		}
+	}
+
+	/// Declare a scope's immediate parent for recursive progress observation.
+	///
+	/// Generated providers emit this automatically. Handwritten descriptors without
+	/// a parent are treated as direct children of the catalog root.
+	pub fn with_parent<P: FluentScope<Catalog = C>>(mut self) -> Self {
+		self.parent = Some(TypeId::of::<P>());
+		self
 	}
 }

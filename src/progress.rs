@@ -21,4 +21,5 @@ pub(crate) use registration::{Registration, register};
 pub use resource::LocalizationProgress;
 pub use snapshot::LoadingProgress;
 pub(crate) use snapshot::inspect;
+pub(crate) use subscription::Subscription;
 pub(crate) use tracking::{ObservedSet, StoreVersion};

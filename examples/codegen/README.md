@@ -62,10 +62,10 @@ custom storage belongs in an [asset source](../../docs/asset-sources.md).
 
 ## Observe native loading progress
 
-The separate file-backed demonstration adds root and greeting
-`LocalizationProgressPlugin` instances through independent `add_plugins` calls.
-Its normal dependency still enables only `codegen`, with the same build-only
-dependency:
+The separate file-backed demonstration adds one root
+`LocalizationProgressPlugin`, automatically providing views for its generated
+UI group and greeting leaf. Its normal dependency still enables only `codegen`,
+with the same build-only dependency:
 
 ```sh
 cargo run --manifest-path examples/codegen/Cargo.toml --bin progress
@@ -86,8 +86,10 @@ bytes; progress is the latest snapshot, not a notification history.
 The generated manifest keeps its `assets/localizations/localization.toml` origin;
 this runner sets AssetPlugin's source root to the example's package directory.
 [tests/progress.rs](tests/progress.rs) uses controlled asynchronous byte loads to
-verify pending/ready snapshots, manual commit, target failure/cancellation and
-quiet change detection with the same generated provider. No Cargo progress feature
+verify pending/ready snapshots, manual commit, target failure/cancellation,
+quiet change detection and group-only recursive selection with the same generated
+provider. The group test includes its aliased greeting leaf, excludes the root
+and starts no translation I/O. No Cargo progress feature
 is needed. Without a progress plugin, ordinary examples have no native progress resource
 or recurring tracker. Passive count queries and optional `diagnostics` do not
 activate it. See [loading progress](../../GUIDE.md#observe-loading-progress) for your

@@ -1,16 +1,17 @@
-//! Ordinary Bevy opt-in for one typed progress view.
+//! Ordinary Bevy opt-in for a typed progress subtree.
 use crate::FluentScope;
 use crate::bevy::prelude::*;
 use std::marker::PhantomData;
 
-/// Observe a root, group or leaf without requesting its translations.
+/// Observe a scope and all its descendants without requesting translations.
 ///
 /// Add through `App::add_plugins`. The owning localization plugin supplies the
 /// Full/Lazy mode; either plugin order is supported. Multiple scopes of one
 /// provider share a tracker, and repeated registration of a scope is idempotent.
 /// Register during App setup, before `App::finish` or `App::cleanup`.
-/// Each selected scope gets its own `LocalizationProgress<S>` resource before
-/// Startup once the base plugin is installed.
+/// The selected scope and every registered descendant get their own
+/// `LocalizationProgress<Scope>` resource before Startup once the base plugin is
+/// installed. Selecting the root observes all registered scopes.
 ///
 /// A root counts current demand. A group or leaf counts its fixed unique schema
 /// paths, including unrequested files. Preparation readiness remains provider-wide.

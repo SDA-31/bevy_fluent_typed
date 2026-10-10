@@ -78,8 +78,10 @@ every runtime backend, including the minimal byte-source configuration. Native
 tracking is enabled with `LocalizationProgressPlugin<Scope>` through ordinary
 `app.add_plugins` during setup; no Cargo `progress` feature exists. Without a
 progress plugin, no native view or recurring tracker is installed. Scopes of one
-provider share a dispatcher. The `diagnostics` feature only enables on-demand
-module details and does not activate tracking.
+provider share a dispatcher. Selecting the root includes all registered views;
+a group includes its descendants, and a leaf selects itself. Generated providers
+supply hierarchy metadata automatically. The `diagnostics` feature only enables
+on-demand module details and does not activate tracking.
 
 `codegen` and `manifest` are independent of how you obtain runtime bytes.
 Generated providers currently include manifest helpers, so `codegen` enables

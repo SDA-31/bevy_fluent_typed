@@ -2,7 +2,11 @@
 use super::subscription::Subscription;
 use crate::bevy::{ecs as bevy_ecs, prelude::*};
 use crate::{FluentCatalog, FluentScope, LoadingMode, LocalizationSystems};
-use std::{any::TypeId, collections::BTreeMap, marker::PhantomData};
+use std::{
+	any::TypeId,
+	collections::{BTreeMap, BTreeSet, btree_map::Entry},
+	marker::PhantomData,
+};
 
 /// Installed provider identity and its concrete mode's tracker installer.
 #[derive(Resource)]
@@ -38,16 +42,50 @@ pub(crate) fn register<C: FluentCatalog, M: LoadingMode>(app: &mut App) {
 }
 
 pub(super) fn request<S: FluentScope>(app: &mut App) {
-	app.init_resource::<Requests<S::Catalog>>();
-	let mut requests = app.world_mut().resource_mut::<Requests<S::Catalog>>();
+	let root = TypeId::of::<S::Catalog>();
+	let selected = TypeId::of::<S>();
+	let scopes = S::Catalog::scopes();
+	let mut descendants = BTreeSet::from([selected]);
 
-	if requests.subscriptions.contains_key(&TypeId::of::<S>()) {
-		return;
+	if selected == root {
+		descendants.extend(scopes.iter().map(|scope| scope.id));
+	} else {
+		loop {
+			let before = descendants.len();
+
+			for scope in &scopes {
+				if scope.id != root && descendants.contains(&scope.parent.unwrap_or(root)) {
+					descendants.insert(scope.id);
+				}
+			}
+
+			if descendants.len() == before {
+				break;
+			}
+		}
 	}
 
-	requests
-		.subscriptions
-		.insert(TypeId::of::<S>(), Subscription::new::<S>());
+	app.init_resource::<Requests<S::Catalog>>();
+	let mut requests = app.world_mut().resource_mut::<Requests<S::Catalog>>();
+	let mut changed = false;
+
+	for scope in scopes {
+		if descendants.contains(&scope.id)
+			&& let Entry::Vacant(entry) = requests.subscriptions.entry(scope.id)
+		{
+			entry.insert((scope.progress)());
+			changed = true;
+		}
+	}
+
+	if let Entry::Vacant(entry) = requests.subscriptions.entry(selected) {
+		entry.insert(Subscription::new::<S>());
+		changed = true;
+	}
+
+	if !changed {
+		return;
+	}
 
 	if let Some(install) = app
 		.world()

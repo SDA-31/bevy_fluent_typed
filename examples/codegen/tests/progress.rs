@@ -18,6 +18,43 @@ type Progress = LocalizationProgress<texts::Translations>;
 type GreetingProgress = LocalizationProgress<texts::ui::Greeting>;
 type Attempts = Arc<Mutex<Vec<(texts::Locale, Arc<Gate>)>>>;
 
+#[test]
+fn generated_group_recurses_to_its_leaf_without_observing_the_root_or_loading() {
+	use texts::ui::Greeting as Interface;
+
+	let mut app = App::new();
+	app.add_plugins((
+		MinimalPlugins,
+		LocalizationProgressPlugin::<texts::Ui>::default(),
+		LocalizationPlugin::<texts::Translations, bevy_fluent_typed::Lazy>::from_bytes([(
+			texts::Locale::En,
+			Interface::PATH,
+			b"hello = Hello!".as_slice(),
+		)])
+		.unwrap(),
+	));
+	assert!(
+		app.world()
+			.contains_resource::<LocalizationProgress<texts::Ui>>()
+	);
+	assert!(
+		app.world()
+			.contains_resource::<LocalizationProgress<Interface>>()
+	);
+	assert!(!app.world().contains_resource::<Progress>());
+	app.finish();
+	app.cleanup();
+	app.update();
+	assert!(!app.world().contains_resource::<Interface>());
+	assert_eq!(
+		app.world()
+			.resource::<LocalizationProgress<Interface>>()
+			.active()
+			.unloaded,
+		1
+	);
+}
+
 #[derive(Default)]
 struct Gate(Mutex<(bool, Option<Waker>)>);
 
@@ -92,11 +129,14 @@ fn controlled_app(fail_target: bool) -> (App, Attempts) {
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, plugin))
 		.add_plugins(LocalizationProgressPlugin::<texts::Translations>::default())
-		.add_plugins(LocalizationProgressPlugin::<texts::ui::Greeting>::default())
 		.init_resource::<Observations>()
-		.add_systems(Startup, |progress: Res<Progress>| {
-			assert_eq!(progress.active().unloaded, 1);
-		})
+		.add_systems(
+			Startup,
+			|progress: Res<Progress>, greeting: Res<GreetingProgress>| {
+				assert_eq!(progress.active().unloaded, 1);
+				assert_eq!(greeting.active().unloaded, 1);
+			},
+		)
 		.add_systems(Update, record)
 		.add_systems(
 			PostUpdate,
