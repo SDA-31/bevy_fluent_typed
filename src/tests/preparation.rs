@@ -285,22 +285,22 @@ fn embedded_manifest_preparation_publishes_no_target_resources_before_commit() {
 	app.add_plugins((
 		MinimalPlugins,
 		AssetPlugin::default(),
-		LocalizationPlugin::<TestCatalog>::new(super::manifest()),
+		LocalizationPlugin::<TestCatalog, crate::Full>::new(super::manifest()),
 	));
 	app.update();
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, crate::Full>>()
 		.prepare_locale("es");
 	app.update();
 	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
 	assert_eq!(
 		app.world()
-			.resource::<Localization<TestCatalog>>()
+			.resource::<Localization<TestCatalog, crate::Full>>()
 			.preparation_status(),
 		PreparationStatus::Ready
 	);
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, crate::Full>>()
 		.commit_locale()
 		.unwrap();
 	app.update();
@@ -347,21 +347,23 @@ fn filesystem_target_preparation_uses_normal_asset_loader_and_active_reload() {
 			watch_for_changes_override: Some(false),
 			..default()
 		},
-		LocalizationPlugin::<TestCatalog>::new(manifest),
+		LocalizationPlugin::<TestCatalog, crate::Full>::new(manifest),
 	));
 	app.finish();
 	app.cleanup();
 	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, crate::Full>>()
 		.prepare_locale("es");
 	pump(&mut app, |world| {
 		world
-			.resource::<Localization<TestCatalog>>()
+			.resource::<Localization<TestCatalog, crate::Full>>()
 			.preparation_status()
 			== PreparationStatus::Ready
 	});
-	let state = app.world().resource::<Localization<TestCatalog>>();
+	let state = app
+		.world()
+		.resource::<Localization<TestCatalog, crate::Full>>();
 	let entry = &state.preparation.as_ref().unwrap().entries["ui.ftl"];
 	assert!(entry.preparation_request.is_some());
 	assert!(
@@ -376,13 +378,15 @@ fn filesystem_target_preparation_uses_normal_asset_loader_and_active_reload() {
 	);
 	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, crate::Full>>()
 		.commit_locale()
 		.unwrap();
 	app.update();
 	assert_eq!(app.world().resource::<TestCatalog>().0, "es");
 	assert!(
-		app.world().resource::<Localization<TestCatalog>>().entries["ui.ftl"]
+		app.world()
+			.resource::<Localization<TestCatalog, crate::Full>>()
+			.entries["ui.ftl"]
 			.handle
 			.as_ref()
 			.unwrap()
@@ -411,7 +415,7 @@ fn filesystem_target_preparation_uses_normal_asset_loader_and_active_reload() {
 	pump(&mut app, |world| {
 		matches!(
 			world
-				.resource::<Localization<TestCatalog>>()
+				.resource::<Localization<TestCatalog, crate::Full>>()
 				.status::<TestCatalog>(),
 			crate::ModuleStatus::Failed(_)
 		)
@@ -556,8 +560,8 @@ fn preparation_preserves_foreign_ftl_loader_and_multiple_provider_namespaces() {
 	app.init_asset::<ForeignAsset>()
 		.register_asset_loader(ForeignLoader);
 	app.add_plugins((
-		LocalizationPlugin::<TestCatalog>::new(manifest.clone()),
-		LocalizationPlugin::<SecondCatalog>::new(manifest),
+		LocalizationPlugin::<TestCatalog, crate::Full>::new(manifest.clone()),
+		LocalizationPlugin::<SecondCatalog, crate::Full>::new(manifest),
 	));
 	app.finish();
 	app.cleanup();
@@ -574,27 +578,27 @@ fn preparation_preserves_foreign_ftl_loader_and_multiple_provider_namespaces() {
 			&& world.resource::<Assets<ForeignAsset>>().contains(&foreign)
 	});
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, crate::Full>>()
 		.prepare_locale("es");
 	app.world_mut()
-		.resource_mut::<Localization<SecondCatalog>>()
+		.resource_mut::<Localization<SecondCatalog, crate::Full>>()
 		.prepare_locale("es");
 	pump(&mut app, |world| {
 		world
-			.resource::<Localization<TestCatalog>>()
+			.resource::<Localization<TestCatalog, crate::Full>>()
 			.preparation_status()
 			== PreparationStatus::Ready
 			&& world
-				.resource::<Localization<SecondCatalog>>()
+				.resource::<Localization<SecondCatalog, crate::Full>>()
 				.preparation_status()
 				== PreparationStatus::Ready
 	});
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, crate::Full>>()
 		.commit_locale()
 		.unwrap();
 	app.world_mut()
-		.resource_mut::<Localization<SecondCatalog>>()
+		.resource_mut::<Localization<SecondCatalog, crate::Full>>()
 		.commit_locale()
 		.unwrap();
 	app.update();
@@ -650,8 +654,8 @@ fn matching_settings_on_another_catalog_loader_fail_without_entering_expected_lo
 		.add_plugins((
 			MinimalPlugins,
 			AssetPlugin::default(),
-			LocalizationPlugin::<TestCatalog>::new(manifest.clone()),
-			LocalizationPlugin::<SecondCatalog>::new(manifest),
+			LocalizationPlugin::<TestCatalog, crate::Full>::new(manifest.clone()),
+			LocalizationPlugin::<SecondCatalog, crate::Full>::new(manifest),
 		));
 	app.finish();
 	app.cleanup();
@@ -659,17 +663,19 @@ fn matching_settings_on_another_catalog_loader_fail_without_entering_expected_lo
 		world.contains_resource::<TestCatalog>() && world.contains_resource::<SecondCatalog>()
 	});
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, crate::Full>>()
 		.prepare_locale("es");
 	pump(&mut app, |world| {
 		matches!(
 			world
-				.resource::<Localization<TestCatalog>>()
+				.resource::<Localization<TestCatalog, crate::Full>>()
 				.preparation_status(),
 			PreparationStatus::Failed(_)
 		)
 	});
-	let state = app.world().resource::<Localization<TestCatalog>>();
+	let state = app
+		.world()
+		.resource::<Localization<TestCatalog, crate::Full>>();
 	let attempt = state.preparation.as_ref().unwrap().entries["ui.ftl"]
 		.preparation_attempt
 		.as_ref()
@@ -691,7 +697,7 @@ fn matching_settings_on_another_catalog_loader_fail_without_entering_expected_lo
 		1
 	);
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, crate::Full>>()
 		.cancel_preparation();
 	assert_eq!(
 		app.world()

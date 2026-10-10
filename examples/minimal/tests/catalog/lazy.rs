@@ -83,7 +83,7 @@ fn settled_full_empty_lazy_and_partial_lazy_controllers_remain_unchanged() {
 	full.add_plugins((
 		MinimalPlugins,
 		AssetPlugin::default(),
-		LocalizationPlugin::<Translations>::new(super::EMBEDDED),
+		LocalizationPlugin::<Translations, Full>::new(super::EMBEDDED),
 	));
 	full.finish();
 	full.cleanup();

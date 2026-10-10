@@ -7,6 +7,7 @@ use crate::{
 };
 use std::sync::Arc;
 
+mod automatic;
 #[cfg(feature = "manifest")]
 mod bindings_lifecycle;
 mod bytes;
@@ -132,7 +133,7 @@ fn deferred_messages_refresh_and_clear_existing_ui_and_world_labels() {
 #[test]
 fn default_ui_respects_explicit_targets_and_waits_for_a_catalog() {
 	let mut app = App::new();
-	bindings::register::<TestCatalog>(&mut app);
+	bindings::register::<TestCatalog>(&mut app, false);
 	let binding = LocalizedText::<TestCatalog>::new(|catalog| catalog.0.clone());
 	let implicit = app.world_mut().spawn(binding.clone()).id();
 	let ui = app

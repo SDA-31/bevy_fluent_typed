@@ -65,7 +65,7 @@ application runtime work, not part of this build phase.
 
 | Feature selection | Available API and dependencies |
 | --- | --- |
-| Defaults | Bevy 0.20 runtime and `manifest` support |
+| Defaults | Bevy 0.20 runtime and `manifest` support; runtime loading defaults to Auto |
 | `codegen` on the normal dependency | `translations!`, generated resources and manifest helpers; enables `manifest`, not generation |
 | `build` alone, defaults disabled | Explicit generation in build.rs; generator build dependencies, no Bevy |
 | `manifest` with a backend | Manifest constructors and the generator's runtime manifest API; no generation |

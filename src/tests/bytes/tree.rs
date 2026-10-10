@@ -10,6 +10,8 @@ use std::sync::{
 	atomic::{AtomicUsize, Ordering},
 };
 
+mod automatic;
+
 #[derive(Resource, Clone)]
 struct Root {
 	presentation: Presentation,
@@ -148,9 +150,13 @@ impl Source {
 }
 
 fn controlled() -> (App, Source) {
+	controlled_mode::<Lazy>()
+}
+
+fn controlled_mode<M: crate::LoadingMode>() -> (App, Source) {
 	let source = Source::default();
 	let observed = source.clone();
-	let plugin = LocalizationPlugin::<Root, Lazy>::from_loader(move |locale, path| {
+	let plugin = LocalizationPlugin::<Root, M>::from_loader(move |locale, path| {
 		let gate = Arc::new(Gate::default());
 		let mut requests = observed.0.lock().unwrap();
 		let payload = format!("{locale}:{path}:{}", requests.len());
@@ -350,7 +356,7 @@ fn locale_change_during_partial_loading_never_assembles_a_mixed_language_tree() 
 
 #[test]
 fn full_byte_collection_publishes_complete_groups_despite_a_missing_sibling() {
-	let plugin = LocalizationPlugin::<Root>::from_bytes([
+	let plugin = LocalizationPlugin::<Root, crate::Full>::from_bytes([
 		("en", Hud::module_paths()[0], b"en hud".as_slice()),
 		("en", Panel::module_paths()[0], b"en panel".as_slice()),
 		("es", Hud::module_paths()[0], b"es hud".as_slice()),
@@ -365,14 +371,16 @@ fn full_byte_collection_publishes_complete_groups_despite_a_missing_sibling() {
 	pump(&mut app, |world| {
 		world.contains_resource::<Presentation>()
 			&& matches!(
-				world.resource::<Localization<Root>>().status::<Other>(),
+				world
+					.resource::<Localization<Root, crate::Full>>()
+					.status::<Other>(),
 				ModuleStatus::Failed(_)
 			)
 	});
 	assert!(!app.world().contains_resource::<Root>());
 	assert!(!app.world().contains_resource::<Other>());
 	app.world_mut()
-		.resource_mut::<Localization<Root>>()
+		.resource_mut::<Localization<Root, crate::Full>>()
 		.set_locale("es");
 	pump(&mut app, |world| world.contains_resource::<Root>());
 	let root = app.world().resource::<Root>();

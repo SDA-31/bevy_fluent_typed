@@ -1,10 +1,10 @@
-//! Selected locale and explicit logical demand, independent of physical asset handles.
+//! Selected locale and scope demand, independent of physical asset handles.
 #[cfg(feature = "manifest")]
 use crate::assets::ModuleAsset;
 #[cfg(feature = "manifest")]
 use crate::bevy::prelude::Handle;
 use crate::bevy::{ecs as bevy_ecs, prelude::Resource, tasks::Task};
-use crate::{FluentCatalog, FluentScope, Full, Lazy, LoadingMode, ModuleStatus, ModuleStore};
+use crate::{Auto, FluentCatalog, FluentScope, Lazy, LoadingMode, ModuleStatus, ModuleStore};
 use std::{
 	any::TypeId,
 	collections::{BTreeMap, BTreeSet, HashMap},
@@ -49,18 +49,22 @@ impl<C: FluentCatalog> RequestedModule<C> {
 	}
 }
 
-/// Controller for the selected locale and the scopes requested by the application.
+/// Controller for the selected locale and requested scopes.
 ///
-/// Full mode always requests the root. Lazy mode exposes idempotent scope requests.
+/// Default Auto tracks inserted bindings and localized required-resource systems.
+/// With no consumers, no modules are loaded. Full always requests the root;
+/// explicit Lazy exposes idempotent application-owned scope requests.
 /// Resource publication is synchronized at the plugin's Publish/Refresh boundaries.
 #[derive(Resource)]
-pub struct Localization<C: FluentCatalog, M: LoadingMode = Full> {
+pub struct Localization<C: FluentCatalog, M: LoadingMode = Auto> {
 	pub(crate) store: ModuleStore<C>,
 	pub(crate) requested: HashMap<TypeId, &'static [&'static str]>,
 	pub(crate) entries: BTreeMap<&'static str, RequestedModule<C>>,
 	pub(crate) retry: BTreeSet<&'static str>,
 	pub(crate) published: HashMap<TypeId, u64>,
 	pub(crate) desired: Arc<BTreeSet<&'static str>>,
+	automatic: Arc<BTreeSet<&'static str>>,
+	pub(crate) automatic_revision: u64,
 	pub(crate) synchronized: u64,
 	pub(crate) requests_changed: bool,
 	pub(crate) pending: usize,
@@ -107,6 +111,8 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			retry: BTreeSet::new(),
 			published: HashMap::new(),
 			desired: Arc::new(desired),
+			automatic: Arc::default(),
+			automatic_revision: u64::MAX,
 			synchronized: u64::MAX,
 			requests_changed: true,
 			pending: 0,
@@ -169,6 +175,24 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 
 	pub(crate) fn desired(&self) -> Arc<BTreeSet<&'static str>> {
 		self.desired.clone()
+	}
+
+	pub(crate) fn set_automatic(&mut self, paths: Arc<BTreeSet<&'static str>>, revision: u64) {
+		self.automatic_revision = revision;
+
+		if self.automatic == paths {
+			return;
+		}
+
+		self.automatic = paths;
+		self.requests_changed = true;
+		self.desired = Arc::new(
+			self.requested
+				.values()
+				.flat_map(|paths| paths.iter().copied())
+				.chain(self.automatic.iter().copied())
+				.collect(),
+		);
 	}
 
 	pub(crate) fn finish_request(&mut self, path: &str) -> &mut RequestedModule<C> {

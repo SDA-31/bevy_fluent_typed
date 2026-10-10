@@ -39,7 +39,7 @@ fn main() -> Result<(), String> {
 		.world_mut()
 		.spawn((
 			Text::default(),
-			LocalizedText::<Translations>::new(|catalog| catalog.ui().msg_example_greeting("Ada")),
+			LocalizedText::<texts::Ui>::new(|ui| ui.msg_example_greeting("Ada")),
 		))
 		.id();
 	console::run_until_loaded(&mut app, label, watch)?;

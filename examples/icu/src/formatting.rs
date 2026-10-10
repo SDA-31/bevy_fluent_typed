@@ -8,6 +8,7 @@ use icu_experimental::dimension::percent::formatter::PercentFormatter;
 use icu_locale_core::Locale as IcuLocale;
 use writeable::Writeable;
 
+use crate::texts::presentation::Hud;
 use crate::texts::{Locale, Translations};
 
 /// Application services, created once for each compiled catalog locale.
@@ -70,28 +71,28 @@ pub(crate) fn spawn_labels(mut commands: Commands, formats: Res<NumberFormats>) 
 }
 
 /// Keep the original exact amount and select formatting from the current catalog.
-pub(crate) fn damage_text(amount: Decimal, formats: &NumberFormats) -> LocalizedText<Translations> {
+pub(crate) fn damage_text(amount: Decimal, formats: &NumberFormats) -> LocalizedText<Hud> {
 	let formats = Arc::clone(&formats.0);
 
-	LocalizedText::new(move |catalog: &Translations| {
+	LocalizedText::new(move |catalog: &Hud| {
 		let formatter = &formats[&catalog.locale()].decimal;
 		let text = formatter.format_to_string(&amount);
 
-		catalog.presentation().hud().msg_damage(text)
+		catalog.msg_damage(text)
 	})
 }
 
 /// The application stores a ratio; ICU4X 0.6's percent API takes percent units.
-pub(crate) fn chance_text(ratio: Decimal, formats: &NumberFormats) -> LocalizedText<Translations> {
+pub(crate) fn chance_text(ratio: Decimal, formats: &NumberFormats) -> LocalizedText<Hud> {
 	let formats = Arc::clone(&formats.0);
 
-	LocalizedText::new(move |catalog: &Translations| {
+	LocalizedText::new(move |catalog: &Hud| {
 		let formatter = &formats[&catalog.locale()].percent;
 		let mut percent = ratio.clone();
 		percent.multiply_pow10(2); // Exact conversion: 0.125 of the whole is 12.5 percent.
 		percent.trim_start(); // Scaling also moves visible leading padding; do not display 012.5%.
 		let text = formatter.format(&percent).write_to_string().into_owned();
 
-		catalog.presentation().hud().msg_chance(text)
+		catalog.msg_chance(text)
 	})
 }

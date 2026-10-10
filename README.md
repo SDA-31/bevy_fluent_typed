@@ -20,7 +20,7 @@ Bevy's asset system or explicitly embed them.
 - [Comparison with bevy_fluent](#comparison-with-bevy_fluent)
 - [Embed translations](#explicit-embedding)
 - [Supported Bevy versions](#supported-engines)
-- [Full, Lazy and hybrid recipes](GUIDE.md)
+- [Automatic loading and manual recipes](GUIDE.md)
 - [Troubleshooting](#troubleshooting)
 - [Known limits](#known-limits)
 - [Examples and further reading](#where-to-go-next)
@@ -128,10 +128,12 @@ root to Bevy's base directory (the package directory under `cargo run`) so
 `assets/localizations/localization.toml` is resolved as written. The build path does not configure AssetServer automatically.
 For another source layout, pass a `LocalizationManifest` with its runtime origin.
 
-The default **Full** mode keeps every module of the selected language loaded.
-`add_localized_startup_systems` runs `show_title` once its required `Res<Hud>` is
-ready; the rest of the application continues normally while it waits.
-See the [loading guide](GUIDE.md) for recurring systems and explicit Lazy requests.
+The default **Auto** mode loads only scopes used by inserted `LocalizedText`
+bindings and systems registered with the localization helpers.
+`add_localized_startup_systems` requests the HUD and runs `show_title` once
+`Res<Hud>` is ready; it then releases its temporary demand. The application
+continues normally while it waits.
+See the [loading guide](GUIDE.md) for automatic module lifetime and optional manual loading.
 
 ## Comparison with bevy_fluent
 
@@ -139,7 +141,7 @@ See the [loading guide](GUIDE.md) for recurring systems and explicit Lazy reques
 Fluent assets, looks up messages by string identifiers, and supports locale
 fallback chains. `bevy_fluent_typed` focuses on typed message access and arguments
 through [fluent-typed](https://github.com/human-solutions/fluent-typed), native
-`Res<Scope>` catalogs, and Full, Lazy or hybrid module loading. Its optional
+`Res<Scope>` catalogs, automatic scope lifetime and explicit Full/Lazy loading. Its optional
 generator creates accessors in an explicit `build.rs` step and checks a shared
 message and argument contract across translations. Compatible translation text
 can reload at runtime; changes to the generated schema require rebuilding.
@@ -156,13 +158,13 @@ LocalizationPlugin::<texts::Translations>::new(texts::embed_manifest!())
 
 Keep `AssetPlugin` installed. The generated macro includes FTL bytes only where
 it is invoked; generation alone does not embed them. This form includes every
-known language's raw FTL. The selected language is parsed during plugin updates,
-so readiness checks still apply. Static source bytes stay in the executable for
+known language's raw FTL. Needed scopes of the selected language are parsed
+during plugin updates, so readiness checks still apply. Static source bytes stay in the executable for
 its lifetime; no compressor or decompressor is involved.
 
 The macro accepts only an empty invocation or a block of constants. For the
 constant-declaration recipe, use the same 0.3.0 dependency in both Cargo sections.
-A Lazy application can then declare a manifest for just its HUD:
+Declare an embedded source for just the HUD:
 
 ```rust,ignore
 texts::embed_manifest! {
@@ -170,8 +172,8 @@ texts::embed_manifest! {
 }
 ```
 
-Pass `HUD` directly to `LocalizationPlugin::<texts::Translations, Lazy>::new(HUD)`
-and request `localization.load::<texts::presentation::Hud>()`.
+Pass `HUD` directly to `LocalizationPlugin::<texts::Translations>::new(HUD)`.
+Inserted HUD bindings and localized systems request it automatically; no `load` call is needed.
 `HUD` has type `LocalizationManifest` and contains this leaf's bytes across known
 languages. Select `Presentation` for that group's descendants, or `Translations`
 for the whole tree. These are paths relative to the generated tree, without
@@ -219,8 +221,8 @@ minimal runtime and a handwritten provider.
 | `translations!` cannot find generated output | Add the shown build-dependency and return `bevy_fluent_typed::build()` from `build.rs`. |
 | Types or methods are missing | Add the corresponding FTL module/message in every language and rebuild. File edits at runtime cannot change the compiled schema. |
 | An `embed_manifest!` selector is rejected | Use 0.3.0 for both runtime and build dependencies and use relative schema paths; imported catalog aliases are for constructors/resources. |
-| The resource is absent | Use `add_localized_systems` with native `Res<_>` to wait. In Lazy, request the scope first and keep that request active while the screen needs it. |
-| A bound label stays empty | Check `localization.status::<YourLeaf>()`. Its module must be requested and pass validation. A root binding waits for the whole tree. |
+| The resource is absent | Use `add_localized_systems` with direct native `Res<_>`: Auto requests the scope and waits. Plain `add_systems` and world inspection do not request it. Explicit Lazy still needs `load`. |
+| A bound label stays empty | Check `localization.status::<YourLeaf>()`. An inserted binding requests its scope in Auto; check its source and validation. A root binding waits for the whole tree. Explicit Lazy needs a manual request. |
 | Files are not found | The manifest origin is relative to Bevy's asset root. Do not prefix it with `assets/` when `AssetPlugin` already points there. |
 | Editing the TOML has no runtime effect | The plugin receives a parsed contract and does not reload TOML. Rebuild this quickstart or construct a new contract during application setup. |
 | Cargo reports incompatible engine APIs | Select one matching Bevy backend, on the normal dependency only. Do not enable all features. |
@@ -229,7 +231,7 @@ minimal runtime and a handwritten provider.
 ## Known limits
 
 A leaf is one complete FTL file in memory. Split large catalogs into modules and
-use [Lazy loading](GUIDE.md#fully-lazy-complete-mainrs) to release unused ones.
+use [automatic loading](GUIDE.md#automatic-module-lifetime) to release unused ones.
 Explicit embedding keeps static source bytes for the executable's lifetime.
 
 Files publish independently, without automatic fallback or a multi-file
@@ -239,7 +241,7 @@ transports, fonts and shaping remain application responsibilities.
 
 ## Where to go next
 
-- [Loading guide](GUIDE.md): Full, Lazy, hybrid, typed resources, deferred text,
+- [Loading guide](GUIDE.md): automatic lifetime, manual modes, typed resources, deferred text,
   language switching, hot reload and migration.
 - [BSN scenes](docs/bsn.md): typed text bindings in Bevy 0.19 and 0.20 scenes.
 - [Custom asset sources](docs/asset-sources.md): archives, network-backed readers
