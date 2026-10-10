@@ -3,8 +3,8 @@ use bevy_fluent_typed::bevy::{
 	prelude::*,
 };
 use bevy_fluent_typed::{
-	CatalogUpdate, CatalogUpdateReader, Localization, LocalizationAppExt, LocalizationPlugin,
-	LocalizationProgress, LocalizationSystems, PreparationStatus,
+	CatalogUpdate, CatalogUpdateReader, Localization, LocalizationPlugin, LocalizationProgress,
+	LocalizationProgressPlugin, LocalizationSystems, PreparationStatus,
 };
 use std::{
 	sync::{Arc, Mutex},
@@ -15,6 +15,7 @@ use std::{
 bevy_fluent_typed::translations!(mod texts);
 
 type Progress = LocalizationProgress<texts::Translations>;
+type GreetingProgress = LocalizationProgress<texts::ui::Greeting>;
 type Attempts = Arc<Mutex<Vec<(texts::Locale, Arc<Gate>)>>>;
 
 #[derive(Default)]
@@ -90,7 +91,8 @@ fn controlled_app(fail_target: bool) -> (App, Attempts) {
 	});
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, plugin))
-		.add_localization_progress::<texts::Translations>()
+		.add_plugins(LocalizationProgressPlugin::<texts::Translations>::default())
+		.add_plugins(LocalizationProgressPlugin::<texts::ui::Greeting>::default())
 		.init_resource::<Observations>()
 		.add_systems(Startup, |progress: Res<Progress>| {
 			assert_eq!(progress.active().unloaded, 1);
@@ -105,6 +107,10 @@ fn controlled_app(fail_target: bool) -> (App, Attempts) {
 	app.finish();
 	app.cleanup();
 	assert_eq!(app.world().resource::<Progress>().active().unloaded, 1);
+	assert_eq!(
+		app.world().resource::<GreetingProgress>().active().unloaded,
+		1
+	);
 	(app, attempts)
 }
 
@@ -142,6 +148,10 @@ fn load_initial(app: &mut App, attempts: &Attempts) {
 	pump(app, |world| {
 		world.resource::<Progress>().active().ready == 1
 	});
+	assert_eq!(
+		app.world().resource::<Progress>().active(),
+		app.world().resource::<GreetingProgress>().active()
+	);
 	assert!(app.world().resource::<Observations>().updates > 0);
 }
 

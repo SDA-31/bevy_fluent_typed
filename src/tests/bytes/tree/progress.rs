@@ -1,17 +1,24 @@
 //! Native snapshots count physical demand rather than the complete Lazy schema.
-use super::{Hud, Other, Panel, Presentation, Root, controlled, pump};
+use super::{Hud, Other, Panel, Presentation, Root, configured, pump};
 use crate::bevy::prelude::*;
 use crate::{
-	FluentScope, Lazy, Localization, LocalizationAppExt, LocalizationPlugin, LocalizationProgress,
-	ModuleStatus, PreparationStatus,
+	FluentScope, Lazy, Localization, LocalizationPlugin, LocalizationProgress,
+	LocalizationProgressPlugin, ModuleStatus, PreparationStatus,
 };
 
 type Progress = LocalizationProgress<Root>;
 
+fn tracked() -> (App, super::Source) {
+	let (mut app, source) = configured();
+	app.add_plugins(LocalizationProgressPlugin::<Root>::default());
+	app.finish();
+	app.cleanup();
+	(app, source)
+}
+
 #[test]
 fn leases_and_manual_pins_count_their_unique_union_without_loading_siblings() {
-	let (mut app, source) = controlled();
-	app.add_localization_progress::<Root>();
+	let (mut app, source) = tracked();
 	assert_eq!(app.world().resource::<Progress>().active().total, 0);
 	assert_eq!(
 		app.world()
@@ -69,8 +76,7 @@ fn leases_and_manual_pins_count_their_unique_union_without_loading_siblings() {
 
 #[test]
 fn late_update_requests_publish_before_postupdate_observers() {
-	let (mut app, _) = controlled();
-	app.add_localization_progress::<Root>();
+	let (mut app, _) = tracked();
 	let mut once = true;
 	app.add_systems(
 		Update,
@@ -103,7 +109,7 @@ fn changed_failure_details_do_not_tick_unchanged_loading_counts() {
 			std::future::ready(Err::<Vec<u8>, String>("offline".into()))
 		}),
 	))
-	.add_localization_progress::<Root>();
+	.add_plugins(LocalizationProgressPlugin::<Root>::default());
 	app.finish();
 	app.cleanup();
 	app.world_mut()

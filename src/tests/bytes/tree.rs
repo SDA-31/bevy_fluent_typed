@@ -12,6 +12,7 @@ use std::sync::{
 
 mod lease_preparation;
 mod progress;
+mod scope_progress;
 
 #[derive(Resource, Clone)]
 struct Root {
@@ -150,7 +151,7 @@ impl Source {
 	}
 }
 
-fn controlled() -> (App, Source) {
+fn configured() -> (App, Source) {
 	let source = Source::default();
 	let observed = source.clone();
 	let plugin = LocalizationPlugin::<Root, Lazy>::from_loader(move |locale, path| {
@@ -171,6 +172,11 @@ fn controlled() -> (App, Source) {
 	});
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, plugin));
+	(app, source)
+}
+
+fn controlled() -> (App, Source) {
+	let (mut app, source) = configured();
 	app.finish();
 	app.cleanup();
 	assert!(!app.world().contains_resource::<AssetServer>());

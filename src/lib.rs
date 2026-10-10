@@ -129,7 +129,7 @@ pub use preparation::{CommitLocaleError, PreparationStatus};
 #[cfg(all(feature = "runtime", feature = "diagnostics"))]
 pub use progress::ModuleDiagnostic;
 #[cfg(feature = "runtime")]
-pub use progress::{LoadingProgress, LocalizationProgress};
+pub use progress::{LoadingProgress, LocalizationProgress, LocalizationProgressPlugin};
 #[cfg(feature = "runtime")]
 pub use scope::{ModuleStore, ScopeRegistration};
 #[cfg(feature = "runtime")]

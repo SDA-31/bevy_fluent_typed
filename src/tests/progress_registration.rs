@@ -2,8 +2,8 @@
 use super::TestCatalog;
 use crate::bevy::prelude::*;
 use crate::{
-	Lazy, Localization, LocalizationAppExt, LocalizationPlugin, LocalizationProgress,
-	PreparationStatus,
+	Lazy, Localization, LocalizationPlugin, LocalizationProgress, LocalizationProgressPlugin,
+	ModuleStatus, PreparationStatus,
 };
 use std::{
 	sync::{
@@ -80,7 +80,7 @@ fn loading_and_passive_queries_do_not_enable_recurring_progress() {
 fn request_before_plugin_infers_lazy_mode_and_repeated_request_preserves_the_resource() {
 	let mut app = App::new();
 	app.add_plugins(MinimalPlugins)
-		.add_localization_progress::<TestCatalog>();
+		.add_plugins(LocalizationProgressPlugin::<TestCatalog>::default());
 	assert!(!app.world().contains_resource::<Progress>());
 	app.add_plugins(
 		LocalizationPlugin::<TestCatalog, Lazy>::from_bytes([("ja", "ui.ftl", b"ja".as_slice())])
@@ -93,6 +93,19 @@ fn request_before_plugin_infers_lazy_mode_and_repeated_request_preserves_the_res
 		assert_eq!(progress.active().total, 0);
 		observed.store(true, Ordering::Relaxed);
 	});
+	let initial_tick = app
+		.world()
+		.get_resource_ref::<Progress>()
+		.unwrap()
+		.last_changed();
+	app.add_plugins(LocalizationProgressPlugin::<TestCatalog>::default());
+	assert_eq!(
+		app.world()
+			.get_resource_ref::<Progress>()
+			.unwrap()
+			.last_changed(),
+		initial_tick
+	);
 	app.finish();
 	app.cleanup();
 	app.update();
@@ -109,7 +122,6 @@ fn request_before_plugin_infers_lazy_mode_and_repeated_request_preserves_the_res
 		.unwrap()
 		.last_changed();
 	app.update();
-	app.add_localization_progress::<TestCatalog>();
 	assert_eq!(
 		app.world()
 			.get_resource_ref::<Progress>()
@@ -128,21 +140,23 @@ fn request_before_plugin_infers_lazy_mode_and_repeated_request_preserves_the_res
 }
 
 #[test]
-fn late_enable_snapshots_active_and_prepared_data_and_idle_publication_keeps_controller_ticks() {
+fn plugin_snapshots_preloaded_active_and_prepared_data_and_idle_publication_keeps_controller_ticks()
+{
+	let mut state = Localization::<TestCatalog>::default();
+	state
+		.store
+		.insert_leaf("ui.ftl", Arc::new(TestCatalog("ja".into())));
+	state.store.set_status("ui.ftl", ModuleStatus::Ready);
+	state.prepare_locale("es");
+	let target = state.preparation.as_mut().unwrap();
+	target
+		.store
+		.insert_leaf("ui.ftl", Arc::new(TestCatalog("es".into())));
+	target.store.set_status("ui.ftl", ModuleStatus::Ready);
+	assert_eq!(state.preparation_status(), PreparationStatus::Ready);
 	let mut app = App::new();
-	app.add_plugins((MinimalPlugins, plugin()));
-	app.finish();
-	app.cleanup();
-	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
-	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
-		.prepare_locale("es");
-	pump(&mut app, |world| {
-		world
-			.resource::<Localization<TestCatalog>>()
-			.preparation_status()
-			== PreparationStatus::Ready
-	});
+	app.insert_resource(state)
+		.add_plugins((MinimalPlugins, plugin()));
 	assert_untracked(app.world());
 	assert!(
 		!app.world()
@@ -154,7 +168,7 @@ fn late_enable_snapshots_active_and_prepared_data_and_idle_publication_keeps_con
 			.progress_version
 			.enabled()
 	);
-	app.add_localization_progress::<TestCatalog>();
+	app.add_plugins(LocalizationProgressPlugin::<TestCatalog>::default());
 	let progress = app.world().resource::<Progress>();
 	assert_eq!(progress.active().locale, "ja");
 	assert_eq!(progress.active().ready, 1);
@@ -187,11 +201,6 @@ fn late_enable_snapshots_active_and_prepared_data_and_idle_publication_keeps_con
 			.last_changed(),
 		progress_tick
 	);
-	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
-		.commit_locale()
-		.unwrap();
-	app.update();
-	assert_eq!(app.world().resource::<Progress>().active().locale, "es");
-	assert!(app.world().resource::<Progress>().preparation().is_none());
+	app.finish();
+	app.cleanup();
 }

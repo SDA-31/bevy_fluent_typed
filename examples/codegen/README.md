@@ -62,19 +62,22 @@ custom storage belongs in an [asset source](../../docs/asset-sources.md).
 
 ## Observe native loading progress
 
-The separate file-backed demonstration enables native tracking explicitly with
-`app.add_localization_progress::<texts::Translations>()`. Its normal dependency
-still enables only `codegen`, with the same build-only dependency:
+The separate file-backed demonstration adds root and greeting
+`LocalizationProgressPlugin` instances through independent `add_plugins` calls.
+Its normal dependency still enables only `codegen`, with the same build-only
+dependency:
 
 ```sh
 cargo run --manifest-path examples/codegen/Cargo.toml --bin progress
 ```
 
-[progress.rs](src/bin/progress.rs) reads `LocalizationProgress<Translations>`
-through native `Res` and gates its presentation observer with `resource_changed`.
-After that registration, the library owns tracking; the example adds the
-observer's display logic. It orders PostUpdate observation after
-`LocalizationSystems::Progress`.
+[progress.rs](src/bin/progress.rs) reads native
+`Res<LocalizationProgress<texts::ui::Greeting>>` for its change-gated presentation
+observer, while its runner reads the root view. Both share one provider dispatcher.
+The example orders PostUpdate observation after `LocalizationSystems::Progress`.
+Root counts follow current demand; leaf counts describe its fixed unique schema,
+including unrequested leaves. Preparation readiness is provider-wide in both
+views because a locale commit affects the provider, not one leaf.
 It loads the English catalog in default Full mode, prepares Spanish while English
 remains usable, explicitly commits when preparation is ready, and verifies that
 idle frames do not update the observer. Counts describe modules, not downloaded
@@ -85,7 +88,7 @@ this runner sets AssetPlugin's source root to the example's package directory.
 [tests/progress.rs](tests/progress.rs) uses controlled asynchronous byte loads to
 verify pending/ready snapshots, manual commit, target failure/cancellation and
 quiet change detection with the same generated provider. No Cargo progress feature
-is needed. Without the helper, ordinary examples have no native progress resource
+is needed. Without a progress plugin, ordinary examples have no native progress resource
 or recurring tracker. Passive count queries and optional `diagnostics` do not
 activate it. See [loading progress](../../GUIDE.md#observe-loading-progress) for your
 application's UI and [optional module details](../../GUIDE.md#optional-module-details)

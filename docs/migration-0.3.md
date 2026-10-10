@@ -6,26 +6,32 @@ native resources, readiness helpers and embedded manifest declarations are uncha
 
 ## Native loading progress
 
-Enable native tracking explicitly when a loading UI needs it:
+Add ordinary progress plugins for the views your loading UI needs:
 
 ```rust,ignore
-use bevy_fluent_typed::LocalizationAppExt;
+use bevy_fluent_typed::LocalizationProgressPlugin;
 
-app.add_localization_progress::<texts::Translations>();
+app.add_plugins(LocalizationProgressPlugin::<texts::Translations>::default());
+app.add_plugins(LocalizationProgressPlugin::<texts::presentation::Hud>::default());
 ```
 
-The helper works before or after plugin installation, is idempotent and infers
-Full/Lazy. It initializes `LocalizationProgress<C>` before `Startup` during setup;
-late enablement captures current active/prepared state. No Cargo feature is needed.
-Without the call, native progress and its recurring tracker are absent; ordinary
-loading and status remain available.
+During App setup, either order relative to the base localization plugin works.
+The owning provider supplies Full/Lazy; scope registration is idempotent and shares
+one dispatcher per provider. Native `LocalizationProgress<Scope>` resources are
+initialized before `Startup` once the base plugin is installed. No Cargo feature
+is needed. Without progress plugins, their resources and recurring trackers are
+absent; ordinary loading and status remain available. Progress never requests
+translations or retains parsed catalogs.
 
-Read native `Res<LocalizationProgress<texts::Translations>>` in Update, or after
+Read `Res<LocalizationProgress<texts::presentation::Hud>>` in Update, or after
 `LocalizationSystems::Progress` in PostUpdate. `resource_changed` gates observers
-on visible changes. `active()` reports current demand and `preparation()` reports
-an explicit target. Use `preparation_status()` for commit readiness; ready leaf
-counts alone do not account for retries or asset-handle handoff. Publication still
-requires the application's `commit_locale` call. See [loading progress](../GUIDE.md#observe-loading-progress).
+on visible changes. Root snapshots count current demand; group/leaf snapshots
+count fixed unique schema paths, including unrequested leaves. Their active and
+target counts are scoped, but `preparation_status()` describes provider-wide
+commit readiness. A ready scope cannot establish global readiness; an unused
+scope may remain unloaded while the provider is ready. Retries and asset-handle
+handoff can also delay commit. Publication still requires the application's
+`commit_locale` call. See [loading progress](../GUIDE.md#observe-loading-progress).
 
 Per-scope `progress::<Scope>()` queries remain passive and include unrequested
 schema leaves. They do not enable recurring tracking. `LoadingProgress` contains

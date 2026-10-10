@@ -271,26 +271,31 @@ consumers can run while the latest attempt has status `Failed`. Repeating
 
 ### Observe loading progress
 
-Enable native progress for a provider when the application needs a loading UI:
+Add a progress plugin for each root, group or leaf your loading UI observes:
 
 ```rust,ignore
-use bevy_fluent_typed::LocalizationAppExt;
+use bevy_fluent_typed::LocalizationProgressPlugin;
 
-app.add_localization_progress::<texts::Translations>();
+app.add_plugins(LocalizationProgressPlugin::<texts::Translations>::default());
+app.add_plugins(LocalizationProgressPlugin::<texts::Presentation>::default());
+app.add_plugins(LocalizationProgressPlugin::<texts::presentation::Hud>::default());
 ```
 
-No Cargo feature is required. The helper accepts calls before or after the
-localization plugin, infers its Full/Lazy mode and is idempotent. During setup,
-`LocalizationProgress<C>` is initialized before `Startup` once the plugin is
-installed. Enabling it later snapshots the current active and prepared state.
-The library then maintains tracking; read the resource from an existing UI
-system, or gate a dedicated observer on visible changes:
+These may be separate calls in the application's consumer plugins. During App
+setup, either order relative to the owning `LocalizationPlugin` works. Full/Lazy
+is inferred from that base plugin; no Cargo progress feature is required. Each
+scope gets its own `LocalizationProgress<Scope>` resource before `Startup` once
+the base plugin is installed. Repeated registration of the same scope is
+idempotent, and scopes sharing a provider use one tracking dispatcher. Registration
+snapshots any active/prepared state already present during setup; compose these
+plugins before the App is finished. Read a typed view from an existing UI system,
+or gate a dedicated observer on visible changes:
 
 ```rust,ignore
 use bevy::ecs::schedule::common_conditions::resource_changed;
 use bevy_fluent_typed::LocalizationProgress;
 
-fn loading_ui(progress: Res<LocalizationProgress<texts::Translations>>) {
+fn loading_ui(progress: Res<LocalizationProgress<texts::presentation::Hud>>) {
     let active = progress.active();
     println!("{}: {}/{} ready", active.locale, active.ready, active.total);
 
@@ -302,32 +307,36 @@ fn loading_ui(progress: Res<LocalizationProgress<texts::Translations>>) {
 app.add_systems(
     PostUpdate,
     loading_ui
-        .run_if(resource_changed::<LocalizationProgress<texts::Translations>>)
+        .run_if(resource_changed::<LocalizationProgress<texts::presentation::Hud>>)
         .after(bevy_fluent_typed::LocalizationSystems::Progress),
 );
 ```
 
-Until the helper is called, there is no native progress resource, no recurring
+Without a progress plugin, there is no native progress resource, no recurring
 tracker and no tracking identity or revision updates. Ordinary loading and
-`status` continue normally. The helper creates neither logging nor a loading UI;
+`status` continue normally. The progress plugin creates neither logging nor a loading UI;
 presentation belongs to the application. `active()` covers ordinary initial loading,
 `set_locale` and same-language reloads. `preparation()` is present during explicit
 `prepare_locale` until cancellation or commit. Preparing the active locale mirrors
 its active data without additional I/O.
 
-The resource counts the current demand union: Full counts the whole root; Lazy
-counts the distinct leaves required by explicit requests and leases. Overlapping
-owners do not inflate the total. Reading progress neither requests nor retains
-modules. Each `LoadingProgress<Locale>` contains `locale`, `total`, `ready`,
+The root view counts the current demand union: Full counts the whole root; Lazy
+counts the distinct leaves required by explicit requests and leases. Group and
+leaf views count their fixed, deduplicated schema paths, including unrequested
+leaves. Overlapping owners do not inflate the total. Progress plugins and resource
+reads create no loading requests or leases and do not retain parsed catalogs. Each `LoadingProgress<Locale>` contains `locale`, `total`, `ready`,
 `loading`, `failed`, `unloaded` and `available`. The four attempt counts sum to
 `total`; `available` separately counts usable last-good snapshots, including
 during a loading or failed reload. These are module counts, not downloaded bytes
 or a percentage of elapsed work.
 
-For a prepared target, use `progress.preparation_status()` and check
-`PreparationStatus::Ready` before asking the live controller to `commit_locale`.
-`ready == total` is insufficient: retries or asset-handle retirement can still
-prevent a commit. Publication remains an explicit application decision; reading
+`active()` and `preparation()` counters describe the observed scope, but
+`preparation_status()` is provider-wide because locale commit applies to the
+whole provider's demand. A ready HUD does not mean other requested leaves are
+ready; conversely, an unrequested observed scope can remain unloaded while the
+provider reports `PreparationStatus::Ready`. Check that provider-wide status
+before asking the live controller to `commit_locale`. Scoped `ready == total` is
+insufficient; retries or asset-handle retirement can also prevent a commit. Publication remains an explicit application decision; reading
 a ready snapshot does not commit it. Manual preparation failures appear through
 `PreparationStatus::Failed` without emitting precommit `Rejected` notifications.
 Active translations remain usable throughout preparation.
@@ -373,7 +382,7 @@ error copies are collected only when requested, never by the registered progress
 publisher, even with the feature enabled. Counter scans borrow attempt states.
 Typed `PreparationStatus::Failed` still retains the first target failure for commit
 readiness. The `diagnostics` feature does not activate native tracking; use
-`add_localization_progress` when that resource is needed. Counters and typed
+`LocalizationProgressPlugin<Scope>` when a native view is needed. Counters and typed
 preparation readiness require no optional feature. Details add no dependencies
 and start no logging.
 

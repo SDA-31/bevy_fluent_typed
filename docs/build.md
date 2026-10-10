@@ -75,10 +75,11 @@ application runtime work, not part of this build phase.
 
 Loading counters and passive per-scope `progress` queries are available with
 every runtime backend, including the minimal byte-source configuration. Native
-tracking is enabled explicitly with `app.add_localization_progress::<C>()` through
-`LocalizationAppExt`; no Cargo `progress` feature exists. Without that call, no
-native resource or recurring tracker is installed. The `diagnostics` feature only
-enables on-demand module details and does not activate tracking.
+tracking is enabled with `LocalizationProgressPlugin<Scope>` through ordinary
+`app.add_plugins` during setup; no Cargo `progress` feature exists. Without a
+progress plugin, no native view or recurring tracker is installed. Scopes of one
+provider share a dispatcher. The `diagnostics` feature only enables on-demand
+module details and does not activate tracking.
 
 `codegen` and `manifest` are independent of how you obtain runtime bytes.
 Generated providers currently include manifest helpers, so `codegen` enables

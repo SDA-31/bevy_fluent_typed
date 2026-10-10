@@ -6,7 +6,8 @@ use crate::{FluentCatalog, ModuleStatus, ModuleStore};
 /// `ready + loading + failed + unloaded == total`. Availability is independent:
 /// a loading or failed same-locale reload may retain a usable last-good snapshot.
 /// Counts describe modules, not byte or elapsed-time progress. Per-scope queries
-/// include unrequested leaves; the native resource counts current physical demand.
+/// include unrequested leaves, as do native group/leaf views. A native root view
+/// counts current physical demand instead.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LoadingProgress<L> {
 	/// Compiled locale represented by this snapshot.

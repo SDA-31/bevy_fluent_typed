@@ -12,11 +12,12 @@ remains `fluent_typed_codegen` 0.2.2.
 
 ### Added
 
-- Opt-in native `LocalizationProgress<C>` tracking through
-  `add_localization_progress`, with active/prepared counters, preparation readiness
-  and change-gated observation after `LocalizationSystems::Progress`. No Cargo
-  progress feature is required; without registration no recurring tracker is
-  installed. Includes a [generated-provider example](examples/codegen/src/bin/progress.rs).
+- Opt-in `LocalizationProgressPlugin<Scope>` and native typed progress resources,
+  with root demand counts or fixed group/leaf schema counts, active/prepared
+  snapshots and provider-wide preparation readiness. Independent scope plugins
+  share one provider dispatcher. Observe after `LocalizationSystems::Progress`;
+  no Cargo progress feature or loading request is introduced. Includes a
+  [generated-provider example](examples/codegen/src/bin/progress.rs).
 - Default-off `diagnostics` for explicit per-module detail queries; it does not
   activate native tracking. Progress counting collects no detail vectors or
   per-module error copies; passive per-scope queries require no registration.

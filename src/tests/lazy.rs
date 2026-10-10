@@ -6,7 +6,8 @@ use crate::bevy::asset::io::{
 use crate::bevy::prelude::*;
 use crate::bevy::tasks::futures_lite::io::AsyncRead;
 use crate::{
-	Full, Lazy, Localization, LocalizationAppExt, LocalizationPlugin, LocalizedText, ModuleStatus,
+	Full, Lazy, Localization, LocalizationPlugin, LocalizationProgressPlugin, LocalizedText,
+	ModuleStatus,
 };
 use std::{
 	any::TypeId,
@@ -131,7 +132,7 @@ impl AssetReader for ControlledReader {
 	}
 }
 
-fn asynchronous_app() -> (App, Arc<Gate>, Dir) {
+fn asynchronous_configured() -> (App, Arc<Gate>, Dir) {
 	let files = Dir::default();
 	for locale in ["ja", "es", "de"] {
 		files.insert_asset_text(
@@ -167,6 +168,11 @@ fn asynchronous_app() -> (App, Arc<Gate>, Dir) {
 			AssetPlugin::default(),
 			LocalizationPlugin::<TestCatalog>::new_lazy(contract),
 		));
+	(app, gate, files)
+}
+
+fn asynchronous_app() -> (App, Arc<Gate>, Dir) {
+	let (mut app, gate, files) = asynchronous_configured();
 	app.finish();
 	app.cleanup();
 	(app, gate, files)
@@ -883,8 +889,10 @@ fn unloading_during_retry_retirement_releases_unrequested_target_snapshots() {
 
 #[test]
 fn target_handoff_waits_for_an_obsolete_normal_reader_and_preserves_fresh_commit() {
-	let (mut app, gate, files) = asynchronous_app();
-	app.add_localization_progress::<TestCatalog>();
+	let (mut app, gate, files) = asynchronous_configured();
+	app.add_plugins(LocalizationProgressPlugin::<TestCatalog>::default());
+	app.finish();
+	app.cleanup();
 	gate.pass_new_reads.store(true, Ordering::SeqCst);
 	app.world_mut()
 		.resource_mut::<Localization<TestCatalog, Lazy>>()

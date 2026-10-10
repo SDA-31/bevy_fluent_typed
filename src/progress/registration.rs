@@ -1,7 +1,8 @@
-//! Explicit tracker registration, bound to the provider's installed controller mode.
+//! Explicit subscriptions bound to one installed provider's controller mode.
+use super::subscription::Subscription;
 use crate::bevy::{ecs as bevy_ecs, prelude::*};
-use crate::{FluentCatalog, LoadingMode, LocalizationSystems};
-use std::marker::PhantomData;
+use crate::{FluentCatalog, FluentScope, LoadingMode, LocalizationSystems};
+use std::{any::TypeId, collections::BTreeMap, marker::PhantomData};
 
 /// Installed provider identity and its concrete mode's tracker installer.
 #[derive(Resource)]
@@ -11,7 +12,19 @@ pub(crate) struct Registration<C: FluentCatalog> {
 }
 
 #[derive(Resource)]
-struct Requested<C: FluentCatalog>(PhantomData<fn() -> C>);
+pub(super) struct Requests<C: FluentCatalog> {
+	pub(super) subscriptions: BTreeMap<TypeId, Subscription<C>>,
+	installed: bool,
+}
+
+impl<C: FluentCatalog> Default for Requests<C> {
+	fn default() -> Self {
+		Self {
+			subscriptions: BTreeMap::new(),
+			installed: false,
+		}
+	}
+}
 
 pub(crate) fn register<C: FluentCatalog, M: LoadingMode>(app: &mut App) {
 	app.insert_resource(Registration::<C> {
@@ -19,21 +32,26 @@ pub(crate) fn register<C: FluentCatalog, M: LoadingMode>(app: &mut App) {
 		marker: PhantomData,
 	});
 
-	if app.world().contains_resource::<Requested<C>>() {
+	if app.world().contains_resource::<Requests<C>>() {
 		install::<C, M>(app);
 	}
 }
 
-pub(crate) fn request<C: FluentCatalog>(app: &mut App) {
-	if app.world().contains_resource::<Requested<C>>() {
+pub(super) fn request<S: FluentScope>(app: &mut App) {
+	app.init_resource::<Requests<S::Catalog>>();
+	let mut requests = app.world_mut().resource_mut::<Requests<S::Catalog>>();
+
+	if requests.subscriptions.contains_key(&TypeId::of::<S>()) {
 		return;
 	}
 
-	app.insert_resource(Requested::<C>(PhantomData));
+	requests
+		.subscriptions
+		.insert(TypeId::of::<S>(), Subscription::new::<S>());
 
 	if let Some(install) = app
 		.world()
-		.get_resource::<Registration<C>>()
+		.get_resource::<Registration<S::Catalog>>()
 		.map(|context| context.install)
 	{
 		install(app);
@@ -41,7 +59,14 @@ pub(crate) fn request<C: FluentCatalog>(app: &mut App) {
 }
 
 fn install<C: FluentCatalog, M: LoadingMode>(app: &mut App) {
-	super::publication::install::<C, M>(app.world_mut());
+	super::publication::synchronize::<C, M>(app.world_mut());
+	let mut requests = app.world_mut().resource_mut::<Requests<C>>();
+
+	if requests.installed {
+		return;
+	}
+
+	requests.installed = true;
 	app.add_systems(
 		PreUpdate,
 		super::publication::synchronize::<C, M>
