@@ -23,7 +23,7 @@ pub trait LoadingMode: sealed::Sealed + Send + Sync + 'static {
 /// pins without evicting automatic consumers or overlapping pins. Unattached
 /// messages, optional resources and world inspection are passive.
 #[derive(Debug, Clone, Copy, Default)]
-pub struct Auto;
+pub struct Lazy;
 
 /// Load every module of the selected language.
 #[derive(Debug, Clone, Copy, Default)]
@@ -31,15 +31,15 @@ pub struct Full;
 
 /// Load only explicitly requested scopes; persistent requests give hybrid loading.
 #[derive(Debug, Clone, Copy, Default)]
-pub struct Lazy;
+pub struct Manual;
 
 impl sealed::Sealed for Full {}
 
+impl sealed::Sealed for Manual {}
+
 impl sealed::Sealed for Lazy {}
 
-impl sealed::Sealed for Auto {}
-
-impl LoadingMode for Auto {
+impl LoadingMode for Lazy {
 	const FULL: bool = false;
 	const AUTOMATIC: bool = true;
 }
@@ -49,7 +49,7 @@ impl LoadingMode for Full {
 	const AUTOMATIC: bool = false;
 }
 
-impl LoadingMode for Lazy {
+impl LoadingMode for Manual {
 	const FULL: bool = false;
 	const AUTOMATIC: bool = false;
 }

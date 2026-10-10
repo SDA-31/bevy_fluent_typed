@@ -1,9 +1,9 @@
-//! Native snapshots count physical demand rather than the complete Lazy schema.
+//! Native snapshots count physical demand rather than the complete Manual schema.
 use super::{Hud, Other, Panel, Presentation, Root, configured, pump};
 use crate::bevy::prelude::*;
 use crate::{
-	FluentScope, Lazy, Localization, LocalizationPlugin, LocalizationProgress,
-	LocalizationProgressPlugin, ModuleStatus, PreparationStatus,
+	FluentScope, Localization, LocalizationPlugin, LocalizationProgress,
+	LocalizationProgressPlugin, Manual, ModuleStatus, PreparationStatus,
 };
 
 type Progress = LocalizationProgress<Root>;
@@ -22,7 +22,7 @@ fn leases_and_manual_pins_count_their_unique_union_without_loading_siblings() {
 	assert_eq!(app.world().resource::<Progress>().active().total, 0);
 	assert_eq!(
 		app.world()
-			.resource::<Localization<Root, Lazy>>()
+			.resource::<Localization<Root, Manual>>()
 			.progress::<Root>()
 			.unloaded,
 		3
@@ -31,10 +31,10 @@ fn leases_and_manual_pins_count_their_unique_union_without_loading_siblings() {
 	assert_eq!(source.count(), 0);
 	let group = app
 		.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.hold::<Presentation>();
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.load::<Hud>();
 	pump(&mut app, |_| source.count() == 2);
 	assert_eq!(app.world().resource::<Progress>().active().total, 2);
@@ -58,14 +58,14 @@ fn leases_and_manual_pins_count_their_unique_union_without_loading_siblings() {
 	assert_eq!(active.available, 1);
 	assert!(!app.world().contains_resource::<Panel>());
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.unload::<Hud>();
 	app.update();
 	assert_eq!(app.world().resource::<Progress>().active().total, 0);
 	assert_eq!(app.world().resource::<Progress>().active().available, 0);
 
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.prepare_locale("es");
 	app.update();
 	let progress = app.world().resource::<Progress>();
@@ -80,7 +80,7 @@ fn late_update_requests_publish_before_postupdate_observers() {
 	let mut once = true;
 	app.add_systems(
 		Update,
-		move |mut state: ResMut<Localization<Root, Lazy>>| {
+		move |mut state: ResMut<Localization<Root, Manual>>| {
 			if !once {
 				return;
 			}
@@ -105,7 +105,7 @@ fn changed_failure_details_do_not_tick_unchanged_loading_counts() {
 	let mut app = App::new();
 	app.add_plugins((
 		MinimalPlugins,
-		LocalizationPlugin::<Root, Lazy>::from_loader(|_, _| {
+		LocalizationPlugin::<Root, Manual>::from_loader(|_, _| {
 			std::future::ready(Err::<Vec<u8>, String>("offline".into()))
 		}),
 	))
@@ -113,7 +113,7 @@ fn changed_failure_details_do_not_tick_unchanged_loading_counts() {
 	app.finish();
 	app.cleanup();
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.load::<Presentation>();
 	pump(&mut app, |world| {
 		world.resource::<Progress>().active().failed == 2
@@ -125,7 +125,7 @@ fn changed_failure_details_do_not_tick_unchanged_loading_counts() {
 		.unwrap()
 		.last_changed();
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.store
 		.set_status(
 			Hud::module_paths()[0],
@@ -143,7 +143,7 @@ fn changed_failure_details_do_not_tick_unchanged_loading_counts() {
 	#[cfg(feature = "diagnostics")]
 	assert_eq!(
 		app.world()
-			.resource::<Localization<Root, Lazy>>()
+			.resource::<Localization<Root, Manual>>()
 			.diagnostics::<Hud>()[0]
 			.status,
 		ModuleStatus::Failed("updated diagnostic detail".into())

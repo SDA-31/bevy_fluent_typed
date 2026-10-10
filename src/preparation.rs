@@ -55,8 +55,8 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	/// replaces the previous preparation. Preparing the active locale performs no I/O.
 	/// This advanced call takes over manual publication control, even for a target
 	/// already requested by `set_locale`; automatic switching stops until requested again.
-	/// Preparation follows the current consumers and manual pins in Auto, manual
-	/// requests in Lazy, or all modules in Full. Manual failures are inspected
+	/// Preparation follows the current consumers and manual pins in Lazy, manual
+	/// requests in Manual, or all modules in Full. Manual failures are inspected
 	/// through `preparation_status`, without `Rejected` notifications; successful
 	/// leaves publish on commit. Active resources remain available throughout.
 	///
@@ -105,7 +105,7 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	}
 
 	/// Inspect the latest attempt for every currently requested target leaf.
-	/// An empty Auto/Lazy demand is ready without acquiring any modules.
+	/// An empty Lazy/Manual demand is ready without acquiring any modules.
 	pub fn preparation_status(&self) -> PreparationStatus {
 		let Some(preparation) = self.preparation.as_ref() else {
 			return PreparationStatus::Idle;

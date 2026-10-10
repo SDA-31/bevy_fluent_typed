@@ -47,7 +47,7 @@ symbol and spacing; the FTL adds only the surrounding translated label.
 `Arc` of the full locale map and their original numeric values, not a borrowed
 `Res`, a preformatted string, or one formatter for the old language. On language
 changes or accepted catalog reloads the runtime rerenders using the current
-catalog. Default Auto requests and retains the HUD while its bound entities
+catalog. Default Lazy requests and retains the HUD while its bound entities
 exist; it does not require manual loading calls. The closure selects the matching
 formatter by `catalog.locale()`.
 For Arabic the application explicitly selects `ar-EG-u-nu-arab`; the catalog

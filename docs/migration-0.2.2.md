@@ -1,8 +1,8 @@
 # Migrate from bevy_fluent_typed 0.2.1 to 0.2.2
 
-Plugin constructors, explicit Full/Lazy requests, typed resources and readiness
+Plugin constructors, explicit Full/Manual requests, typed resources and readiness
 helpers keep their signatures. This guide covers generation paths and selective
-embedding; the current 0.3 default is Auto. See [automatic loading](migration-0.3.md#adopt-automatic-module-loading)
+embedding; the current 0.3 default is Lazy. See [automatic loading](migration-0.3.md#adopt-automatic-module-loading)
 for the default change and explicit Full compatibility.
 
 ## Update both facade dependencies
@@ -81,7 +81,7 @@ catalog construction. The no-argument `texts::embed_manifest!()` form remains.
 Leaf-name helper macros and selector expression arguments are removed.
 
 Embedding includes only selected source bytes, including in debug builds.
-Auto consumers or explicit Full/Lazy govern parsing and module lifetime; selected static bytes remain
+Lazy consumers or explicit Full/Manual govern parsing and module lifetime; selected static bytes remain
 for the executable's lifetime. Byte inputs and native resource waiting retain
 their APIs; follow [0.3 language switching](migration-0.3.md#let-language-changes-finish-automatically)
 for the active-until-ready `set_locale` contract. Test file/ZIP origins and locale

@@ -1,10 +1,10 @@
 use super::{Hud, Other, Panel, Root, controlled_mode, pump};
 use crate::bevy::prelude::*;
-use crate::{Auto, Localization, LocalizedText, PreparationStatus};
+use crate::{Lazy, Localization, LocalizedText, PreparationStatus};
 
 #[test]
 fn root_removal_spans_pins_and_locale_switch_share_one_demand_union() {
-	let (mut app, source) = controlled_mode::<Auto>();
+	let (mut app, source) = controlled_mode::<Lazy>();
 	let parent = app
 		.world_mut()
 		.spawn((

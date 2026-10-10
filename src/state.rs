@@ -6,7 +6,7 @@ use crate::bevy::prelude::Handle;
 use crate::bevy::{ecs as bevy_ecs, prelude::Resource, tasks::Task};
 use crate::leases::LeaseRequests;
 use crate::{
-	Auto, FluentCatalog, FluentScope, Lazy, LoadingMode, ModuleLease, ModuleStatus, ModuleStore,
+	FluentCatalog, FluentScope, Lazy, LoadingMode, Manual, ModuleLease, ModuleStatus, ModuleStore,
 };
 use std::{
 	any::TypeId,
@@ -56,14 +56,14 @@ impl<C: FluentCatalog> RequestedModule<C> {
 
 /// Controller for the selected locale and requested scopes.
 ///
-/// Default Auto tracks inserted bindings and localized required-resource systems.
+/// Default Lazy tracks inserted bindings and localized required-resource systems.
 /// Optional manual pins retain additional scopes independently of consumers.
 /// With neither consumers nor pins, no modules are loaded. Full requests the root;
-/// explicit Lazy exposes idempotent application-owned scope requests.
+/// explicit Manual exposes idempotent application-owned scope requests.
 /// Independent ownership leases can retain scopes alongside manual pins and consumers.
 /// Resource publication is synchronized at the plugin's Publish/Refresh boundaries.
 #[derive(Resource)]
-pub struct Localization<C: FluentCatalog, M: LoadingMode = Auto> {
+pub struct Localization<C: FluentCatalog, M: LoadingMode = Lazy> {
 	pub(crate) store: ModuleStore<C>,
 	pub(crate) requested: HashMap<TypeId, &'static [&'static str]>,
 	pub(crate) entries: BTreeMap<&'static str, RequestedModule<C>>,
@@ -385,4 +385,4 @@ macro_rules! explicit_requests {
 	};
 }
 
-explicit_requests!(Auto, Lazy);
+explicit_requests!(Lazy, Manual);

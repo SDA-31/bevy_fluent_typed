@@ -55,11 +55,11 @@ The native `FromTemplate` implementation supplies Bevy's scene template;
 no `template(...)` callback or default localized message is needed. A scene
 that omits its message constructor returns an error rather than an empty binding.
 
-Scene construction needs no ready `Res<Interface>`. With default Auto, inserting
+Scene construction needs no ready `Res<Interface>`. With default Lazy, inserting
 the scene's `LocalizedText<Interface>` component requests and retains its scope.
 Removing the last binding releases its demand unless another consumer, manual
 pin or lease still needs the module. Constructing a scene or cloning a binding before
-insertion is passive. Explicit Full loads every module; explicit Lazy still uses
+insertion is passive. Explicit Full loads every module; explicit Manual still uses
 application-owned `load`/`unload` calls.
 
 ## Reuse a message or binding
@@ -87,7 +87,7 @@ Clone it first when several entities need it. Bevy 0.20 also accepts a component
 variable directly, such as `Text binding`; on 0.19 use the typed constructor above.
 `LocalizedText::clone()` shares its formatter and owned arguments through `Arc`.
 Each label follows the current catalog independently, including language changes
-and translation reloads. In explicit Lazy, unloading its scope clears its text until that scope
+and translation reloads. In explicit Manual, unloading its scope clears its text until that scope
 is ready again. Replace a binding when its captured arguments change.
 
 ## Localize a text span
@@ -101,7 +101,7 @@ LocalizedText::<Interface>::new(|hud| hud.msg_hello("Ada"))
 
 The binding changes only that span's content and does not insert a root `Text`
 on the span entity. The application owns its parent `Text`/`Text2d`, fonts,
-colors and hierarchy. In Auto, the inserted span binding requests and retains
+colors and hierarchy. In Lazy, the inserted span binding requests and retains
 its scope until removed, exactly like a root text binding. Other consumers or
 manual pins can keep that scope alive. Spans keep their active-language content
 while a requested locale loads or fails validation. Keep each translated message complete;

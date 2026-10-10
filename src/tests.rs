@@ -2,7 +2,7 @@
 use crate::LocalizationManifest;
 use crate::bevy::{ecs as bevy_ecs, prelude::*};
 use crate::{
-	FluentCatalog, FluentScope, Lazy, Localization, LocalizedText, Message, Module, ModuleStore,
+	FluentCatalog, FluentScope, Localization, LocalizedText, Manual, Message, Module, ModuleStore,
 	ScopeRegistration, bindings,
 };
 use std::sync::Arc;
@@ -89,7 +89,7 @@ fn manifest() -> LocalizationManifest {
 
 #[test]
 fn selected_locale_preserves_active_data_and_logical_requests_until_ready() {
-	let mut state = Localization::<TestCatalog, Lazy>::default();
+	let mut state = Localization::<TestCatalog, Manual>::default();
 	assert_eq!(state.locale(), "ja");
 	assert!(state.catalog().is_none());
 	state.load::<TestCatalog>();

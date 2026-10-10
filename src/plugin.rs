@@ -1,7 +1,7 @@
 //! Public mode selection and scheduling for independently loaded scopes.
 use crate::bevy::{ecs as bevy_ecs, prelude::*};
 use crate::{
-	Auto, FluentCatalog, LoadingMode, Localization,
+	FluentCatalog, Lazy, LoadingMode, Localization,
 	bytes::{self, ByteLoader, ByteSource},
 	compatibility, demand,
 	loading::reload_catalogs,
@@ -10,7 +10,7 @@ use crate::{
 };
 #[cfg(feature = "manifest")]
 use crate::{
-	Lazy, LocalizationManifest,
+	LocalizationManifest, Manual,
 	assets::{
 		ModuleAsset, ModuleLoader, PreparationAttempts, PreparedModuleAsset, PreparedModuleLoader,
 	},
@@ -44,16 +44,16 @@ enum Source<C: FluentCatalog> {
 /// Register loading and typed resources from a manifest or application-owned byte source.
 ///
 /// Manifest sources require AssetPlugin; byte sources need only MinimalPlugins.
-/// Default Auto loads scopes used by inserted text bindings and required `Res`
+/// Default Lazy loads scopes used by inserted text bindings and required `Res`
 /// systems registered through localization helpers. Plain systems, optional
-/// resources and world inspection do not establish demand. Optional Auto manual
+/// resources and world inspection do not establish demand. Optional Lazy manual
 /// pins retain additional scopes independently. Explicit Full requests
-/// every module; explicit Lazy waits for `load` calls. Creating this value
+/// every module; explicit Manual waits for `load` calls. Creating this value
 /// performs no I/O.
 /// Only one plugin/controller mode may own a given root provider in an App.
 /// `Localization::set_locale` retains active resources until desired target scopes
 /// validate, then switches automatically at publication.
-pub struct LocalizationPlugin<C: FluentCatalog, M: LoadingMode = Auto> {
+pub struct LocalizationPlugin<C: FluentCatalog, M: LoadingMode = Lazy> {
 	source: Source<C>,
 	marker: PhantomData<fn() -> (C, M)>,
 }
@@ -75,7 +75,7 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 	}
 
 	/// Retain readable module bytes, parsing only modules requested by the loading mode.
-	/// Default Auto waits for inserted bindings or localized required-resource systems.
+	/// Default Lazy waits for inserted bindings or localized required-resource systems.
 	/// Each tuple contains a compiled locale, a logical leaf path (e.g. `Hud::PATH`)
 	/// and owned bytes. The provider's default locale is selected initially.
 	/// Missing modules fail when requested. Retained buffers survive `unload`;
@@ -145,9 +145,9 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 }
 
 #[cfg(feature = "manifest")]
-impl<C: FluentCatalog> LocalizationPlugin<C, Auto> {
-	/// Short form of `LocalizationPlugin::<C, Lazy>::new(manifest)`.
-	pub fn new_lazy(manifest: LocalizationManifest) -> LocalizationPlugin<C, Lazy> {
+impl<C: FluentCatalog> LocalizationPlugin<C, Lazy> {
+	/// Short form of `LocalizationPlugin::<C, Manual>::new(manifest)`.
+	pub fn new_manual(manifest: LocalizationManifest) -> LocalizationPlugin<C, Manual> {
 		LocalizationPlugin::new(manifest)
 	}
 }

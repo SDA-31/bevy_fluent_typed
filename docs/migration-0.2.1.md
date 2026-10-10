@@ -1,9 +1,9 @@
 # Adopt native resource waiting
 
 Use native required resources with registration helpers that infer catalog
-readiness. Existing manual conditions and explicit Lazy requests keep working.
+readiness. Existing manual conditions and explicit Manual requests keep working.
 Use matching 0.3.0 facade dependencies. For catalog path and embedding changes,
-follow the [0.2.2 migration](migration-0.2.2.md). The current default Auto also
+follow the [0.2.2 migration](migration-0.2.2.md). The current default Lazy also
 requests scopes for these helpers; see [0.3 automatic loading](migration-0.3.md#adopt-automatic-module-loading).
 
 ## Use the build-configured file manifest
@@ -46,7 +46,7 @@ app.add_localized_systems(Update, update_hud);
 ```
 
 `Res` is Bevy's normal resource parameter. The registration helper infers the
-required catalog, requests it in Auto and skips the system until ready. It does not block the
+required catalog, requests it in Lazy and skips the system until ready. It does not block the
 frame or change the behavior of ordinary `add_systems`. With several required
 catalog parameters, all must be ready.
 
@@ -79,7 +79,7 @@ fn setup_hud(mut commands: Commands, hud: Res<texts::presentation::Hud>) {
 ```
 
 The helper runs in `Update`, after ordinary startup, and records completion only
-when the function body returns. In Auto, temporary scope demand is then released;
+when the function body returns. In Lazy, temporary scope demand is then released;
 deferred inserted bindings take over their own demand. Each tuple member completes independently. It
 does not rerun after a locale change; use `LocalizedText` for live bindings.
 A returned error still counts as one invocation and follows normal Bevy error
@@ -96,13 +96,13 @@ one-time helper.
 
 ## Loading ownership and supported parameters
 
-Default Auto requests required scopes when localized systems initialize. A
+Default Lazy requests required scopes when localized systems initialize. A
 recurring system retains them until its system state is dropped, including when
 `run_if` is false. Inserted `LocalizedText` bindings independently retain their
-scopes until removed. Optional Auto `load`/`unload` calls add or remove an
+scopes until removed. Optional Lazy `load`/`unload` calls add or remove an
 idempotent manual pin; they cannot evict scopes still owned by consumers, leases
-or overlapping pins. `hold` creates an independent manual owner in Auto or Lazy. Explicit Full requests the complete selected language;
-explicit Lazy still requires application-owned `load`/`unload` calls. Plain
+or overlapping pins. `hold` creates an independent manual owner in Lazy or Manual. Explicit Full requests the complete selected language;
+explicit Manual still requires application-owned `load`/`unload` calls. Plain
 `add_systems`, optional resources and world inspection do not create demand.
 
 Inference covers direct native `Res<Scope>` parameters of functions and closures.
@@ -121,6 +121,6 @@ module lifetime, loading modes and typed navigation.
 Existing default and codegen setups keep their manifest constructors. The build
 adapter is now inside `bevy_fluent_typed`; remove any direct bridge dependency.
 For handwritten providers with defaults disabled, add `manifest` if you use
-`LocalizationManifest` or `LocalizationPlugin::new`/`new_lazy`. A backend alone
+`LocalizationManifest` or `LocalizationPlugin::new`/`new_manual`. A backend alone
 supports `from_bytes` and `from_loader` without the generator package. See the
 [feature table](build.md#features) and [advanced guide](../GUIDE.md#custom-byte-sources).

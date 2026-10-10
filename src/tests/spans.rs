@@ -1,6 +1,6 @@
 use super::TestCatalog;
 use crate::bevy::prelude::*;
-use crate::{Lazy, Localization, LocalizationPlugin, LocalizedText};
+use crate::{Localization, LocalizationPlugin, LocalizedText, Manual};
 use std::{
 	sync::{
 		Arc, Mutex,
@@ -36,7 +36,7 @@ fn ui_and_world_spans_follow_catalog_lifetime_without_becoming_roots() {
 		catalog.0.clone()
 	});
 
-	let plugin = LocalizationPlugin::<TestCatalog, Lazy>::from_bytes([
+	let plugin = LocalizationPlugin::<TestCatalog, Manual>::from_bytes([
 		("ja", "ui.ftl", b"Japanese".as_slice()),
 		("es", "ui.ftl", b"Spanish".as_slice()),
 	])
@@ -60,7 +60,7 @@ fn ui_and_world_spans_follow_catalog_lifetime_without_becoming_roots() {
 	assert_eq!(calls.load(Ordering::Relaxed), 0);
 
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
 	pump(&mut app, Some("Japanese"), &spans);
 	let before = calls.load(Ordering::Relaxed);
@@ -68,17 +68,17 @@ fn ui_and_world_spans_follow_catalog_lifetime_without_becoming_roots() {
 	assert_eq!(calls.load(Ordering::Relaxed), before);
 
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.set_locale("es");
 	pump(&mut app, Some("Spanish"), &spans);
 
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.unload::<TestCatalog>();
 	pump(&mut app, None, &spans);
 
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
 	pump(&mut app, Some("Spanish"), &spans);
 

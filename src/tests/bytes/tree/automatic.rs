@@ -1,6 +1,6 @@
 use super::{Hud, Other, Panel, Presentation, Root, controlled_mode, pump};
 use crate::bevy::prelude::*;
-use crate::{Auto, LocalizationAppExt, LocalizedText};
+use crate::{Lazy, LocalizationAppExt, LocalizedText};
 use std::sync::{
 	Arc,
 	atomic::{AtomicUsize, Ordering},
@@ -8,7 +8,7 @@ use std::sync::{
 
 #[test]
 fn automatic_group_and_leaf_owners_load_only_their_union_and_release_independently() {
-	let (mut app, source) = controlled_mode::<Auto>();
+	let (mut app, source) = controlled_mode::<Lazy>();
 	let hud = app
 		.world_mut()
 		.spawn(LocalizedText::<Hud>::new(|hud| hud.0.to_string()))
@@ -37,7 +37,7 @@ fn automatic_group_and_leaf_owners_load_only_their_union_and_release_independent
 
 #[test]
 fn required_leaf_system_loads_only_its_module_without_manual_requests() {
-	let (mut app, source) = controlled_mode::<Auto>();
+	let (mut app, source) = controlled_mode::<Lazy>();
 	let runs = Arc::new(AtomicUsize::new(0));
 	let observed = runs.clone();
 	app.add_localized_systems(Update, move |_: Res<Hud>| {

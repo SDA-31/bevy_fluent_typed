@@ -11,8 +11,8 @@ use crate::{FluentCatalog, FluentScope, PreparationStatus};
 /// catalogs. Publication follows reconciliation in PreUpdate and PostUpdate.
 /// Multiple transitions between observations may coalesce.
 ///
-/// Root snapshots count current demand: Auto counts automatic consumers, manual
-/// pins and independent leases; Full counts every module; Lazy counts pins and
+/// Root snapshots count current demand: Lazy counts automatic consumers, manual
+/// pins and independent leases; Full counts every module; Manual counts pins and
 /// leases. Group/leaf snapshots count their fixed
 /// unique schema paths, including unrequested files, without starting I/O.
 /// Preparation readiness describes the entire provider's demand, independently

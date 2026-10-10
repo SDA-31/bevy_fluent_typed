@@ -1,11 +1,11 @@
 use super::{Hud, Other, Panel, Presentation, Root, configured_mode, pump};
 use crate::bevy::prelude::*;
-use crate::{Auto, Localization, LocalizationProgress, LocalizationProgressPlugin, LocalizedText};
+use crate::{Lazy, Localization, LocalizationProgress, LocalizationProgressPlugin, LocalizedText};
 use std::sync::Arc;
 
 #[test]
 fn spans_leases_and_pins_share_recursive_progress_through_automatic_switching() {
-	let (mut app, source) = configured_mode::<Auto>();
+	let (mut app, source) = configured_mode::<Lazy>();
 	app.add_plugins(LocalizationProgressPlugin::<Root>::new());
 	app.finish();
 	app.cleanup();

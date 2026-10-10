@@ -123,7 +123,7 @@ pub use leases::ModuleLease;
 #[cfg(feature = "runtime")]
 pub use message::{CatalogUpdate, CatalogUpdateReader, LocalizedText, Message, ReloadCatalogs};
 #[cfg(feature = "runtime")]
-pub use mode::{Auto, Full, Lazy, LoadingMode};
+pub use mode::{Full, Lazy, LoadingMode, Manual};
 #[cfg(feature = "runtime")]
 pub use plugin::{LocalizationPlugin, LocalizationSystems};
 #[cfg(feature = "runtime")]

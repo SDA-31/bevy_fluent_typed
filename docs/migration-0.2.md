@@ -3,10 +3,10 @@
 This guide upgrades runtime 0.1.3 to 0.3.0.
 It includes the generated manifest helper and native required-resource waiting.
 
-Start with default **Auto**: inserted text bindings and localized systems request
+Start with default **Lazy**: inserted text bindings and localized systems request
 their scopes automatically. Existing full-tree bindings request the whole tree;
 prefer smaller scopes where appropriate. Resources become ready asynchronously.
-Select explicit **Full** for eager loading or direct world polling, or **Lazy**
+Select explicit **Full** for eager loading or direct world polling, or **Manual**
 when the application must own requests manually.
 
 ## 1. Update the public facade
@@ -123,7 +123,7 @@ readiness follows the [publication schedule](../GUIDE.md#scheduling-and-reload-g
 
 ## 4. Keep existing messages, or narrow their scope
 
-Existing root-bound closures still work: in Auto an inserted root binding
+Existing root-bound closures still work: in Lazy an inserted root binding
 requests the entire tree; explicit Full keeps it loaded independently of bindings:
 
 ```rust
@@ -147,43 +147,43 @@ Use `LocalizedText<texts::presentation::Hud>` for the corresponding binding.
 Capture owned arguments in deferred closures; do not capture a translated string
 or an old scope snapshot. Typed message accessor signatures remain unchanged.
 
-## 5. Optionally adopt Lazy
+## 5. Optionally adopt Manual
 
-Auto already requests only consumer scopes. Choose Lazy only to control requests
+Lazy already requests only consumer scopes. Choose Manual only to control requests
 explicitly; its bindings and waiting systems do not create demand. Replace plugin
 construction with:
 
 ```rust
-LocalizationPlugin::<texts::Translations>::new_lazy(manifest)
+LocalizationPlugin::<texts::Translations>::new_manual(manifest)
 ```
 
 The equivalent explicit type is
-`LocalizationPlugin::<texts::Translations, Lazy>::new(manifest)`. Import `Lazy`
+`LocalizationPlugin::<texts::Translations, Manual>::new(manifest)`. Import `Manual`
 from `bevy_fluent_typed`, and update controller system parameters to the same mode:
 
 ```rust
-use bevy_fluent_typed::{Lazy, Localization};
+use bevy_fluent_typed::{Manual, Localization};
 
-fn open_hud(mut localization: ResMut<Localization<texts::Translations, Lazy>>) {
+fn open_hud(mut localization: ResMut<Localization<texts::Translations, Manual>>) {
     localization.load::<texts::presentation::Hud>();
 }
 
-fn close_hud(mut localization: ResMut<Localization<texts::Translations, Lazy>>) {
+fn close_hud(mut localization: ResMut<Localization<texts::Translations, Manual>>) {
     localization.unload::<texts::presentation::Hud>();
 }
 ```
 
 Schedule these on screen entry and exit, or request an always-needed scope in
-`Startup`. In this explicit Lazy mode, resource systems, bindings, navigation and messages
+`Startup`. In this explicit Manual mode, resource systems, bindings, navigation and messages
 do not request modules automatically.
 Requests for a type are idempotent, not reference-counted: one unload releases
 all repeated loads of that same type. Independent parent/child requests can still
 keep a leaf loaded. Full has no `load` or `unload` methods.
 
-Lazy also works with the no-argument embedded manifest from step 2. It controls
+Manual also works with the no-argument embedded manifest from step 2. It controls
 which catalogs are parsed and retained; embedded static bytes remain for the
 executable's lifetime. Application-held catalog clones can keep parsed scopes
-alive after unloading. See the [complete Lazy application](../GUIDE.md#manual-lazy-loading).
+alive after unloading. See the [complete Manual application](../GUIDE.md#manual-loading).
 For selective constant manifests, follow the
 [embedded recipe](../README.md#explicit-embedding).
 
@@ -191,7 +191,7 @@ For selective constant manifests, follow the
 
 | In 0.1.3 | In 0.3.0 |
 | --- | --- |
-| All embedded languages were initialized | Auto requests consumer scopes in the selected language; explicit Full requests that entire language |
+| All embedded languages were initialized | Lazy requests consumer scopes in the selected language; explicit Full requests that entire language |
 | Locale changes could select a retained catalog immediately | Requests persist; the active language stays usable until all needed target leaves validate and switch automatically |
 | A complete language was checked and published together | Same-language reloads publish leaves independently; locale replacement validates and publishes its desired target leaves together |
 | Unavailable bindings retained their old displayed text | Unavailable bindings clear until their scope is available |

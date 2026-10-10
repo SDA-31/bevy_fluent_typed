@@ -3,11 +3,11 @@
 Runtime 0.3.0 supports stable Bevy 0.20 and requires Rust 1.97.1 or newer.
 The generator stays at 0.2.2. Constructor signatures, native resources and
 embedded manifest declarations remain available, but the default loading mode
-changes from eager Full to consumer-driven Auto.
+changes from eager Full to consumer-driven Lazy.
 
 ## Adopt automatic module loading
 
-The unchanged common constructor now returns an Auto plugin:
+The unchanged common constructor now returns a Lazy plugin:
 
 ```rust,ignore
 app.add_plugins(LocalizationPlugin::<texts::Translations>::new(texts::manifest()));
@@ -36,15 +36,17 @@ app.add_plugins(LocalizationPlugin::<texts::Translations, Full>::new(texts::mani
 type AppLocalization = Localization<texts::Translations, Full>;
 ```
 
-Auto also accepts optional `load::<Scope>()`/`unload::<Scope>()` calls to preload
+Lazy also accepts optional `load::<Scope>()`/`unload::<Scope>()` calls to preload
 or retain a scope independently of consumers. These are idempotent manual pins:
 one unload removes the pin after repeated loads, but cannot evict automatic
 consumers, held leases or other overlapping pins. `hold::<Scope>()` creates an
-independent owner in Auto or Lazy; its Drop releases only that owner. Existing
-manual Lazy code keeps its explicit mode and `load`/`unload` calls.
-`LocalizationPlugin::<texts::Translations>::new_lazy(manifest)` still selects
-Lazy. Use the same mode on the plugin and its controller; resource scopes such
-as `Res<Hud>` do not change. See [module lifetime](../GUIDE.md#automatic-module-lifetime).
+independent owner in Lazy or Manual; its Drop releases only that owner.
+For existing 0.2.2 applications, rename the explicit-request mode `Lazy` to
+`Manual` and replace `new_lazy(manifest)` with `new_manual(manifest)`.
+The new `Lazy` is consumer-driven and is the default; explicit `Manual` keeps
+the previous manual `load`/`unload` behavior. Use the same mode on the plugin and
+its controller; resource scopes such as `Res<Hud>` do not change. See
+[module lifetime](../GUIDE.md#automatic-module-lifetime).
 
 ## Let language changes finish automatically
 
@@ -89,7 +91,7 @@ The root recursively includes every registered scope, including the HUD view
 used below. A group plugin is an alternative that observes only its subtree;
 a leaf plugin selects only that leaf. Generated hierarchy metadata is automatic.
 During App setup, either order relative to the base localization plugin works.
-The owning provider supplies Auto/Full/Lazy; overlapping and repeated registration is
+The owning provider supplies Lazy/Full/Manual; overlapping and repeated registration is
 idempotent and shares one dispatcher per provider. Native `LocalizationProgress<Scope>` resources are
 initialized before `Startup` once the base plugin is installed. No Cargo feature
 is needed. Without progress plugins, their resources and recurring trackers are

@@ -25,11 +25,11 @@ remains `fluent_typed_codegen` 0.2.2.
   activate native tracking. Progress counting collects no detail vectors or
   per-module error copies; passive per-scope queries require no registration.
 
-- Optional manual scope pins in Auto through idempotent `load`/`unload`, without
+- Optional manual scope pins in Lazy through idempotent `load`/`unload`, without
   releasing scopes still owned by automatic consumers, leases or overlapping pins.
 - Advanced locale preparation and explicit commit for application-chosen
-  publication time, supporting Auto/Full/Lazy, cancellation and byte/file sources.
-- Independent `ModuleLease<Scope>` ownership in Auto and Lazy through
+  publication time, supporting Lazy/Full/Manual, cancellation and byte/file sources.
+- Independent `ModuleLease<Scope>` ownership in Lazy and Manual through
   `localization.hold::<Scope>()`. Dropping a token releases only its owner's
   request at publication; other leases, automatic consumers and explicit requests
   remain active.
@@ -56,12 +56,15 @@ remains `fluent_typed_codegen` 0.2.2.
   and explicit retries avoid per-frame retry loops. `locale()` reports the active
   language; target inspection uses `prepared_locale`/`preparation_status`. See the
   [migration guide](docs/migration-0.3.md#let-language-changes-finish-automatically).
-- **Breaking:** plugin and controller loading default to `Auto` instead of
+- **Breaking:** plugin and controller loading default to `Lazy` instead of
   `Full`. Inserted text bindings and localized required-resource systems request
   and retain only their scopes; without consumers, manual pins or leases, modules are
   not loaded.
   Select explicit `Full` for eager loading or direct world polling, or retain
-  explicit `Lazy` for manual requests. See the [migration guide](docs/migration-0.3.md).
+  explicit `Manual` for manual requests. See the [migration guide](docs/migration-0.3.md).
+- **Breaking:** the previous explicit-request `Lazy` mode is renamed to `Manual`,
+  and `new_lazy` becomes `new_manual`. The new default `Lazy` loads scopes
+  automatically from consumers; `Full` keeps its eager behavior.
 - **Breaking:** default features select Bevy 0.20 instead of 0.19. Older
   applications disable defaults and select their backend explicitly.
 - **Breaking:** the Rust minimum is 1.97.1, matching stable Bevy 0.20. Runtime

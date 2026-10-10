@@ -128,7 +128,7 @@ root to Bevy's base directory (the package directory under `cargo run`) so
 `assets/localizations/localization.toml` is resolved as written. The build path does not configure AssetServer automatically.
 For another source layout, pass a `LocalizationManifest` with its runtime origin.
 
-The default **Auto** mode loads only scopes used by inserted `LocalizedText`
+The default **Lazy** mode loads only scopes used by inserted `LocalizedText`
 bindings and systems registered with the localization helpers. Optional
 `load`/`unload` calls can keep an additional scope loaded independently.
 `add_localized_startup_systems` requests the HUD and runs `show_title` once
@@ -146,7 +146,7 @@ See the [loading guide](GUIDE.md) for automatic module lifetime and optional man
 Fluent assets, looks up messages by string identifiers, and supports locale
 fallback chains. `bevy_fluent_typed` focuses on typed message access and arguments
 through [fluent-typed](https://github.com/human-solutions/fluent-typed), native
-`Res<Scope>` catalogs, automatic scope lifetime and explicit Full/Lazy loading. Its optional
+`Res<Scope>` catalogs, automatic scope lifetime and explicit Full/Manual loading. Its optional
 generator creates accessors in an explicit `build.rs` step and checks a shared
 message and argument contract across translations. Compatible translation text
 can reload at runtime; changes to the generated schema require rebuilding.
@@ -226,8 +226,8 @@ minimal runtime and a handwritten provider.
 | `translations!` cannot find generated output | Add the shown build-dependency and return `bevy_fluent_typed::build()` from `build.rs`. |
 | Types or methods are missing | Add the corresponding FTL module/message in every language and rebuild. File edits at runtime cannot change the compiled schema. |
 | An `embed_manifest!` selector is rejected | Use 0.3.0 for both runtime and build dependencies and use relative schema paths; imported catalog aliases are for constructors/resources. |
-| The resource is absent | Use `add_localized_systems` with direct native `Res<_>`: Auto requests the scope and waits. Plain `add_systems` and world inspection do not request it. Explicit Lazy still needs `load`. |
-| A bound label stays empty | Check `localization.status::<YourLeaf>()`. An inserted binding requests its scope in Auto; check its source and validation. A root binding waits for the whole tree. Explicit Lazy needs a manual request. |
+| The resource is absent | Use `add_localized_systems` with direct native `Res<_>`: Lazy requests the scope and waits. Plain `add_systems` and world inspection do not request it. Explicit Manual still needs `load`. |
+| A bound label stays empty | Check `localization.status::<YourLeaf>()`. An inserted binding requests its scope in Lazy; check its source and validation. A root binding waits for the whole tree. Explicit Manual needs a manual request. |
 | Files are not found | The manifest origin is relative to Bevy's asset root. Do not prefix it with `assets/` when `AssetPlugin` already points there. |
 | Editing the TOML has no runtime effect | The plugin receives a parsed contract and does not reload TOML. Rebuild this quickstart or construct a new contract during application setup. |
 | Cargo reports incompatible engine APIs | Select one matching Bevy backend, on the normal dependency only. Do not enable all features. |

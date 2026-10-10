@@ -1,10 +1,10 @@
 use super::{Hud, Panel, Presentation, Root, controlled_mode, pump};
 use crate::bevy::prelude::*;
-use crate::{Auto, Localization, LocalizedText};
+use crate::{Lazy, Localization, LocalizedText};
 
 #[test]
 fn overlapping_manual_pins_and_automatic_consumers_release_independently() {
-	let (mut app, source) = controlled_mode::<Auto>();
+	let (mut app, source) = controlled_mode::<Lazy>();
 	let binding = app
 		.world_mut()
 		.spawn(LocalizedText::<Hud>::new(|hud| hud.0.to_string()))
@@ -39,7 +39,7 @@ fn overlapping_manual_pins_and_automatic_consumers_release_independently() {
 
 #[test]
 fn switching_a_partial_tree_tracks_added_and_removed_manual_pins() {
-	let (mut app, source) = controlled_mode::<Auto>();
+	let (mut app, source) = controlled_mode::<Lazy>();
 	let binding = app
 		.world_mut()
 		.spawn(LocalizedText::<Hud>::new(|hud| hud.0.to_string()))
@@ -83,7 +83,7 @@ fn switching_a_partial_tree_tracks_added_and_removed_manual_pins() {
 
 #[test]
 fn switching_tracks_automatic_demand_added_and_removed_during_preparation() {
-	let (mut app, source) = controlled_mode::<Auto>();
+	let (mut app, source) = controlled_mode::<Lazy>();
 	app.world_mut()
 		.resource_mut::<Localization<Root>>()
 		.load::<Hud>();

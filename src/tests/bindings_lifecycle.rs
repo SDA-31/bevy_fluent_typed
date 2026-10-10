@@ -1,6 +1,6 @@
 use super::{TestCatalog, manifest};
 use crate::bevy::prelude::*;
-use crate::{Lazy, Localization, LocalizationPlugin, LocalizedText};
+use crate::{Localization, LocalizationPlugin, LocalizedText, Manual};
 use std::sync::{
 	Arc,
 	atomic::{AtomicUsize, Ordering},
@@ -29,9 +29,9 @@ fn bindings_track_lifetimes_before_and_after_plugin_installation() {
 		.world_mut()
 		.spawn((Text2d::default(), binding(&calls)))
 		.id();
-	app.add_plugins(LocalizationPlugin::<TestCatalog>::new_lazy(manifest()));
+	app.add_plugins(LocalizationPlugin::<TestCatalog>::new_manual(manifest()));
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
 	app.update();
 	assert_eq!(calls.load(Ordering::Relaxed), 2);
@@ -49,13 +49,13 @@ fn bindings_track_lifetimes_before_and_after_plugin_installation() {
 	assert_eq!(calls.load(Ordering::Relaxed), 4);
 
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.unload::<TestCatalog>();
 	app.update();
 	assert_eq!(app.world().get::<Text2d>(second).unwrap().0, "");
 	assert_eq!(calls.load(Ordering::Relaxed), 4);
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
 	app.update();
 	assert_eq!(app.world().get::<Text2d>(second).unwrap().0, "ja");

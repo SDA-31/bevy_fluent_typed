@@ -2,8 +2,8 @@
 use super::TestCatalog;
 use crate::bevy::prelude::*;
 use crate::{
-	Full, Lazy, Localization, LocalizationPlugin, LocalizationProgress, LocalizationProgressPlugin,
-	ModuleStatus, PreparationStatus,
+	Full, Localization, LocalizationPlugin, LocalizationProgress, LocalizationProgressPlugin,
+	Manual, ModuleStatus, PreparationStatus,
 };
 use std::{
 	sync::{
@@ -77,13 +77,13 @@ fn loading_and_passive_queries_do_not_enable_recurring_progress() {
 }
 
 #[test]
-fn request_before_plugin_infers_lazy_mode_and_repeated_request_preserves_the_resource() {
+fn request_before_plugin_infers_manual_mode_and_repeated_request_preserves_the_resource() {
 	let mut app = App::new();
 	app.add_plugins(MinimalPlugins)
 		.add_plugins(LocalizationProgressPlugin::<TestCatalog>::new());
 	assert!(!app.world().contains_resource::<Progress>());
 	app.add_plugins(
-		LocalizationPlugin::<TestCatalog, Lazy>::from_bytes([("ja", "ui.ftl", b"ja".as_slice())])
+		LocalizationPlugin::<TestCatalog, Manual>::from_bytes([("ja", "ui.ftl", b"ja".as_slice())])
 			.unwrap(),
 	);
 	assert_eq!(app.world().resource::<Progress>().active().total, 0);
@@ -111,7 +111,7 @@ fn request_before_plugin_infers_lazy_mode_and_repeated_request_preserves_the_res
 	app.update();
 	assert!(ran.load(Ordering::Relaxed));
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
 	pump(&mut app, |world| {
 		world.resource::<Progress>().active().ready == 1

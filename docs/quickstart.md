@@ -107,7 +107,7 @@ root to Bevy's base directory (the package directory under `cargo run`) so
 `assets/localizations/localization.toml` is resolved as written. The build path does not configure AssetServer automatically.
 For another source layout, pass a `LocalizationManifest` with its runtime origin.
 
-The default **Auto** mode loads only scopes used by inserted `LocalizedText`
+The default **Lazy** mode loads only scopes used by inserted `LocalizedText`
 bindings and systems registered with the localization helpers. Optional
 `load`/`unload` calls can keep an additional scope loaded independently.
 `add_localized_startup_systems` requests the HUD and runs `show_title` once

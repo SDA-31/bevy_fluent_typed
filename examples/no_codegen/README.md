@@ -28,8 +28,8 @@ complex schemas should normally use generated accessors instead.
 [src/main.rs](src/main.rs) supplies readable bytes and switches languages. The
 retained buffers stay alive until the source is dropped; `from_loader` retrieves
 bytes per requested leaf when source memory must be released after parsing.
-Both paths use default Auto: inserted bindings and localized required-resource
-systems request their scopes. Explicit Full/Lazy and the same readiness helpers
+Both paths use default Lazy: inserted bindings and localized required-resource
+systems request their scopes. Explicit Full/Manual and the same readiness helpers
 remain available. Inspecting a resource directly does not establish demand.
 
 A root `LocalizationProgressPlugin<Texts>` observes this provider without adding

@@ -26,7 +26,7 @@ fn generated_group_recurses_to_its_leaf_without_observing_the_root_or_loading() 
 	app.add_plugins((
 		MinimalPlugins,
 		LocalizationProgressPlugin::<texts::Ui>::new(),
-		LocalizationPlugin::<texts::Translations, bevy_fluent_typed::Lazy>::from_bytes([(
+		LocalizationPlugin::<texts::Translations, bevy_fluent_typed::Manual>::from_bytes([(
 			texts::Locale::En,
 			Interface::PATH,
 			b"hello = Hello!".as_slice(),

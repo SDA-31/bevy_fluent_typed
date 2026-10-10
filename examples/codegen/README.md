@@ -55,10 +55,10 @@ cargo run --manifest-path examples/codegen/Cargo.toml --bin bytes
 to `LocalizationPlugin::from_bytes` and prints the same three greetings using
 ordinary generated resources. It deliberately embeds its small input with
 `include_bytes!`; no runtime manifest or AssetPlugin is required. The buffers
-are retained for repeat loads. Default Auto requests the greeting scope through
+are retained for repeat loads. Default Lazy requests the greeting scope through
 the inserted `LocalizedText<Greeting>` binding and keeps it ready while that
 binding exists. World inspection alone does not create demand. For on-demand
-file reading and module lifetime, use [Auto](../../GUIDE.md#automatic-module-lifetime)
+file reading and module lifetime, use [Lazy](../../GUIDE.md#automatic-module-lifetime)
 and Bevy's asset system;
 custom storage belongs in an [asset source](../../docs/asset-sources.md).
 

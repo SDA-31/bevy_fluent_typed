@@ -11,7 +11,7 @@ use std::{
 	},
 };
 
-/// Independent ownership of a Lazy localization scope.
+/// Independent ownership of a Manual localization scope.
 ///
 /// Keep this token for as long as its screen needs translations. Dropping it on
 /// any thread releases only this owner's demand at the next publication boundary.

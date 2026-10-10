@@ -40,7 +40,7 @@ In an enclosing workspace, the package is `localization-example`; add
 - [tests/](tests): contract, resource, watcher and formatting regressions. Start
   with [tests/README.md](tests/README.md) when looking for verification.
 
-Default Auto loads scopes owned by inserted bindings and localized resource
+Default Lazy loads scopes owned by inserted bindings and localized resource
 systems; plain world inspection does not request modules. The default binary
 waits for successful file loads, prints the bound
 text, switches through every discovered language and exits. Watch mode keeps the

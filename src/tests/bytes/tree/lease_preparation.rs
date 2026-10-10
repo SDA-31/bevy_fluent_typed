@@ -1,13 +1,13 @@
 //! Lease demand and its release queue survive explicit locale preparation.
 use super::{Hud, Panel, Root, controlled, pump};
 use crate::bevy::prelude::*;
-use crate::{Lazy, Localization, LocalizedText, PreparationStatus};
+use crate::{Localization, LocalizedText, Manual, PreparationStatus};
 
 #[test]
 fn new_lease_revokes_a_queued_commit_and_existing_owners_survive_publication() {
 	let (mut app, source) = controlled();
 	let (first, second) = {
-		let mut state = app.world_mut().resource_mut::<Localization<Root, Lazy>>();
+		let mut state = app.world_mut().resource_mut::<Localization<Root, Manual>>();
 		(state.hold::<Hud>(), state.hold::<Hud>())
 	};
 	let label = app
@@ -23,19 +23,19 @@ fn new_lease_revokes_a_queued_commit_and_existing_owners_survive_publication() {
 	});
 
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.prepare_locale("es");
 	pump(&mut app, |_| source.count() == 2);
 	let target = source.release::<Hud>("es", 0);
 	pump(&mut app, |world| {
 		world
-			.resource::<Localization<Root, Lazy>>()
+			.resource::<Localization<Root, Manual>>()
 			.preparation_status()
 			== PreparationStatus::Ready
 	});
 
 	let panel = {
-		let mut state = app.world_mut().resource_mut::<Localization<Root, Lazy>>();
+		let mut state = app.world_mut().resource_mut::<Localization<Root, Manual>>();
 		state.commit_locale().unwrap();
 		assert!(state.commit_requested);
 		let panel = state.hold::<Panel>();
@@ -46,26 +46,30 @@ fn new_lease_revokes_a_queued_commit_and_existing_owners_survive_publication() {
 	pump(&mut app, |_| source.count() == 4);
 	assert_eq!(app.world().get::<Text>(label).unwrap().0, active);
 	assert_eq!(
-		app.world().resource::<Localization<Root, Lazy>>().locale(),
+		app.world()
+			.resource::<Localization<Root, Manual>>()
+			.locale(),
 		"en"
 	);
 	source.release::<Panel>("en", 0);
 	source.release::<Panel>("es", 0);
 	pump(&mut app, |world| {
 		world
-			.resource::<Localization<Root, Lazy>>()
+			.resource::<Localization<Root, Manual>>()
 			.preparation_status()
 			== PreparationStatus::Ready
 	});
 
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.commit_locale()
 		.unwrap();
 	drop(first);
 	app.update();
 	assert_eq!(
-		app.world().resource::<Localization<Root, Lazy>>().locale(),
+		app.world()
+			.resource::<Localization<Root, Manual>>()
+			.locale(),
 		"es"
 	);
 	assert_eq!(app.world().get::<Text>(label).unwrap().0, target);
@@ -86,7 +90,7 @@ fn new_lease_revokes_a_queued_commit_and_existing_owners_survive_publication() {
 fn dropping_a_target_owner_releases_its_pending_work_before_commit() {
 	let (mut app, source) = controlled();
 	let (hud, panel) = {
-		let mut state = app.world_mut().resource_mut::<Localization<Root, Lazy>>();
+		let mut state = app.world_mut().resource_mut::<Localization<Root, Manual>>();
 		(state.hold::<Hud>(), state.hold::<Panel>())
 	};
 	pump(&mut app, |_| source.count() == 2);
@@ -94,13 +98,13 @@ fn dropping_a_target_owner_releases_its_pending_work_before_commit() {
 	source.release::<Panel>("en", 0);
 	pump(&mut app, |world| world.contains_resource::<Panel>());
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.prepare_locale("es");
 	pump(&mut app, |_| source.count() == 4);
 	source.release::<Hud>("es", 0);
 	pump(&mut app, |world| {
 		world
-			.resource::<Localization<Root, Lazy>>()
+			.resource::<Localization<Root, Manual>>()
 			.preparation
 			.as_ref()
 			.unwrap()
@@ -111,7 +115,7 @@ fn dropping_a_target_owner_releases_its_pending_work_before_commit() {
 
 	drop(panel);
 	app.update();
-	let state = app.world().resource::<Localization<Root, Lazy>>();
+	let state = app.world().resource::<Localization<Root, Manual>>();
 	assert_eq!(state.preparation_status(), PreparationStatus::Ready);
 	assert!(
 		!state
@@ -122,7 +126,7 @@ fn dropping_a_target_owner_releases_its_pending_work_before_commit() {
 			.contains_key("presentation/panel.ftl")
 	);
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.commit_locale()
 		.unwrap();
 	app.update();
