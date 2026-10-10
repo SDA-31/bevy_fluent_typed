@@ -929,7 +929,6 @@ fn target_handoff_waits_for_an_obsolete_normal_reader_and_preserves_fresh_commit
 		Err(crate::CommitLocaleError::Pending)
 	);
 	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
-	#[cfg(feature = "diagnostics")]
 	{
 		let progress = app
 			.world()

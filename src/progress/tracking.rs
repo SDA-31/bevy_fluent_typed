@@ -1,4 +1,4 @@
-//! Diagnostics-only identities and mutation stamps for cheap publication guards.
+//! Loading identities and mutation stamps for cheap publication guards.
 use std::{collections::BTreeSet, ops::Deref, sync::Arc};
 
 #[derive(Default)]

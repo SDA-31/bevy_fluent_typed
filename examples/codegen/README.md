@@ -62,25 +62,27 @@ custom storage belongs in an [asset source](../../docs/asset-sources.md).
 
 ## Observe native loading progress
 
-This example's normal dependency also enables optional `diagnostics`; its build
-dependency remains build-only. Run the separate file-backed demonstration:
+The localization plugin automatically inserts and updates its progress resource;
+this example enables only `codegen`, with the same build-only dependency. Run the
+separate file-backed demonstration:
 
 ```sh
-cargo run --manifest-path examples/codegen/Cargo.toml --bin diagnostics
+cargo run --manifest-path examples/codegen/Cargo.toml --bin progress
 ```
 
-[diagnostics.rs](src/bin/diagnostics.rs) reads the plugin-inserted
-`LocalizationProgress<Translations>` through native `Res` and gates its observer
-with `resource_changed`. It loads the English catalog in default Full mode,
-prepares Spanish while English remains usable, explicitly commits when preparation
-is ready, and verifies that idle frames do not update the observer. Module counts
-are development diagnostics; progress is the latest snapshot, not a notification
-history or byte-download percentage.
+[progress.rs](src/bin/progress.rs) reads `LocalizationProgress<Translations>`
+through native `Res` and gates its presentation observer with `resource_changed`.
+The plugin owns tracking; the example adds only the observer's display logic.
+It loads the English catalog in default Full mode, prepares Spanish while English
+remains usable, explicitly commits when preparation is ready, and verifies that
+idle frames do not update the observer. Counts describe modules, not downloaded
+bytes; progress is the latest snapshot, not a notification history.
 
 The generated manifest keeps its `assets/localizations/localization.toml` origin;
 this runner sets AssetPlugin's source root to the example's package directory.
-[tests/diagnostics.rs](tests/diagnostics.rs) uses controlled asynchronous byte
-loads to verify pending/ready snapshots, manual commit, target failure/cancellation
-and quiet change detection with the same generated provider. The library feature
-is disabled by default; see the [diagnostics guide](../../GUIDE.md#optional-loading-diagnostics)
-for using it in your application.
+[tests/progress.rs](tests/progress.rs) uses controlled asynchronous byte loads to
+verify pending/ready snapshots, manual commit, target failure/cancellation and
+quiet change detection with the same generated provider. No optional feature or
+manual tracker setup is needed. See [loading progress](../../GUIDE.md#observe-loading-progress)
+for your application's UI and [optional module details](../../GUIDE.md#optional-module-details)
+when individual paths or attempt errors are needed.

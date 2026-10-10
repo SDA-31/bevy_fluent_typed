@@ -1,4 +1,4 @@
-//! Cache published diagnostics without scanning unchanged loading attempts.
+//! Cache published progress without scanning unchanged loading attempts.
 use super::{LocalizationProgress, inspect};
 use crate::bevy::prelude::*;
 use crate::{FluentCatalog, LoadingMode, Localization};

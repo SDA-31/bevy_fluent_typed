@@ -137,6 +137,14 @@ fn prepare_failure_retry_cancel_and_commit_keep_active_progress_independent() {
 	assert_eq!(progress.preparation().unwrap(), progress.active());
 	assert_eq!(progress.preparation_status(), &PreparationStatus::Ready);
 	assert_eq!(source.count(), 1);
+	#[cfg(feature = "diagnostics")]
+	{
+		let state = app.world().resource::<Localization<TestCatalog>>();
+		assert_eq!(
+			state.preparation_diagnostics::<TestCatalog>().unwrap(),
+			state.diagnostics::<TestCatalog>()
+		);
+	}
 	assert_idle(&mut app, &calls);
 	app.world_mut()
 		.resource_mut::<Localization<TestCatalog>>()
@@ -171,6 +179,17 @@ fn prepare_failure_retry_cancel_and_commit_keep_active_progress_independent() {
 		1
 	);
 	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
+	#[cfg(feature = "diagnostics")]
+	{
+		let state = app.world().resource::<Localization<TestCatalog>>();
+		assert_eq!(
+			state.diagnostics::<TestCatalog>()[0].status,
+			crate::ModuleStatus::Ready
+		);
+		let target = state.preparation_diagnostics::<TestCatalog>().unwrap();
+		assert!(matches!(target[0].status, crate::ModuleStatus::Failed(_)));
+		assert!(!target[0].usable);
+	}
 	assert_idle(&mut app, &calls);
 
 	source.fail.store(false, Ordering::Release);
@@ -214,6 +233,13 @@ fn prepare_failure_retry_cancel_and_commit_keep_active_progress_independent() {
 	assert_eq!(progress.active().ready, 1);
 	assert!(progress.preparation().is_none());
 	assert_eq!(progress.preparation_status(), &PreparationStatus::Idle);
+	#[cfg(feature = "diagnostics")]
+	assert!(
+		app.world()
+			.resource::<Localization<TestCatalog>>()
+			.preparation_diagnostics::<TestCatalog>()
+			.is_none()
+	);
 	assert_eq!(app.world().resource::<TestCatalog>().0, "es");
 	assert_idle(&mut app, &calls);
 }
@@ -239,6 +265,14 @@ fn failed_active_reload_retains_availability_and_controller_replacement_resets_i
 	});
 	assert_eq!(app.world().resource::<Progress>().active().available, 1);
 	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
+	#[cfg(feature = "diagnostics")]
+	{
+		let state = app.world().resource::<Localization<TestCatalog>>();
+		let modules = state.diagnostics::<TestCatalog>();
+		assert!(matches!(modules[0].status, crate::ModuleStatus::Failed(_)));
+		assert!(modules[0].usable);
+		assert!(state.preparation_diagnostics::<TestCatalog>().is_none());
+	}
 	assert_idle(&mut app, &calls);
 
 	source.fail.store(false, Ordering::Release);

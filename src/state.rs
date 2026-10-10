@@ -15,10 +15,7 @@ use std::{
 	sync::Arc,
 };
 
-#[cfg(feature = "diagnostics")]
 type RetryRequests = crate::progress::ObservedSet;
-#[cfg(not(feature = "diagnostics"))]
-type RetryRequests = BTreeSet<&'static str>;
 
 pub(crate) struct RequestedModule<C: FluentCatalog> {
 	pub(crate) locale: C::Locale,
@@ -181,7 +178,6 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	/// Inspect a scope's active-locale attempts without requesting or loading it.
 	/// Includes unrequested schema leaves. Native `LocalizationProgress` snapshots
 	/// instead count the current union of requested modules.
-	#[cfg(feature = "diagnostics")]
 	pub fn progress<S: FluentScope<Catalog = C>>(&self) -> crate::LoadingProgress<C::Locale> {
 		self.store.progress::<S>()
 	}
@@ -189,7 +185,6 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	/// Inspect a scope in the current preparation without publishing target data.
 	/// Returns `None` without preparation. Preparing the active locale mirrors
 	/// active attempts; use `preparation_status` to decide whether commit is ready.
-	#[cfg(feature = "diagnostics")]
 	pub fn preparation_progress<S: FluentScope<Catalog = C>>(
 		&self,
 	) -> Option<crate::LoadingProgress<C::Locale>> {
@@ -198,6 +193,28 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 				self.store.progress::<S>()
 			} else {
 				target.store.progress::<S>()
+			}
+		})
+	}
+
+	/// Inspect active-locale module details without requesting or retaining a scope.
+	/// Available with `diagnostics`; collects its result only when called.
+	#[cfg(feature = "diagnostics")]
+	pub fn diagnostics<S: FluentScope<Catalog = C>>(&self) -> Vec<crate::ModuleDiagnostic> {
+		self.store.diagnostics::<S>()
+	}
+
+	/// Inspect target module details without publishing target data.
+	/// Available with `diagnostics`; returns `None` when no preparation exists.
+	#[cfg(feature = "diagnostics")]
+	pub fn preparation_diagnostics<S: FluentScope<Catalog = C>>(
+		&self,
+	) -> Option<Vec<crate::ModuleDiagnostic>> {
+		self.preparation.as_deref().map(|target| {
+			if target.locale() == self.locale() {
+				self.store.diagnostics::<S>()
+			} else {
+				target.store.diagnostics::<S>()
 			}
 		})
 	}

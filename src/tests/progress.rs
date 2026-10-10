@@ -1,8 +1,8 @@
 use super::TestCatalog;
+#[cfg(feature = "diagnostics")]
+use crate::ModuleStatus;
 use crate::bevy::{ecs as bevy_ecs, prelude::*};
-use crate::{
-	FluentScope, Lazy, Localization, LocalizationPlugin, ModuleStatus, ModuleStore, ReloadCatalogs,
-};
+use crate::{FluentScope, Lazy, Localization, LocalizationPlugin, ModuleStore, ReloadCatalogs};
 use std::{
 	sync::{Arc, Mutex},
 	time::{Duration, Instant},
@@ -47,15 +47,19 @@ fn inspection_deduplicates_paths_and_does_not_request_unknown_or_empty_scopes() 
 	assert_eq!(progress.unloaded, 2);
 	assert_eq!(progress.ready + progress.loading + progress.failed, 0);
 	assert_eq!(progress.available, 0);
-	assert_eq!(progress.modules.len(), 2);
-	assert_eq!(progress.modules[0].path, "ui.ftl");
-	assert_eq!(progress.modules[1].path, "unknown.ftl");
-	assert!(
-		progress
-			.modules
-			.iter()
-			.all(|module| module.status == ModuleStatus::Unloaded && !module.usable)
-	);
+	#[cfg(feature = "diagnostics")]
+	{
+		let modules = state.diagnostics::<Repeated>();
+		assert_eq!(modules.len(), 2);
+		assert_eq!(modules[0].path, "ui.ftl");
+		assert_eq!(modules[1].path, "unknown.ftl");
+		assert!(
+			modules
+				.iter()
+				.all(|module| module.status == ModuleStatus::Unloaded && !module.usable)
+		);
+		assert_eq!(state.modules().diagnostics::<Repeated>(), modules);
+	}
 	assert_eq!(state.modules().progress::<Repeated>(), progress);
 	let empty = state.progress::<Empty>();
 	assert_eq!(empty.total, 0);
@@ -64,7 +68,8 @@ fn inspection_deduplicates_paths_and_does_not_request_unknown_or_empty_scopes() 
 		0
 	);
 	assert_eq!(empty.available, 0);
-	assert!(empty.modules.is_empty());
+	#[cfg(feature = "diagnostics")]
+	assert!(state.diagnostics::<Empty>().is_empty());
 	assert!(state.requested.is_empty());
 	assert!(state.entries.is_empty());
 	assert!(state.retry.is_empty());
@@ -78,8 +83,12 @@ fn inspection_deduplicates_paths_and_does_not_request_unknown_or_empty_scopes() 
 	assert_eq!(progress.ready, 1);
 	assert_eq!(progress.unloaded, 1);
 	assert_eq!(progress.available, 1);
-	assert!(progress.modules[0].usable);
-	assert!(!progress.modules[1].usable);
+	#[cfg(feature = "diagnostics")]
+	{
+		let modules = state.diagnostics::<Repeated>();
+		assert!(modules[0].usable);
+		assert!(!modules[1].usable);
+	}
 }
 
 fn pump(app: &mut App, ready: impl Fn(&World) -> bool) {
@@ -113,7 +122,7 @@ fn failed_reload_diagnostics_keep_errors_and_last_good_availability_until_unload
 		.load::<TestCatalog>();
 	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
 
-	for (candidate, expected) in [
+	for (candidate, _expected) in [
 		(Err("offline".to_owned()), "load ja/ui.ftl: offline"),
 		(Ok(vec![0xff]), "parse ja/ui.ftl:"),
 	] {
@@ -136,13 +145,17 @@ fn failed_reload_diagnostics_keep_errors_and_last_good_availability_until_unload
 		assert_eq!(progress.failed, 1);
 		assert_eq!(progress.ready + progress.loading + progress.unloaded, 0);
 		assert_eq!(progress.available, 1);
-		assert_eq!(progress.modules[0].path, "ui.ftl");
-		assert_eq!(progress.modules[0].status, state.status::<TestCatalog>());
-		assert!(progress.modules[0].usable);
-		let ModuleStatus::Failed(error) = &progress.modules[0].status else {
-			panic!("failed attempt must preserve its error");
-		};
-		assert!(error.starts_with(expected));
+		#[cfg(feature = "diagnostics")]
+		{
+			let modules = state.diagnostics::<TestCatalog>();
+			assert_eq!(modules[0].path, "ui.ftl");
+			assert_eq!(modules[0].status, state.status::<TestCatalog>());
+			assert!(modules[0].usable);
+			let ModuleStatus::Failed(error) = &modules[0].status else {
+				panic!("failed attempt must preserve its error");
+			};
+			assert!(error.starts_with(_expected));
+		}
 		assert_eq!(state.modules().get::<TestCatalog>().unwrap().0, "first");
 	}
 
@@ -158,5 +171,11 @@ fn failed_reload_diagnostics_keep_errors_and_last_good_availability_until_unload
 	assert_eq!(progress.unloaded, 1);
 	assert_eq!(progress.failed, 0);
 	assert_eq!(progress.available, 0);
-	assert!(!progress.modules[0].usable);
+	#[cfg(feature = "diagnostics")]
+	assert!(
+		!app.world()
+			.resource::<Localization<TestCatalog, Lazy>>()
+			.diagnostics::<TestCatalog>()[0]
+			.usable
+	);
 }

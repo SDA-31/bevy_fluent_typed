@@ -65,13 +65,17 @@ application runtime work, not part of this build phase.
 
 | Feature selection | Available API and dependencies |
 | --- | --- |
-| Defaults | Bevy 0.20 runtime and `manifest` support |
+| Defaults | Bevy 0.20 runtime, `manifest` support and automatic native loading progress |
 | `codegen` on the normal dependency | `translations!`, generated resources and manifest helpers; enables `manifest`, not generation |
 | `build` alone, defaults disabled | Explicit generation in build.rs; generator build dependencies, no Bevy |
 | `manifest` with a backend | Manifest constructors and the generator's runtime manifest API; no generation |
 | One backend alone, defaults disabled | Byte sources and handwritten providers; no generator package, TOML or bridge |
 | `watch` | Bevy asset-source file watching; does not watch custom byte loaders |
-| `diagnostics` with a backend | Native latest progress resource and passive scope queries; disabled by default, no additional dependencies |
+| `diagnostics` with a backend | Explicit per-module detail queries only; disabled by default, no additional dependencies |
+
+`LocalizationProgress`, loading counters and passive per-scope `progress` queries
+are available with every runtime backend, including the minimal byte-source
+configuration. No `progress` feature or manual tracker registration is needed.
 
 `codegen` and `manifest` are independent of how you obtain runtime bytes.
 Generated providers currently include manifest helpers, so `codegen` enables

@@ -5,7 +5,7 @@ use crate::{FluentCatalog, PreparationStatus};
 
 /// Native latest progress for one provider, inserted by its localization plugin.
 ///
-/// Available with `diagnostics`, including before `Startup`. Inspect with native
+/// Inserted automatically before `Startup`. Inspect with native
 /// `Res` and `resource_changed`; no manual resource registration or catalog demand
 /// is required. Publication follows localization reconciliation in PreUpdate and
 /// PostUpdate. Multiple transitions between observations may coalesce.

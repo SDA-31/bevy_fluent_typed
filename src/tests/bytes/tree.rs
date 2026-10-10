@@ -11,7 +11,6 @@ use std::sync::{
 };
 
 mod lease_preparation;
-#[cfg(feature = "diagnostics")]
 mod progress;
 
 #[derive(Resource, Clone)]

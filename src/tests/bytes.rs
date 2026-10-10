@@ -13,7 +13,6 @@ use std::{
 	time::{Duration, Instant},
 };
 
-#[cfg(feature = "diagnostics")]
 mod progress;
 mod tree;
 

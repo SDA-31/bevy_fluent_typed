@@ -53,8 +53,6 @@ impl<'a> Fixture<'a> {
 			let original = fs::read_to_string(&example_manifest)?;
 			let features = if example == "minimal" {
 				"\"watch\", \"codegen\""
-			} else if example == "codegen" {
-				"\"codegen\", \"diagnostics\""
 			} else {
 				"\"codegen\""
 			};

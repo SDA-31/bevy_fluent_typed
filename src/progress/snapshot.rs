@@ -1,4 +1,4 @@
-//! Counts and latest-attempt diagnostics without requesting catalog data.
+//! Loading counts without collecting per-module details or requesting data.
 use crate::{FluentCatalog, ModuleStatus, ModuleStore};
 
 /// Latest attempts and usable snapshots across unique logical module paths.
@@ -23,19 +23,6 @@ pub struct LoadingProgress<L> {
 	pub unloaded: usize,
 	/// Modules with a usable same-locale snapshot, including last-good data.
 	pub available: usize,
-	/// Latest attempt and availability for each unique module, sorted by path.
-	pub modules: Vec<ModuleDiagnostic>,
-}
-
-/// Latest attempt and snapshot availability for one logical module.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ModuleDiagnostic {
-	/// Logical FTL path, independent of the byte source or transport.
-	pub path: &'static str,
-	/// Latest attempt status, retaining original failure details.
-	pub status: ModuleStatus,
-	/// Whether a same-locale snapshot is still available.
-	pub usable: bool,
 }
 
 pub(crate) fn inspect<C: FluentCatalog>(
@@ -50,33 +37,22 @@ pub(crate) fn inspect<C: FluentCatalog>(
 		failed: 0,
 		unloaded: 0,
 		available: 0,
-		modules: Vec::with_capacity(paths.len()),
 	};
 
 	for path in paths {
-		let status = store
-			.states
-			.get(path)
-			.cloned()
-			.unwrap_or(ModuleStatus::Unloaded);
 		let usable = store
 			.leaves
 			.get(path)
 			.is_some_and(|id| store.values.contains_key(id));
 
-		match &status {
-			ModuleStatus::Ready => progress.ready += 1,
-			ModuleStatus::Loading => progress.loading += 1,
-			ModuleStatus::Failed(_) => progress.failed += 1,
-			ModuleStatus::Unloaded => progress.unloaded += 1,
+		match store.states.get(path) {
+			Some(ModuleStatus::Ready) => progress.ready += 1,
+			Some(ModuleStatus::Loading) => progress.loading += 1,
+			Some(ModuleStatus::Failed(_)) => progress.failed += 1,
+			Some(ModuleStatus::Unloaded) | None => progress.unloaded += 1,
 		}
 
 		progress.available += usize::from(usable);
-		progress.modules.push(ModuleDiagnostic {
-			path,
-			status,
-			usable,
-		});
 	}
 
 	progress

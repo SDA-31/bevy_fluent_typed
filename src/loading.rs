@@ -335,7 +335,6 @@ pub(crate) fn release_unrequested<C: FluentCatalog, M: LoadingMode>(
 
 		localization.retry.remove(path);
 		localization.store.states.remove(path);
-		#[cfg(feature = "diagnostics")]
 		localization.store.progress_version.changed();
 
 		if let Some(id) = localization.store.leaves.get(path).copied() {

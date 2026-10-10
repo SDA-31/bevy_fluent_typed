@@ -8,7 +8,7 @@ license = "MIT"
 publish = false
 
 [dependencies]
-bevy_fluent_typed = { path = "../..", features = ["codegen", "diagnostics"] }
+bevy_fluent_typed = { path = "../..", features = ["codegen"] }
 
 [build-dependencies]
 bevy_fluent_typed = { path = "../..", default-features = false, features = ["build"] }

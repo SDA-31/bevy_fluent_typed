@@ -183,7 +183,7 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 		"-p",
 		"localization-codegen-example",
 		"--bin",
-		"diagnostics",
+		"progress",
 	])?;
 	fixture.success(&["test", "--locked", "-p", "localization-icu-example"])?;
 	fixture.success(&["run", "--locked", "-p", "localization-icu-example"])?;

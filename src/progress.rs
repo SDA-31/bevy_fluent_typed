@@ -1,11 +1,17 @@
-//! Optional passive inspection and native publication of loading progress.
+//! Native loading counters and optional per-module inspection.
+#[cfg(feature = "diagnostics")]
+mod diagnostics;
 mod publication;
 mod resource;
 mod snapshot;
 mod tracking;
 
+#[cfg(feature = "diagnostics")]
+pub use diagnostics::ModuleDiagnostic;
+#[cfg(feature = "diagnostics")]
+pub(crate) use diagnostics::inspect as inspect_modules;
 pub(crate) use publication::{install, synchronize};
 pub use resource::LocalizationProgress;
+pub use snapshot::LoadingProgress;
 pub(crate) use snapshot::inspect;
-pub use snapshot::{LoadingProgress, ModuleDiagnostic};
 pub(crate) use tracking::{ObservedSet, StoreVersion};

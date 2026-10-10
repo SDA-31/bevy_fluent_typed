@@ -13,7 +13,8 @@ generated types and Bevy 0.19.
 - [Headless application](#headless-application)
 - [Load and release a screen](#load-and-release-a-screen)
 - [Read resources](#read-resources-and-handle-readiness)
-- [Optional diagnostics](#optional-loading-diagnostics)
+- [Loading progress](#observe-loading-progress)
+- [Optional module details](#optional-module-details)
 - [Navigate from a parent](#navigate-from-the-root-or-a-parent)
 - [Bind text](#bind-text-without-keeping-an-old-translation)
 - [Change language and reload](#change-language-and-reload-files)
@@ -268,17 +269,12 @@ wait. An invalid same-language reload preserves the last good value, so its
 consumers can run while the latest attempt has status `Failed`. Repeating
 `load::<Scope>()` retries failed leaves.
 
-### Optional loading diagnostics
+### Observe loading progress
 
-Enable `diagnostics` on the normal dependency when a loading UI needs progress:
-
-```toml
-bevy_fluent_typed = { version = "0.3.0", features = ["codegen", "diagnostics"] }
-```
-
-The feature is disabled by default. Keep the build dependency unchanged. With it,
-the plugin inserts `LocalizationProgress<texts::Translations>` before `Startup`;
-read it through native `Res`, without manual initialization or `Option<Res<_>>`:
+The localization plugin automatically inserts `LocalizationProgress<C>` before
+`Startup` and keeps it synchronized with loading. No extra feature, plugin,
+resource initialization or tracking system is needed in the application. Read
+it from an existing UI system, or gate a dedicated observer on visible changes:
 
 ```rust,ignore
 use bevy::ecs::schedule::common_conditions::resource_changed;
@@ -301,27 +297,28 @@ app.add_systems(
 );
 ```
 
-`active()` covers ordinary initial loading, `set_locale` and same-language
-reloads. `preparation()` is present during explicit `prepare_locale` until
-cancellation or commit. Preparing the active locale mirrors its active data
-without additional I/O. The resource follows the current demand union: Full
-counts the whole root; Lazy counts the distinct leaves required by explicit
-requests and leases. Overlapping owners do not inflate the total. Reading
-progress neither requests nor retains modules.
+Only presentation logic belongs to the application. The plugin does not start
+logging or create a loading UI. `active()` covers ordinary initial loading,
+`set_locale` and same-language reloads. `preparation()` is present during explicit
+`prepare_locale` until cancellation or commit. Preparing the active locale mirrors
+its active data without additional I/O.
 
-Each snapshot includes `locale`, `total`, `ready`, `loading`, `failed`, `unloaded`
-and `available`, plus sorted per-leaf `modules` with `path`, `status` and `usable`.
-The four attempt counts sum to `total`; `available` separately counts usable
-last-good snapshots, including during a loading or failed reload. These are
-module counts, not downloaded bytes or a percentage of elapsed work.
+The resource counts the current demand union: Full counts the whole root; Lazy
+counts the distinct leaves required by explicit requests and leases. Overlapping
+owners do not inflate the total. Reading progress neither requests nor retains
+modules. Each `LoadingProgress<Locale>` contains `locale`, `total`, `ready`,
+`loading`, `failed`, `unloaded` and `available`. The four attempt counts sum to
+`total`; `available` separately counts usable last-good snapshots, including
+during a loading or failed reload. These are module counts, not downloaded bytes
+or a percentage of elapsed work.
 
 For a prepared target, use `progress.preparation_status()` and check
 `PreparationStatus::Ready` before asking the live controller to `commit_locale`.
 `ready == total` is insufficient: retries or asset-handle retirement can still
 prevent a commit. Publication remains an explicit application decision; reading
-a ready snapshot does not commit it. Manual preparation failures appear in the
-target snapshot and readiness status without emitting precommit `Rejected`
-notifications. Active translations remain usable throughout preparation.
+a ready snapshot does not commit it. Manual preparation failures appear through
+`PreparationStatus::Failed` without emitting precommit `Rejected` notifications.
+Active translations remain usable throughout preparation.
 
 Snapshots publish after reconciliation in PreUpdate and PostUpdate. Observe
 with `resource_changed` to update a loading UI only when visible progress changes;
@@ -329,15 +326,41 @@ settled frames preserve its change tick. Several transitions between observation
 may coalesce: this is the latest snapshot, not a history of messages. Use
 `CatalogUpdateReader` when you need accepted/rejected load notifications.
 
-For passive inspection of another scope, `localization.progress::<Scope>()` and
+For passive counts of another scope, `localization.progress::<Scope>()` and
 `ModuleStore::progress::<Scope>()` include all unique schema leaves of that scope,
 including unrequested leaves. `localization.preparation_progress::<Scope>()`
-returns an owned target snapshot when preparation exists. These per-scope queries
-allocate their results when called and create no demand. `status::<Scope>()`
-remains available without `diagnostics`.
+returns target counts when preparation exists. These queries create no demand
+and require no optional feature.
 
-See the [generated progress example](examples/codegen/src/bin/diagnostics.rs) for a bounded headless runner,
+See the [generated progress example](examples/codegen/src/bin/progress.rs) for a bounded headless runner,
 explicit prepare/commit and a change-gated observer.
+
+### Optional module details
+
+Enable the default-off `diagnostics` feature only when you need individual
+module paths, attempt errors or snapshot availability:
+
+```toml
+bevy_fluent_typed = { version = "0.3.0", features = ["codegen", "diagnostics"] }
+```
+
+Keep the build dependency unchanged. During explicit inspection:
+
+```rust,ignore
+let modules = localization.diagnostics::<texts::presentation::Hud>();
+let target_modules = localization.preparation_diagnostics::<texts::presentation::Hud>();
+```
+
+`diagnostics::<Scope>()` is also available on `ModuleStore`. Each call collects
+sorted `ModuleDiagnostic` values with `path`, `status` and `usable`, including
+unrequested schema leaves; target inspection returns `None` without preparation.
+The queries neither request nor retain parsed catalogs. Detailed lists and their
+error copies are collected only when requested, never by the automatic progress
+publisher, even with the feature enabled. Counter scans borrow attempt states.
+Typed `PreparationStatus::Failed` still retains the first target failure for commit
+readiness. Normal progress tracking, counters and typed preparation readiness
+remain available without `diagnostics`. The feature adds no dependencies and
+starts no logging.
 
 ## Navigate from the root or a parent
 
