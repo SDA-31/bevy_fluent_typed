@@ -3,13 +3,25 @@ use std::{collections::BTreeSet, ops::Deref, sync::Arc};
 
 #[derive(Default)]
 pub(crate) struct StoreVersion {
-	pub(crate) identity: Arc<()>,
+	pub(crate) identity: Option<Arc<()>>,
 	pub(crate) revision: u64,
 }
 
 impl StoreVersion {
+	pub(crate) fn enabled(&self) -> bool {
+		self.identity.is_some()
+	}
+
+	pub(crate) fn enable(&mut self) {
+		if self.identity.is_none() {
+			self.identity = Some(Arc::new(()));
+		}
+	}
+
 	pub(crate) fn changed(&mut self) {
-		self.revision = self.revision.wrapping_add(1);
+		if self.enabled() {
+			self.revision = self.revision.wrapping_add(1);
+		}
 	}
 }
 
@@ -17,6 +29,7 @@ impl StoreVersion {
 pub(crate) struct ObservedSet {
 	paths: BTreeSet<&'static str>,
 	pub(crate) revision: u64,
+	enabled: bool,
 }
 
 impl ObservedSet {
@@ -24,22 +37,44 @@ impl ObservedSet {
 		Self::default()
 	}
 
+	pub(crate) fn enabled(&self) -> bool {
+		self.enabled
+	}
+
+	pub(crate) fn enable(&mut self) {
+		self.enabled = true;
+	}
+
+	fn changed(&mut self) {
+		if self.enabled {
+			self.revision = self.revision.wrapping_add(1);
+		}
+	}
+
 	pub(crate) fn insert(&mut self, path: &'static str) -> bool {
 		let changed = self.paths.insert(path);
-		self.revision = self.revision.wrapping_add(u64::from(changed));
+
+		if changed {
+			self.changed();
+		}
+
 		changed
 	}
 
 	pub(crate) fn remove(&mut self, path: &str) -> bool {
 		let changed = self.paths.remove(path);
-		self.revision = self.revision.wrapping_add(u64::from(changed));
+
+		if changed {
+			self.changed();
+		}
+
 		changed
 	}
 
 	pub(crate) fn clear(&mut self) {
 		if !self.paths.is_empty() {
 			self.paths.clear();
-			self.revision = self.revision.wrapping_add(1);
+			self.changed();
 		}
 	}
 }

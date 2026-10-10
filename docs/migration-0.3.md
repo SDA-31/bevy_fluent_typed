@@ -6,21 +6,34 @@ native resources, readiness helpers and embedded manifest declarations are uncha
 
 ## Native loading progress
 
-The plugin automatically inserts and updates `LocalizationProgress<C>`. Read it
-with native `Res<LocalizationProgress<texts::Translations>>` from your loading UI;
-no additional feature, resource initialization or tracking system is needed.
-`resource_changed` gates observers on visible changes. `active()` reports current
-demand and `preparation()` reports an explicit target. Use `preparation_status()`
-for commit readiness; ready leaf counts alone do not account for retries or
-asset-handle handoff. Publication still requires the application's `commit_locale`
-call. See [loading progress](../GUIDE.md#observe-loading-progress).
+Enable native tracking explicitly when a loading UI needs it:
+
+```rust,ignore
+use bevy_fluent_typed::LocalizationAppExt;
+
+app.add_localization_progress::<texts::Translations>();
+```
+
+The helper works before or after plugin installation, is idempotent and infers
+Full/Lazy. It initializes `LocalizationProgress<C>` before `Startup` during setup;
+late enablement captures current active/prepared state. No Cargo feature is needed.
+Without the call, native progress and its recurring tracker are absent; ordinary
+loading and status remain available.
+
+Read native `Res<LocalizationProgress<texts::Translations>>` in Update, or after
+`LocalizationSystems::Progress` in PostUpdate. `resource_changed` gates observers
+on visible changes. `active()` reports current demand and `preparation()` reports
+an explicit target. Use `preparation_status()` for commit readiness; ready leaf
+counts alone do not account for retries or asset-handle handoff. Publication still
+requires the application's `commit_locale` call. See [loading progress](../GUIDE.md#observe-loading-progress).
 
 Per-scope `progress::<Scope>()` queries remain passive and include unrequested
-schema leaves. `LoadingProgress` contains counters only. Optional `diagnostics`
-enables explicit `diagnostics::<Scope>()` and `preparation_diagnostics::<Scope>()`
-queries for individual module paths, errors and availability; it is disabled by
-default. The automatic publisher never collects those detail vectors, even when
-the feature is enabled. See [module details](../GUIDE.md#optional-module-details).
+schema leaves. They do not enable recurring tracking. `LoadingProgress` contains
+counters only. Optional `diagnostics` enables explicit `diagnostics::<Scope>()`
+and `preparation_diagnostics::<Scope>()` queries for individual module paths,
+errors and availability; it is disabled by default and does not activate native
+tracking. The registered publisher never collects those detail vectors, even
+when the feature is enabled. See [module details](../GUIDE.md#optional-module-details).
 
 ## Use Bevy 0.20
 

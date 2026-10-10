@@ -5,7 +5,8 @@ use bevy_fluent_typed::bevy::{
 	prelude::*,
 };
 use bevy_fluent_typed::{
-	Localization, LocalizationPlugin, LocalizationProgress, LocalizationSystems, PreparationStatus,
+	Localization, LocalizationAppExt, LocalizationPlugin, LocalizationProgress,
+	LocalizationSystems, PreparationStatus,
 };
 use std::time::{Duration, Instant};
 
@@ -29,12 +30,13 @@ fn main() -> Result<(), String> {
 		},
 		LocalizationPlugin::<texts::Translations>::new(texts::manifest()),
 	))
+	.add_localization_progress::<texts::Translations>()
 	.init_resource::<ProgressUi>()
 	.add_systems(
 		PostUpdate,
 		observe_progress
 			.run_if(resource_changed::<LocalizationProgress<texts::Translations>>)
-			.after(LocalizationSystems::Refresh),
+			.after(LocalizationSystems::Progress),
 	);
 	app.finish();
 	app.cleanup();

@@ -22,7 +22,13 @@ struct StoreStamp<L> {
 impl<L: Copy + Eq> StoreStamp<L> {
 	fn new<C: FluentCatalog<Locale = L>, M: LoadingMode>(state: &Localization<C, M>) -> Self {
 		Self {
-			identity: state.store.progress_version.identity.clone(),
+			identity: state
+				.store
+				.progress_version
+				.identity
+				.as_ref()
+				.expect("tracker enabled this store")
+				.clone(),
 			revision: state.store.progress_version.revision,
 			locale: state.locale(),
 			desired: state.desired(),
@@ -36,7 +42,12 @@ impl<L: Copy + Eq> StoreStamp<L> {
 		&self,
 		state: &Localization<C, M>,
 	) -> bool {
-		Arc::ptr_eq(&self.identity, &state.store.progress_version.identity)
+		state
+			.store
+			.progress_version
+			.identity
+			.as_ref()
+			.is_some_and(|identity| Arc::ptr_eq(&self.identity, identity))
 			&& self.revision == state.store.progress_version.revision
 			&& self.locale == state.locale()
 			&& Arc::ptr_eq(&self.desired, &state.desired)
@@ -102,11 +113,13 @@ fn snapshot<C: FluentCatalog, M: LoadingMode>(
 }
 
 pub(crate) fn install<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
+	enable::<C, M>(world);
 	let progress = snapshot(world.resource::<Localization<C, M>>());
 	world.insert_resource(progress);
 }
 
 pub(crate) fn synchronize<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
+	enable::<C, M>(world);
 	let state = world.resource::<Localization<C, M>>();
 
 	if world
@@ -126,5 +139,25 @@ pub(crate) fn synchronize<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
 		}
 	} else {
 		world.insert_resource(next);
+	}
+}
+
+fn enable<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
+	let state = world.resource::<Localization<C, M>>();
+	let enabled = |state: &Localization<C, M>| {
+		state.store.progress_version.enabled() && state.retry.enabled()
+	};
+
+	if enabled(state) && state.preparation.as_deref().is_none_or(enabled) {
+		return;
+	}
+
+	let mut state = world.resource_mut::<Localization<C, M>>();
+	state.store.progress_version.enable();
+	state.retry.enable();
+
+	if let Some(target) = state.preparation.as_mut() {
+		target.store.progress_version.enable();
+		target.retry.enable();
 	}
 }

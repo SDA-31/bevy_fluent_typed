@@ -2,7 +2,8 @@
 use super::{Gate, TestCatalog, pump, reload};
 use crate::bevy::{ecs::schedule::common_conditions::resource_changed, prelude::*};
 use crate::{
-	Full, LoadingMode, Localization, LocalizationPlugin, LocalizationProgress, PreparationStatus,
+	Full, LoadingMode, Localization, LocalizationAppExt, LocalizationPlugin, LocalizationProgress,
+	PreparationStatus,
 };
 use std::sync::{
 	Arc, Mutex,
@@ -46,7 +47,8 @@ fn controlled<M: LoadingMode>() -> (App, Source, Arc<AtomicUsize>) {
 		}
 	});
 	let mut app = App::new();
-	app.add_plugins((MinimalPlugins, plugin));
+	app.add_plugins((MinimalPlugins, plugin))
+		.add_localization_progress::<TestCatalog>();
 	let calls = Arc::new(AtomicUsize::new(0));
 	let observer = calls.clone();
 	app.add_systems(

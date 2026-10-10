@@ -73,6 +73,15 @@ pub fn localized<M>(systems: impl IntoLocalizedSystems<M>) -> ScheduleConfigs<Sc
 
 /// Register native-resource consumers that wait without blocking the frame.
 pub trait LocalizationAppExt {
+	/// Enable recurring progress snapshots for one installed provider.
+	///
+	/// Adds tracking systems and initializes `LocalizationProgress<C>` before
+	/// Startup once its localization plugin is installed. May be called before or
+	/// after adding the plugin, and repeatedly without duplicating systems. The
+	/// plugin's Full/Lazy mode is inferred; no Cargo feature is required.
+	/// Observe in Update, or after `LocalizationSystems::Progress` in PostUpdate.
+	fn add_localization_progress<C: FluentCatalog>(&mut self) -> &mut Self;
+
 	/// Add recurring functions with inferred catalog readiness gates.
 	///
 	/// Accepts functions and tuples. Use [`localized`] with `add_systems` when
@@ -101,6 +110,11 @@ pub trait LocalizationAppExt {
 }
 
 impl LocalizationAppExt for App {
+	fn add_localization_progress<C: FluentCatalog>(&mut self) -> &mut Self {
+		crate::progress::request::<C>(self);
+		self
+	}
+
 	fn add_localized_systems<M>(
 		&mut self,
 		schedule: impl ScheduleLabel,

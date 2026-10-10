@@ -3,8 +3,8 @@ use bevy_fluent_typed::bevy::{
 	prelude::*,
 };
 use bevy_fluent_typed::{
-	CatalogUpdate, CatalogUpdateReader, Localization, LocalizationPlugin, LocalizationProgress,
-	LocalizationSystems, PreparationStatus,
+	CatalogUpdate, CatalogUpdateReader, Localization, LocalizationAppExt, LocalizationPlugin,
+	LocalizationProgress, LocalizationSystems, PreparationStatus,
 };
 use std::{
 	sync::{Arc, Mutex},
@@ -90,6 +90,7 @@ fn controlled_app(fail_target: bool) -> (App, Attempts) {
 	});
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, plugin))
+		.add_localization_progress::<texts::Translations>()
 		.init_resource::<Observations>()
 		.add_systems(Startup, |progress: Res<Progress>| {
 			assert_eq!(progress.active().unloaded, 1);
@@ -99,7 +100,7 @@ fn controlled_app(fail_target: bool) -> (App, Attempts) {
 			PostUpdate,
 			observe
 				.run_if(resource_changed::<Progress>)
-				.after(LocalizationSystems::Refresh),
+				.after(LocalizationSystems::Progress),
 		);
 	app.finish();
 	app.cleanup();

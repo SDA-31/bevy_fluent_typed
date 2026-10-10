@@ -2,8 +2,8 @@
 use super::{Hud, Other, Panel, Presentation, Root, controlled, pump};
 use crate::bevy::prelude::*;
 use crate::{
-	FluentScope, Lazy, Localization, LocalizationPlugin, LocalizationProgress, ModuleStatus,
-	PreparationStatus,
+	FluentScope, Lazy, Localization, LocalizationAppExt, LocalizationPlugin, LocalizationProgress,
+	ModuleStatus, PreparationStatus,
 };
 
 type Progress = LocalizationProgress<Root>;
@@ -11,6 +11,7 @@ type Progress = LocalizationProgress<Root>;
 #[test]
 fn leases_and_manual_pins_count_their_unique_union_without_loading_siblings() {
 	let (mut app, source) = controlled();
+	app.add_localization_progress::<Root>();
 	assert_eq!(app.world().resource::<Progress>().active().total, 0);
 	assert_eq!(
 		app.world()
@@ -69,6 +70,7 @@ fn leases_and_manual_pins_count_their_unique_union_without_loading_siblings() {
 #[test]
 fn late_update_requests_publish_before_postupdate_observers() {
 	let (mut app, _) = controlled();
+	app.add_localization_progress::<Root>();
 	let mut once = true;
 	app.add_systems(
 		Update,
@@ -87,7 +89,7 @@ fn late_update_requests_publish_before_postupdate_observers() {
 			assert_eq!(progress.active().total, 1);
 			assert_eq!(progress.active().loading, 1);
 		})
-		.after(crate::LocalizationSystems::Refresh),
+		.after(crate::LocalizationSystems::Progress),
 	);
 	app.update();
 }
@@ -100,7 +102,8 @@ fn changed_failure_details_do_not_tick_unchanged_loading_counts() {
 		LocalizationPlugin::<Root, Lazy>::from_loader(|_, _| {
 			std::future::ready(Err::<Vec<u8>, String>("offline".into()))
 		}),
-	));
+	))
+	.add_localization_progress::<Root>();
 	app.finish();
 	app.cleanup();
 	app.world_mut()

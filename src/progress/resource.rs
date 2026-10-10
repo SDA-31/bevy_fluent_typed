@@ -3,11 +3,12 @@ use super::{LoadingProgress, publication::Stamp};
 use crate::bevy::{ecs as bevy_ecs, prelude::Resource};
 use crate::{FluentCatalog, PreparationStatus};
 
-/// Native latest progress for one provider, inserted by its localization plugin.
+/// Native latest progress for one provider with explicitly enabled tracking.
 ///
-/// Inserted automatically before `Startup`. Inspect with native
+/// Enable with `LocalizationAppExt::add_localization_progress::<C>()`. Once its
+/// plugin is installed, the helper inserts this resource before `Startup`. Inspect with native
 /// `Res` and `resource_changed`; no manual resource registration or catalog demand
-/// is required. Publication follows localization reconciliation in PreUpdate and
+/// is required beyond that explicit opt-in. Publication follows reconciliation in PreUpdate and
 /// PostUpdate. Multiple transitions between observations may coalesce.
 ///
 /// Active and prepared snapshots count the current union of requested modules:

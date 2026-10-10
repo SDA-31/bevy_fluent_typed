@@ -5,7 +5,9 @@ use crate::bevy::asset::io::{
 };
 use crate::bevy::prelude::*;
 use crate::bevy::tasks::futures_lite::io::AsyncRead;
-use crate::{Full, Lazy, Localization, LocalizationPlugin, LocalizedText, ModuleStatus};
+use crate::{
+	Full, Lazy, Localization, LocalizationAppExt, LocalizationPlugin, LocalizedText, ModuleStatus,
+};
 use std::{
 	any::TypeId,
 	path::{Path, PathBuf},
@@ -882,6 +884,7 @@ fn unloading_during_retry_retirement_releases_unrequested_target_snapshots() {
 #[test]
 fn target_handoff_waits_for_an_obsolete_normal_reader_and_preserves_fresh_commit() {
 	let (mut app, gate, files) = asynchronous_app();
+	app.add_localization_progress::<TestCatalog>();
 	gate.pass_new_reads.store(true, Ordering::SeqCst);
 	app.world_mut()
 		.resource_mut::<Localization<TestCatalog, Lazy>>()

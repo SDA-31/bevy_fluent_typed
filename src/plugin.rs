@@ -31,10 +31,9 @@ pub enum LocalizationSystems {
 	Publish,
 	/// PostUpdate: refresh text after publication and before engine text layout.
 	Refresh,
+	/// Opt-in progress tracking after publication in PreUpdate and refresh in PostUpdate.
+	Progress,
 }
-
-#[derive(Resource)]
-struct Installed<C: FluentCatalog>(PhantomData<fn() -> C>);
 
 enum Source<C: FluentCatalog> {
 	#[cfg(feature = "manifest")]
@@ -149,7 +148,8 @@ impl<C: FluentCatalog> LocalizationPlugin<C, Full> {
 impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 	fn build(&self, app: &mut App) {
 		assert!(
-			!app.world().contains_resource::<Installed<C>>(),
+			!app.world()
+				.contains_resource::<crate::progress::Registration<C>>(),
 			"one localization plugin per root provider is allowed"
 		);
 		let startup = match &self.source {
@@ -167,10 +167,9 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 			));
 		}
 
-		app.insert_resource(Installed::<C>(PhantomData))
-			.init_resource::<Localization<C, M>>();
+		app.init_resource::<Localization<C, M>>();
 		compatibility::register_notifications::<C>(app);
-		crate::progress::install::<C, M>(app.world_mut());
+		crate::progress::register::<C, M>(app);
 
 		for scope in C::scopes() {
 			CatalogReadiness::register::<C, M>(app.world_mut(), &scope);
@@ -193,18 +192,13 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 						bytes::reconcile::<C, M>,
 						crate::preparation::commit::<C, M>,
 						resources::synchronize::<C, M>,
-						crate::progress::synchronize::<C, M>,
 					)
 						.chain()
 						.in_set(LocalizationSystems::Publish),
 				)
 				.add_systems(
 					PostUpdate,
-					(
-						bytes::reconcile::<C, M>,
-						resources::synchronize::<C, M>,
-						crate::progress::synchronize::<C, M>,
-					)
+					(bytes::reconcile::<C, M>, resources::synchronize::<C, M>)
 						.chain()
 						.before(LocalizationSystems::Refresh),
 				);
@@ -246,18 +240,13 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 						reconcile::<C, M>,
 						crate::preparation::commit::<C, M>,
 						resources::synchronize::<C, M>,
-						crate::progress::synchronize::<C, M>,
 					)
 						.chain()
 						.in_set(LocalizationSystems::Publish),
 				)
 				.add_systems(
 					PostUpdate,
-					(
-						reconcile::<C, M>,
-						resources::synchronize::<C, M>,
-						crate::progress::synchronize::<C, M>,
-					)
+					(reconcile::<C, M>, resources::synchronize::<C, M>)
 						.chain()
 						.before(LocalizationSystems::Refresh),
 				);

@@ -275,10 +275,20 @@ consumers can run while the latest attempt has status `Failed`. Repeating
 
 ### Observe loading progress
 
-The localization plugin automatically inserts `LocalizationProgress<C>` before
-`Startup` and keeps it synchronized with loading. No extra feature, plugin,
-resource initialization or tracking system is needed in the application. Read
-it from an existing UI system, or gate a dedicated observer on visible changes:
+Enable native progress for a provider when the application needs a loading UI:
+
+```rust,ignore
+use bevy_fluent_typed::LocalizationAppExt;
+
+app.add_localization_progress::<texts::Translations>();
+```
+
+No Cargo feature is required. The helper accepts calls before or after the
+localization plugin, infers its Full/Lazy mode and is idempotent. During setup,
+`LocalizationProgress<C>` is initialized before `Startup` once the plugin is
+installed. Enabling it later snapshots the current active and prepared state.
+The library then maintains tracking; read the resource from an existing UI
+system, or gate a dedicated observer on visible changes:
 
 ```rust,ignore
 use bevy::ecs::schedule::common_conditions::resource_changed;
@@ -297,12 +307,14 @@ app.add_systems(
     PostUpdate,
     loading_ui
         .run_if(resource_changed::<LocalizationProgress<texts::Translations>>)
-        .after(bevy_fluent_typed::LocalizationSystems::Refresh),
+        .after(bevy_fluent_typed::LocalizationSystems::Progress),
 );
 ```
 
-Only presentation logic belongs to the application. The plugin does not start
-logging or create a loading UI. `active()` covers ordinary initial loading,
+Until the helper is called, there is no native progress resource, no recurring
+tracker and no tracking identity or revision updates. Ordinary loading and
+`status` continue normally. The helper creates neither logging nor a loading UI;
+presentation belongs to the application. `active()` covers ordinary initial loading,
 `set_locale` and same-language reloads. `preparation()` is present during explicit
 `prepare_locale` until cancellation or commit. Preparing the active locale mirrors
 its active data without additional I/O.
@@ -324,8 +336,10 @@ a ready snapshot does not commit it. Manual preparation failures appear through
 `PreparationStatus::Failed` without emitting precommit `Rejected` notifications.
 Active translations remain usable throughout preparation.
 
-Snapshots publish after reconciliation in PreUpdate and PostUpdate. Observe
-with `resource_changed` to update a loading UI only when visible progress changes;
+The tracker runs after PreUpdate publication and after PostUpdate text refresh,
+in `LocalizationSystems::Progress`. Read fresh snapshots in `Update`, or order a
+PostUpdate observer after that progress boundary as shown above. Use
+`resource_changed` to update a loading UI only when visible progress changes;
 settled frames preserve its change tick. Several transitions between observations
 may coalesce: this is the latest snapshot, not a history of messages. Use
 `CatalogUpdateReader` when you need accepted/rejected load notifications.
@@ -333,8 +347,8 @@ may coalesce: this is the latest snapshot, not a history of messages. Use
 For passive counts of another scope, `localization.progress::<Scope>()` and
 `ModuleStore::progress::<Scope>()` include all unique schema leaves of that scope,
 including unrequested leaves. `localization.preparation_progress::<Scope>()`
-returns target counts when preparation exists. These queries create no demand
-and require no optional feature.
+returns target counts when preparation exists. These on-demand queries create
+no demand, enable no recurring tracking and require no optional feature.
 
 See the [generated progress example](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/codegen/src/bin/progress.rs) for a bounded headless runner,
 explicit prepare/commit and a change-gated observer.
@@ -359,12 +373,13 @@ let target_modules = localization.preparation_diagnostics::<texts::presentation:
 sorted `ModuleDiagnostic` values with `path`, `status` and `usable`, including
 unrequested schema leaves; target inspection returns `None` without preparation.
 The queries neither request nor retain parsed catalogs. Detailed lists and their
-error copies are collected only when requested, never by the automatic progress
+error copies are collected only when requested, never by the registered progress
 publisher, even with the feature enabled. Counter scans borrow attempt states.
 Typed `PreparationStatus::Failed` still retains the first target failure for commit
-readiness. Normal progress tracking, counters and typed preparation readiness
-remain available without `diagnostics`. The feature adds no dependencies and
-starts no logging.
+readiness. The `diagnostics` feature does not activate native tracking; use
+`add_localization_progress` when that resource is needed. Counters and typed
+preparation readiness require no optional feature. Details add no dependencies
+and start no logging.
 
 ## Navigate from the root or a parent
 

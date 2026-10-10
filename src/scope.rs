@@ -136,7 +136,7 @@ impl<C: FluentCatalog> ModuleStore<C> {
 	}
 
 	pub(crate) fn set_status(&mut self, path: &'static str, status: ModuleStatus) {
-		if self.states.get(path) != Some(&status) {
+		if self.progress_version.enabled() && self.states.get(path) != Some(&status) {
 			self.progress_version.changed();
 		}
 
@@ -144,7 +144,7 @@ impl<C: FluentCatalog> ModuleStore<C> {
 	}
 
 	pub(crate) fn insert_leaf(&mut self, path: &'static str, value: SharedScope) {
-		if !self.values.contains_key(&self.leaves[path]) {
+		if self.progress_version.enabled() && !self.values.contains_key(&self.leaves[path]) {
 			self.progress_version.changed();
 		}
 

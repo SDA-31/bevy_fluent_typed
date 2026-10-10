@@ -12,13 +12,14 @@ remains `fluent_typed_codegen` 0.2.2.
 
 ### Added
 
-- Automatic native `LocalizationProgress<C>` snapshots of active and prepared
-  demand, counters, preparation readiness and change-gated Bevy observation,
-  available with every runtime backend. Includes a
-  [generated-provider example](examples/codegen/src/bin/progress.rs).
-- Default-off `diagnostics` for explicit per-module detail queries. Automatic
-  progress counting does not collect detail vectors or copy per-module errors;
-  passive per-scope count queries remain available without the feature.
+- Opt-in native `LocalizationProgress<C>` tracking through
+  `add_localization_progress`, with active/prepared counters, preparation readiness
+  and change-gated observation after `LocalizationSystems::Progress`. No Cargo
+  progress feature is required; without registration no recurring tracker is
+  installed. Includes a [generated-provider example](examples/codegen/src/bin/progress.rs).
+- Default-off `diagnostics` for explicit per-module detail queries; it does not
+  activate native tracking. Progress counting collects no detail vectors or
+  per-module error copies; passive per-scope queries require no registration.
 
 - Explicit locale preparation and validated commit at the publication boundary,
   keeping active resources available while target translations load. Supports

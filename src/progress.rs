@@ -2,6 +2,7 @@
 #[cfg(feature = "diagnostics")]
 mod diagnostics;
 mod publication;
+mod registration;
 mod resource;
 mod snapshot;
 mod tracking;
@@ -10,7 +11,9 @@ mod tracking;
 pub use diagnostics::ModuleDiagnostic;
 #[cfg(feature = "diagnostics")]
 pub(crate) use diagnostics::inspect as inspect_modules;
-pub(crate) use publication::{install, synchronize};
+#[cfg(test)]
+pub(crate) use publication::synchronize as publish;
+pub(crate) use registration::{Registration, register, request};
 pub use resource::LocalizationProgress;
 pub use snapshot::LoadingProgress;
 pub(crate) use snapshot::inspect;
