@@ -7,6 +7,7 @@ use localization_runtime::bevy::prelude::*;
 use localization_runtime::{
 	FluentCatalog, Localization, LocalizationPlugin, LocalizedText, Message,
 };
+use std::time::{Duration, Instant};
 
 fn message(value: Decimal) -> Message<Translations> {
 	let formatters: Vec<_> = Translations::locales()
@@ -65,7 +66,23 @@ fn deferred_decimal_text_and_plural_category_follow_language_switches() {
 		app.world_mut()
 			.resource_mut::<Localization<Translations>>()
 			.set_locale(locale);
-		app.update();
+		let deadline = Instant::now() + Duration::from_secs(10);
+
+		loop {
+			app.update();
+
+			if app
+				.world()
+				.get_resource::<Translations>()
+				.is_some_and(|catalog| catalog.locale() == locale)
+			{
+				break;
+			}
+
+			assert!(Instant::now() < deadline, "plural locale switch timed out");
+			std::thread::sleep(Duration::from_millis(1));
+		}
+
 		let actual = &app.world().get::<Text>(entity).unwrap().0;
 
 		assert_eq!(actual.replace(['\u{2068}', '\u{2069}'], ""), expected);

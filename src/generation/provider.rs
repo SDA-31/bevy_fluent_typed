@@ -32,7 +32,24 @@ pub(super) fn implementation(scopes: &[Scope]) -> Item {
 			)
 		})
 		.collect();
-	let types = scopes.iter().map(|scope| &scope.type_path);
+	let registrations: Vec<Expr> = scopes
+		.iter()
+		.map(|scope| {
+			let ty = &scope.type_path;
+			let Some((_, ancestors)) = scope.accessors.split_last() else {
+				return parse_quote!(__fluent_runtime::ScopeRegistration::new::<#ty>());
+			};
+			let parent = scopes
+				.iter()
+				.find(|candidate| {
+					candidate.module_path.is_none() && candidate.accessors == ancestors
+				})
+				.expect("generated scope has its immediate parent");
+			let parent = &parent.type_path;
+
+			parse_quote!(__fluent_runtime::ScopeRegistration::new::<#ty>().with_parent::<#parent>())
+		})
+		.collect();
 
 	parse_quote! {
 		impl __fluent_runtime::FluentCatalog for Translations {
@@ -48,7 +65,7 @@ pub(super) fn implementation(scopes: &[Scope]) -> Item {
 			fn modules() -> ::std::vec::Vec<__fluent_runtime::Module<Self>> { ::std::vec![#(#modules,)*] }
 
 			fn scopes() -> ::std::vec::Vec<__fluent_runtime::ScopeRegistration<Self>> {
-				::std::vec![#(__fluent_runtime::ScopeRegistration::new::<#types>(),)*]
+				::std::vec![#(#registrations,)*]
 			}
 
 			fn view(modules: &__fluent_runtime::ModuleStore<Self>) -> Self::Modules<'_> {

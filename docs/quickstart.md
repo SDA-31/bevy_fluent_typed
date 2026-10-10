@@ -10,11 +10,11 @@ Add these dependencies to `Cargo.toml`:
 
 ```toml
 [dependencies]
-bevy = "0.19"
-bevy_fluent_typed = { version = "0.2.2", features = ["codegen"] }
+bevy = "0.20"
+bevy_fluent_typed = { version = "0.3.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.2.2", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["build"] }
 ```
 
 The normal dependency provides the plugin; the build dependency generates the
@@ -107,10 +107,17 @@ root to Bevy's base directory (the package directory under `cargo run`) so
 `assets/localizations/localization.toml` is resolved as written. The build path does not configure AssetServer automatically.
 For another source layout, pass a `LocalizationManifest` with its runtime origin.
 
-The default **Full** mode keeps every module of the selected language loaded.
-`add_localized_startup_systems` runs `show_title` once its required `Res<Hud>` is
-ready; the rest of the application continues normally while it waits.
-See the [loading guide](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md) for recurring systems and explicit Lazy requests.
+The default **Lazy** mode loads only scopes used by inserted `LocalizedText`
+bindings and systems registered with the localization helpers. Optional
+`load`/`unload` calls can keep an additional scope loaded independently.
+`add_localized_startup_systems` requests the HUD and runs `show_title` once
+`Res<Hud>` is ready; it then releases its temporary demand. The application
+continues normally while it waits.
+
+Use `localization.set_locale(texts::Locale::Es)` to change language. The plugin
+keeps the active resources and text until the requested language is ready, then
+switches automatically. A failed target leaves the active language usable.
+See the [loading guide](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md) for automatic module lifetime and optional manual loading.
 
 ## Explicit embedding
 
@@ -123,13 +130,13 @@ LocalizationPlugin::<texts::Translations>::new(texts::embed_manifest!())
 
 Keep `AssetPlugin` installed. The generated macro includes FTL bytes only where
 it is invoked; generation alone does not embed them. This form includes every
-known language's raw FTL. The selected language is parsed during plugin updates,
-so readiness checks still apply. Static source bytes stay in the executable for
+known language's raw FTL. Needed scopes of the selected language are parsed
+during plugin updates, so readiness checks still apply. Static source bytes stay in the executable for
 its lifetime; no compressor or decompressor is involved.
 
 The macro accepts only an empty invocation or a block of constants. For the
-constant-declaration recipe, use the same 0.2.2 dependency in both Cargo sections.
-A Lazy application can then declare a manifest for just its HUD:
+constant-declaration recipe, use the same 0.3.0 dependency in both Cargo sections.
+Declare an embedded source for just the HUD:
 
 ```rust,ignore
 texts::embed_manifest! {
@@ -137,8 +144,8 @@ texts::embed_manifest! {
 }
 ```
 
-Pass `HUD` directly to `LocalizationPlugin::<texts::Translations, Lazy>::new(HUD)`
-and request `localization.load::<texts::presentation::Hud>()`.
+Pass `HUD` directly to `LocalizationPlugin::<texts::Translations>::new(HUD)`.
+Inserted HUD bindings and localized systems request it automatically; no `load` call is needed.
 `HUD` has type `LocalizationManifest` and contains this leaf's bytes across known
 languages. Select `Presentation` for that group's descendants, or `Translations`
 for the whole tree. These are paths relative to the generated tree, without
@@ -153,19 +160,20 @@ a private localization module can export the manifest constant and its catalog t
 
 | Normal-dependency feature | Bevy release family |
 | --- | --- |
-| `bevy-0-19` (default) | 0.19.0 and compatible patches |
+| `bevy-0-20` (default) | 0.20.0 and compatible patches |
+| `bevy-0-19` | 0.19.0 and compatible patches |
 | `bevy-0-18` | 0.18.0 and compatible patches |
 | `bevy-0-17` | 0.17.0 and compatible patches |
 | `bevy-0-16` | 0.16.1 and compatible patches |
 
-Select exactly one backend. For an older backend, disable defaults on the normal
+Rust minimum: **1.97.1**. Select exactly one backend. For an older backend, disable defaults on the normal
 runtime dependency, enable that backend plus `codegen`, and select the same
 version family for `bevy`. Leave the build-dependency unchanged. Do not use
 runtime/workspace `--all-features`. Examples that send exit or update notifications
-use Bevy 0.19 message APIs;
+use Bevy 0.20 message APIs;
 Bevy 0.16 uses `EventWriter`/`send` instead of `MessageWriter`/`write`.
 
-Bevy 0.19 enforces immutable generated resources in ECS. Older backends expose
+Bevy 0.19 and 0.20 enforce immutable generated resources in ECS. Older backends expose
 the same read-only catalog API without that ECS guarantee. `watch` is an
 optional normal-dependency feature for filesystem change notifications.
 
@@ -180,6 +188,9 @@ for a minimal runtime and a handwritten provider.
 
 ## Further reading
 
-- [Loading guide](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md): Lazy requests, module lifetime and headless applications.
-- [Migration from 0.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) and [Migration from 0.2.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.2.md).
+- [Loading guide](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md): automatic module lifetime, manual modes and headless applications.
+- [BSN and text spans](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bsn.md): use the same binding on scene text and child spans.
+- [Loading progress](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md#observe-loading-progress): optional native progress subtrees and module details.
+- [Migration to 0.3](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.3.md): Bevy 0.20, Rust minimum and older backends.
+- [Migration from 0.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) and [catalog path and embedding migration](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.2.md).
 - [Changelog](https://github.com/SDA-31/bevy_fluent_typed/blob/main/CHANGELOG.md).

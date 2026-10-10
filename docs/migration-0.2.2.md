@@ -1,20 +1,24 @@
 # Migrate from bevy_fluent_typed 0.2.1 to 0.2.2
 
-Plugin constructors, Full/Lazy requests, typed resources and readiness helpers
-keep their signatures. Changes affect generation paths and selective embedding.
+Plugin constructors, explicit Full/Manual requests, typed resources and readiness
+helpers keep their signatures. This guide covers generation paths and selective
+embedding; the current 0.3 default is Lazy. See [automatic loading](migration-0.3.md#adopt-automatic-module-loading)
+for the default change and explicit Full compatibility.
 
 ## Update both facade dependencies
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.2.2", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.3.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.2.2", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["build"] }
 ```
 
-Retain your Bevy version and backend selection. The facade requires generator
-0.2.2; no separate bridge package is needed. Keep `bevy_fluent_typed::build()` in
+These dependency snippets target runtime 0.3.0. Follow the
+[0.3 migration](migration-0.3.md) to select Bevy 0.20 or retain an older backend.
+The facade requires generator 0.2.2; no separate bridge package is needed.
+Keep `bevy_fluent_typed::build()` in
 `build.rs` and the `translations!` declaration. Remove local overrides when
 switching to registry dependencies.
 
@@ -77,9 +81,10 @@ catalog construction. The no-argument `texts::embed_manifest!()` form remains.
 Leaf-name helper macros and selector expression arguments are removed.
 
 Embedding includes only selected source bytes, including in debug builds.
-Full/Lazy still govern parsing and module lifetime; selected static bytes remain
-for the executable's lifetime. Byte inputs, native resource waiting, language
-switching and reload guarantees are unchanged. Test file/ZIP origins and locale
+Lazy consumers or explicit Full/Manual govern parsing and module lifetime; selected static bytes remain
+for the executable's lifetime. Byte inputs and native resource waiting retain
+their APIs; follow [0.3 language switching](migration-0.3.md#let-language-changes-finish-automatically)
+for the active-until-ready `set_locale` contract. Test file/ZIP origins and locale
 switches after migration. See the [changelog](../CHANGELOG.md).
 
 ## Typed configuration and build errors

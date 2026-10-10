@@ -1,6 +1,6 @@
 use super::{TestCatalog, manifest};
 use crate::bevy::prelude::*;
-use crate::{Lazy, Localization, LocalizationPlugin, LocalizedText};
+use crate::{Localization, LocalizationPlugin, LocalizedText, Manual};
 use std::sync::{
 	Arc,
 	atomic::{AtomicUsize, Ordering},
@@ -29,9 +29,9 @@ fn bindings_track_lifetimes_before_and_after_plugin_installation() {
 		.world_mut()
 		.spawn((Text2d::default(), binding(&calls)))
 		.id();
-	app.add_plugins(LocalizationPlugin::<TestCatalog>::new_lazy(manifest()));
+	app.add_plugins(LocalizationPlugin::<TestCatalog>::new_manual(manifest()));
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
 	app.update();
 	assert_eq!(calls.load(Ordering::Relaxed), 2);
@@ -49,13 +49,13 @@ fn bindings_track_lifetimes_before_and_after_plugin_installation() {
 	assert_eq!(calls.load(Ordering::Relaxed), 4);
 
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.unload::<TestCatalog>();
 	app.update();
 	assert_eq!(app.world().get::<Text2d>(second).unwrap().0, "");
 	assert_eq!(calls.load(Ordering::Relaxed), 4);
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
 	app.update();
 	assert_eq!(app.world().get::<Text2d>(second).unwrap().0, "ja");
@@ -73,7 +73,7 @@ fn bindings_track_lifetimes_before_and_after_plugin_installation() {
 }
 
 #[test]
-fn adding_text_to_an_existing_binding_formats_it_in_the_same_frame() {
+fn missing_default_text_is_restored_in_the_same_frame() {
 	let calls = Arc::new(AtomicUsize::new(0));
 	let mut app = App::new();
 	app.add_plugins((
@@ -84,9 +84,10 @@ fn adding_text_to_an_existing_binding_formats_it_in_the_same_frame() {
 	let entity = app.world_mut().spawn(binding(&calls)).id();
 	app.update();
 	app.update();
-	assert_eq!(calls.load(Ordering::Relaxed), 0);
-	app.world_mut().entity_mut(entity).insert(Text::default());
-	app.update();
 	assert_eq!(app.world().get::<Text>(entity).unwrap().0, "ja");
 	assert_eq!(calls.load(Ordering::Relaxed), 1);
+	app.world_mut().entity_mut(entity).remove::<Text>();
+	app.update();
+	assert_eq!(app.world().get::<Text>(entity).unwrap().0, "ja");
+	assert_eq!(calls.load(Ordering::Relaxed), 2);
 }

@@ -1,8 +1,8 @@
 //! Headless test harness: load outcomes, text bindings and bounded polling.
 use crate::texts;
 use bevy_fluent_typed::{
-	CatalogUpdate, CatalogUpdateReader, FluentScope, LocalizationManifest, LocalizationPlugin,
-	LocalizationSystems, LocalizedText,
+	CatalogUpdate, CatalogUpdateReader, FluentScope, Localization, LocalizationManifest,
+	LocalizationPlugin, LocalizationSystems, LocalizedText, PreparationStatus,
 	bevy::{
 		asset::io::{
 			AssetSourceBuilder,
@@ -97,6 +97,35 @@ pub(super) fn wait_for_load(app: &mut App) {
 			"catalog load timed out: {:?}",
 			outcomes.errors
 		);
+		std::thread::sleep(POLL_INTERVAL);
+	}
+}
+
+pub(super) fn wait_for_locale(app: &mut App, locale: texts::Locale) {
+	let deadline = Instant::now() + LOAD_TIMEOUT;
+
+	loop {
+		app.update();
+		let localization = app.world().resource::<Localization<texts::Translations>>();
+
+		if localization.locale() == locale
+			&& app
+				.world()
+				.get_resource::<texts::Translations>()
+				.is_some_and(|catalog| catalog.locale() == locale)
+		{
+			return;
+		}
+
+		assert!(
+			!matches!(
+				localization.preparation_status(),
+				PreparationStatus::Failed(_)
+			),
+			"target locale failed: {:?}",
+			localization.preparation_status()
+		);
+		assert!(Instant::now() < deadline, "target locale switch timed out");
 		std::thread::sleep(POLL_INTERVAL);
 	}
 }

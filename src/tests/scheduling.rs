@@ -1,10 +1,10 @@
-//! Plugin-level regression: Update changes reach both text pipelines this frame.
+//! Plugin regression: coherent publication and binding updates precede text detection.
 use super::TestCatalog;
 use crate::bevy::ecs::schedule::{NodeId, ScheduleGraph};
 use crate::bevy::ecs::system::System;
 use crate::bevy::{ecs as bevy_ecs, prelude::*};
 use crate::{Localization, LocalizationPlugin, LocalizedText, bindings};
-use std::collections::HashSet;
+use std::{any::TypeId, collections::HashSet};
 
 #[derive(Resource, Default)]
 struct Seen(Vec<(String, String)>);
@@ -25,9 +25,20 @@ fn observe(ui: Query<&Text>, world: Query<&Text2d>, mut seen: ResMut<Seen>) {
 	));
 }
 
+// The old System::type_id was deprecated in 0.19 and removed in 0.20.
+fn system_type<S: System + ?Sized>(system: &S) -> TypeId {
+	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+	{
+		system.system_type()
+	}
+
+	#[cfg(not(any(feature = "bevy-0-19", feature = "bevy-0-20")))]
+	{
+		system.type_id()
+	}
+}
+
 #[test]
-// Shared with 0.16–0.18, which lack 0.19's replacement System::system_type API.
-#[allow(deprecated)]
 fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, AssetPlugin::default()))
@@ -35,7 +46,7 @@ fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 		.init_resource::<Seen>()
 		.add_systems(Update, switch);
 
-	#[cfg(feature = "bevy-0-19")]
+	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 	app.add_systems(
 		PostUpdate,
 		(
@@ -44,7 +55,7 @@ fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 		),
 	);
 
-	#[cfg(not(feature = "bevy-0-19"))]
+	#[cfg(not(any(feature = "bevy-0-19", feature = "bevy-0-20")))]
 	app.add_systems(
 		PostUpdate,
 		(
@@ -58,7 +69,6 @@ fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 	let ui = app
 		.world_mut()
 		.spawn((
-			Text::default(),
 			LocalizedText::<TestCatalog>::new(|catalog| catalog.0.clone()),
 			Name::new("preserved"),
 		))
@@ -92,19 +102,24 @@ fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 		.unwrap()
 		.systems()
 		.unwrap()
-		.map(|(_, system)| system.type_id())
+		.map(|(_, system)| system_type(system.as_ref()))
 		.collect();
 	let refresh = systems
 		.iter()
-		.position(|&id| id == IntoSystem::into_system(bindings::dispatch).type_id())
+		.position(|&id| id == system_type(&IntoSystem::into_system(bindings::dispatch)))
 		.unwrap();
-	#[cfg(feature = "bevy-0-19")]
-	let detector_types =
-		[IntoSystem::into_system(crate::bevy::text::detect_text_needs_rerender).type_id()];
-	#[cfg(not(feature = "bevy-0-19"))]
+	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+	let detector_types = [system_type(&IntoSystem::into_system(
+		crate::bevy::text::detect_text_needs_rerender,
+	))];
+	#[cfg(not(any(feature = "bevy-0-19", feature = "bevy-0-20")))]
 	let detector_types = [
-		IntoSystem::into_system(crate::bevy::text::detect_text_needs_rerender::<Text>).type_id(),
-		IntoSystem::into_system(crate::bevy::text::detect_text_needs_rerender::<Text2d>).type_id(),
+		system_type(&IntoSystem::into_system(
+			crate::bevy::text::detect_text_needs_rerender::<Text>,
+		)),
+		system_type(&IntoSystem::into_system(
+			crate::bevy::text::detect_text_needs_rerender::<Text2d>,
+		)),
 	];
 	let detectors: Vec<_> = systems
 		.iter()
@@ -119,10 +134,10 @@ fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 		assert!(reachable(&ordering, nodes[refresh]).contains(&nodes[index]));
 	}
 
-	assert_eq!(
-		app.world().resource::<Seen>().0,
-		[("es".into(), "es".into())]
-	);
+	app.update();
+	let seen = &app.world().resource::<Seen>().0;
+	assert_eq!(seen.last().unwrap(), &("es".into(), "es".into()));
+	assert!(seen.iter().all(|(ui, world)| ui == world));
 	assert_eq!(app.world().get::<Name>(ui).unwrap().as_str(), "preserved");
 	app.update(); // Settle change detection before testing a binding-only change.
 
@@ -133,7 +148,7 @@ fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 		}));
 	app.update();
 	assert_eq!(
-		app.world().resource::<Seen>().0[2],
+		*app.world().resource::<Seen>().0.last().unwrap(),
 		("es!".into(), "es".into())
 	);
 }

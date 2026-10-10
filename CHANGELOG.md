@@ -5,6 +5,88 @@ Notable changes to the runtime (and its former companion bridge) are recorded he
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html);
 before 1.0, a minor release can introduce incompatible API changes.
 
+## [0.3.0] - 2026-10-09
+
+See the [migration from 0.2.2](docs/migration-0.3.md). The generator dependency
+remains `fluent_typed_codegen` 0.2.2.
+
+### Added
+
+- Opt-in `LocalizationProgressPlugin<Scope>` recursively observes a scope and
+  its registered descendants with typed native resources, root demand counts or
+  fixed group/leaf schema counts, active/prepared snapshots and provider-wide
+  preparation readiness. Root selection includes every registered scope;
+  overlapping selections share one provider dispatcher. Generated hierarchy
+  metadata is automatic; handwritten providers can declare typed immediate parents.
+  Observe after `LocalizationSystems::Progress`;
+  no Cargo progress feature or loading request is introduced. Includes a
+  [generated-provider example](examples/codegen/src/bin/progress.rs).
+- Default-off `diagnostics` for explicit per-module detail queries; it does not
+  activate native tracking. Progress counting collects no detail vectors or
+  per-module error copies; passive per-scope queries require no registration.
+
+- Optional manual scope pins in Lazy through idempotent `load`/`unload`, without
+  releasing scopes still owned by automatic consumers, leases or overlapping pins.
+- Advanced locale preparation and explicit commit for application-chosen
+  publication time, supporting Lazy/Full/Manual, cancellation and byte/file sources.
+- Independent `ModuleLease<Scope>` ownership in Lazy and Manual through
+  `localization.hold::<Scope>()`. Dropping a token releases only its owner's
+  request at publication; other leases, automatic consumers and explicit requests
+  remain active.
+- Stable Bevy 0.20 support through `bevy-0-20`, including typed resources,
+  readiness, deferred startup, custom asset sources and translation hot reload.
+- Cloneable `LocalizedText` bindings and native `FromTemplate` integration for
+  Bevy 0.19/0.20 BSN scenes. Typed `new`/`from` constructors work directly inside
+  scene blocks; a missing message is an error. Includes a
+  [scene recipe](docs/bsn.md) and an executable example covering module lifetime
+  and translation updates.
+- A UI text default for standalone `LocalizedText` components: refresh inserts
+  `Text::default()` only when no `Text`, `Text2d` or `TextSpan` is present.
+- `LocalizedText` bindings on `TextSpan` children of UI and world-text roots,
+  with the same automatic scope lifetime and locale switching as root bindings.
+  Span refresh does not create a root `Text`; hierarchy and styles remain
+  application-owned. Includes native BSN constructors and module release.
+
+### Changed
+
+- **Breaking:** `set_locale` keeps the active language, resources and text until
+  every currently desired target leaf validates, then switches automatically at
+  the publication boundary. Target failures leave active resources usable; the
+  latest target wins, selecting the active language cancels the pending switch,
+  and explicit retries avoid per-frame retry loops. `locale()` reports the active
+  language; target inspection uses `prepared_locale`/`preparation_status`. See the
+  [migration guide](docs/migration-0.3.md#let-language-changes-finish-automatically).
+- **Breaking:** plugin and controller loading default to `Lazy` instead of
+  `Full`. Inserted text bindings and localized required-resource systems request
+  and retain only their scopes; without consumers, manual pins or leases, modules are
+  not loaded.
+  Select explicit `Full` for eager loading or direct world polling, or retain
+  explicit `Manual` for manual requests. See the [migration guide](docs/migration-0.3.md).
+- **Breaking:** the previous explicit-request `Lazy` mode is renamed to `Manual`,
+  and `new_lazy` becomes `new_manual`. The new default `Lazy` loads scopes
+  automatically from consumers; `Full` keeps its eager behavior.
+- **Breaking:** default features select Bevy 0.20 instead of 0.19. Older
+  applications disable defaults and select their backend explicitly.
+- **Breaking:** the Rust minimum is 1.97.1, matching stable Bevy 0.20. Runtime
+  0.2.2 is the last release supporting Rust 1.95.
+- Compatibility checks and examples target stable Bevy 0.20. Bevy 0.16.1,
+  0.17, 0.18 and 0.19 remain supported with the new compiler minimum.
+
+### Fixed
+
+- Explicit reloads wait for the normal watcher read started after a locale
+  commit, preventing an older read from replacing a fresh translation.
+- Releasing the last automatic consumer drops its target demand before queued
+  acquisition failures are reported, avoiding rejection notifications for
+  modules no longer requested.
+- Native progress publication checks provider-wide preparation readiness once
+  per changed publication instead of repeating a full scan for every scope.
+
+### Removed
+
+- Prerelease-only dependency setup; the final RC.1 and RC.2 snapshots remain
+  available through their preview tags.
+
 ## [0.2.2] - 2026-10-06
 
 Runtime and its build adapter require generator 0.2.2. See the
@@ -153,6 +235,7 @@ This documentation release changes no public runtime API or behavior.
 Bridge 0.1.3 changes only dependency minimums and documentation.
 Earlier releases predate this changelog; their source is retained in Git tags.
 
+[0.3.0]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.2.1...v0.2.2
 [0.2.1]: https://docs.rs/crate/bevy_fluent_typed/0.2.1
 [0.2.0]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.1.3...v0.2.0

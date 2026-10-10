@@ -1,4 +1,7 @@
 //! Deferred typed messages and catalog reload notifications.
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+mod template;
+
 use crate::bevy::{ecs as bevy_ecs, prelude::Component};
 use crate::{FluentCatalog, FluentScope};
 use std::{fmt, marker::PhantomData, sync::Arc};
@@ -51,17 +54,34 @@ impl<C: FluentScope> fmt::Debug for Message<C> {
 
 #[derive(Component)]
 #[component(on_add = crate::bindings::added::<C>, on_remove = crate::bindings::removed::<C>)]
-/// Bind an existing Bevy `Text` or `Text2d` to a leaf, group or root message.
+/// Bind an existing Bevy `Text`, `Text2d` or `TextSpan` to a typed message.
 ///
 /// The plugin changes text in place when the catalog or binding changes. It does
-/// not spawn/despawn the entity or request a module. An unavailable scope clears
+/// not spawn/despawn the entity. In default Lazy, inserting the component requests
+/// and retains its scope until removed; the last consumer releases demand.
+/// Root and span targets have the same ownership. A span binding does not
+/// create a root `Text`; its parent hierarchy and styles belong to the application.
+/// Language changes keep active text until the target locale validates and
+/// publishes, including when target acquisition fails.
+/// Explicit Manual requires manual requests. An unavailable scope clears
 /// bound text until that scope becomes ready. Prefer the smallest scope the
 /// message needs, so unrelated modules do not delay it.
 /// Bound text contents are replaced, so keep editable drafts separate; this
 /// binding does not manage or preserve text-editor state.
+/// Cloning shares the formatter and its captured arguments, without capturing
+/// a catalog snapshot. Creating or cloning an unattached binding is passive.
+/// Each inserted clone owns demand in Lazy and refreshes independently.
+/// On Bevy 0.19/0.20, native BSN accepts `LocalizedText::<Scope>::new(...)`
+/// and `LocalizedText::<Scope>::from(...)` directly through `FromTemplate`.
 /// Number formatting belongs to the closure (see [`Message`]); shaping, visual
 /// bidi ordering and font coverage belong to the renderer, not this component.
 pub struct LocalizedText<C: FluentScope>(pub(crate) Message<C>);
+
+impl<C: FluentScope> Clone for LocalizedText<C> {
+	fn clone(&self) -> Self {
+		Self(self.0.clone())
+	}
+}
 
 impl<C: FluentScope> LocalizedText<C> {
 	/// Construct a binding; replace the component when captured arguments change.
@@ -76,7 +96,10 @@ impl<C: FluentScope> From<Message<C>> for LocalizedText<C> {
 	}
 }
 
-/// The host application decides how to present successful/rejected reloads.
+/// The host application decides how to present successful/rejected acquisitions.
+/// Automatic switching failures are reported before switching; successful target
+/// leaves report `Loaded` when their locale is committed. Manual preparation
+/// failures remain available through `Localization::preparation_status`.
 #[cfg_attr(feature = "bevy-0-16", derive(crate::bevy::prelude::Event))]
 #[cfg_attr(not(feature = "bevy-0-16"), derive(crate::bevy::prelude::Message))]
 pub enum CatalogUpdate<C: FluentCatalog> {
@@ -88,9 +111,10 @@ pub enum CatalogUpdate<C: FluentCatalog> {
 		/// Logical module whose checked candidate was published.
 		path: String,
 	},
-	/// A load failed; a previous good value for this same-language leaf is retained.
+	/// A load failed. Same-language reloads retain the last good leaf; failed
+	/// target preparation keeps the active locale's resources usable.
 	Rejected {
-		/// Affected selected language; optional for application/provider diagnostics.
+		/// Affected active or prepared target language; optional for provider diagnostics.
 		locale: Option<C::Locale>,
 		/// Logical module path; source errors may also contain the concrete asset address.
 		path: String,
@@ -108,6 +132,7 @@ pub type CatalogUpdateReader<'w, 's, C> =
 	crate::compatibility::MessageReader<'w, 's, CatalogUpdate<C>>;
 
 /// Retry all currently requested modules without exposing asset handles.
+/// Also retries requested target leaves during locale preparation.
 ///
 /// Per-module requests wait for the current localization-owned load, then coalesce
 /// into one fresh read. Works without watching, including recovery

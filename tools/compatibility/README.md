@@ -22,15 +22,25 @@ pins the consumer's selected official Bevy packages to the requested release, th
 - Build-only facade checks: no Bevy dependency or backend feature. Cargo artifacts
   from the real generated consumer must show separate `build`-only host and
   runtime feature sets, including on unchanged checks.
-- A compile probe: generated `ResMut` is rejected on 0.19 and accepted by older ECS
+- A compile probe: generated `ResMut` is rejected on 0.19/0.20 and accepted by older ECS
   versions. The generated catalog API remains read-only on every backend.
-- Runtime-only dependency isolation; on 0.19, rejected missing/conflicting backend selections.
+- Runtime-only dependency isolation; on 0.19/0.20, rejected missing/conflicting backend selections.
 
 No Python, shell-script runtime, game source or game assets are required. This
 package is not a dependency of the library or example and is not published.
-The separate `examples/asset_source` generated-resource example targets the default
-Bevy 0.19 API and is tested by the CI quality job, not copied into this matrix.
+The `examples/asset_source` generated-resource example is additionally tested on
+0.19 and stable 0.20, including its loading/recovery tests and executable.
 The runtime's virtual-source regression runs on every backend in this matrix.
+The `examples/bsn` example is tested on 0.19/0.20 with native scene syntax for
+each backend: inline typed constructors, late loading, locale changes, UI/world
+labels, unload/reload, invalid-translation rejection/recovery, missing-formatter
+errors and independent instance arguments.
+Its common scene factory and headless file-backed executable run on both.
+Scene packages must remain absent from the backend-only runtime graph.
+
+Run these checks with Rust 1.97.1 or newer and Clippy installed for the selected
+toolchain (`rustup component add clippy`). Prerelease backends are preserved
+only in the `bevy-0.20.0-rc.1` and `bevy-0.20.0-rc.2` tags.
 
 From the library repository, with a separate generator checkout:
 
@@ -38,7 +48,7 @@ From the library repository, with a separate generator checkout:
 cargo run --manifest-path tools/compatibility/Cargo.toml -- \
   --generator /absolute/path/to/fluent_typed_codegen \
   --target-dir /absolute/path/to/build-cache \
-  0.16.1 0.17.0 0.18.0 0.19.0
+  0.16.1 0.17.0 0.18.0 0.19.0 0.20.0
 ```
 
 In an enclosing workspace that lists this tool as a member:
@@ -47,7 +57,7 @@ In an enclosing workspace that lists this tool as a member:
 cargo run -p bevy-fluent-compatibility -- \
   --generator crates/fluent_typed_codegen \
   --target-dir target/bevy-compatibility \
-  0.16.1 0.17.0 0.18.0 0.19.0
+  0.16.1 0.17.0 0.18.0 0.19.0 0.20.0
 ```
 
 The generator path is explicit; no sibling checkout convention is assumed.
@@ -79,9 +89,23 @@ record the selected normal/build dependency trees, and
 specific temporary directories yourself when the audit is no longer needed.
 The optional shared target directory reuses build artifacts across runs.
 Completed fixtures contain an intentional `immutable_probe` compile-fail binary
-on 0.19; create a fresh fixture through this command when repeating the suite.
+on 0.19/0.20; create a fresh fixture through this command when repeating the suite.
 
 [MIT](LICENSE), independently of any consuming application.
 
 The runtime is tested both with manifest support and as a backend-only byte
 loader. The latter graph must contain no generator, TOML parser or bridge package.
+
+CI runs the complete matrix on pull requests, main/release-preparation pushes,
+tags and manual dispatches. A feature-branch push without a PR does not run it.
+Changes confined to the root changelog and commits marked `[skip ci]` still skip
+push/PR checks. The matrix allows six concurrent jobs.
+
+Downloaded crates and compiled dependencies use separate caches. Compiler identity,
+engine family and dependency inputs distinguish build caches; a source-only commit
+does not create another large copy. Main and release-preparation jobs remove
+workspace artifacts with `cargo clean --workspace` before saving dependencies.
+PRs and tags only restore build caches; PRs can reuse their base branch's cache.
+The first run with this configuration or new compiler/dependencies can still be
+cold. A successful base-branch push or manual run seeds subsequent PRs. No
+additional action, external cache service or application dependency is required.

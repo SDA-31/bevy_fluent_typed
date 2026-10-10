@@ -39,13 +39,13 @@ pub(crate) fn register_notifications<C: FluentCatalog>(app: &mut App) {
 pub(crate) fn asset_path<'a>(context: &'a LoadContext<'_>) -> &'a AssetPath<'static> {
 	#[cfg(all(
 		any(feature = "bevy-0-16", feature = "bevy-0-17"),
-		not(any(feature = "bevy-0-18", feature = "bevy-0-19"))
+		not(any(feature = "bevy-0-18", feature = "bevy-0-19", feature = "bevy-0-20"))
 	))]
 	{
 		context.asset_path()
 	}
 
-	#[cfg(any(feature = "bevy-0-18", feature = "bevy-0-19"))]
+	#[cfg(any(feature = "bevy-0-18", feature = "bevy-0-19", feature = "bevy-0-20"))]
 	{
 		context.path()
 	}
@@ -54,15 +54,49 @@ pub(crate) fn asset_path<'a>(context: &'a LoadContext<'_>) -> &'a AssetPath<'sta
 pub(crate) fn before_text_detection<M>(
 	systems: impl IntoScheduleConfigs<ScheduleSystem, M>,
 ) -> ScheduleConfigs<ScheduleSystem> {
-	#[cfg(feature = "bevy-0-19")]
+	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 	{
 		systems.before(crate::bevy::text::detect_text_needs_rerender)
 	}
 
-	#[cfg(not(feature = "bevy-0-19"))]
+	#[cfg(not(any(feature = "bevy-0-19", feature = "bevy-0-20")))]
 	{
 		systems
 			.before(crate::bevy::text::detect_text_needs_rerender::<Text>)
 			.before(crate::bevy::text::detect_text_needs_rerender::<Text2d>)
+	}
+}
+
+/// Publish only active catalog updates from an exclusive synchronization step.
+pub(crate) fn write_update<C: FluentCatalog>(world: &mut World, update: CatalogUpdate<C>) {
+	#[cfg(feature = "bevy-0-16")]
+	world.send_event(update);
+	#[cfg(not(feature = "bevy-0-16"))]
+	world.write_message(update);
+}
+
+#[cfg(feature = "manifest")]
+pub(crate) fn load_with_settings<A, S, G>(
+	server: &AssetServer,
+	address: AssetPath<'static>,
+	settings: impl Fn(&mut S) + Send + Sync + 'static,
+	guard: G,
+) -> Handle<A>
+where
+	A: Asset,
+	S: crate::bevy::asset::meta::Settings,
+	G: Send + Sync + 'static,
+{
+	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+	{
+		server
+			.load_builder()
+			.with_settings(settings)
+			.with_guard(guard)
+			.load(address)
+	}
+	#[cfg(not(any(feature = "bevy-0-19", feature = "bevy-0-20")))]
+	{
+		server.load_acquire_with_settings(address, settings, guard)
 	}
 }

@@ -9,13 +9,14 @@ configure the [local generator override](../../docs/build.md#work-on-local-check
 For a new application using this API, follow the [root quickstart](../../README.md#setup).
 
 ```sh
-cargo run --manifest-path examples/codegen/Cargo.toml
+cargo run --manifest-path examples/codegen/Cargo.toml --bin localization-codegen-example
 cargo test --manifest-path examples/codegen/Cargo.toml
 ```
 
 Run these from the runtime repository. In an enclosing workspace you can also use
-`cargo run -p localization-codegen-example`. For Bevy 0.16/0.17/0.18, disable defaults
-and add the matching `bevy-0-16` / `bevy-0-17` / `bevy-0-18` to the **normal dependency** features in Cargo.toml.
+`cargo run -p localization-codegen-example --bin localization-codegen-example`. For Bevy 0.16/0.17/0.18/0.19,
+disable defaults and add the matching `bevy-0-16` / `bevy-0-17` / `bevy-0-18` /
+`bevy-0-19` to the **normal dependency** features in Cargo.toml.
 Leave the build-dependency unchanged.
 
 The complete setup is [Cargo.toml](Cargo.toml), the explicit generation call in
@@ -38,7 +39,7 @@ messages, typed arguments and live edits see the larger [integration suite](../m
 
 The application declares `const EMBEDDED = Translations;` inside
 `texts::embed_manifest!`, passes that manifest to the plugin and parses the
-selected language during an update. [tests/output.rs](tests/output.rs) checks the executable's three greetings; there is no test collection wrapper in main.
+selected language when its inserted `LocalizedText<Greeting>` needs it during an update. [tests/output.rs](tests/output.rs) checks the executable's three greetings; there is no test collection wrapper in main.
 
 [MIT](LICENSE).
 
@@ -54,7 +55,46 @@ cargo run --manifest-path examples/codegen/Cargo.toml --bin bytes
 to `LocalizationPlugin::from_bytes` and prints the same three greetings using
 ordinary generated resources. It deliberately embeds its small input with
 `include_bytes!`; no runtime manifest or AssetPlugin is required. The buffers
-are retained for repeat loads. This example uses `Full` and keeps the selected
-language ready. For on-demand reading and unloading, follow the
-[Lazy guide](../../GUIDE.md#fully-lazy-complete-mainrs) using Bevy's asset system;
+are retained for repeat loads. Default Lazy requests the greeting scope through
+the inserted `LocalizedText<Greeting>` binding and keeps it ready while that
+binding exists. World inspection alone does not create demand. For on-demand
+file reading and module lifetime, use [Lazy](../../GUIDE.md#automatic-module-lifetime)
+and Bevy's asset system;
 custom storage belongs in an [asset source](../../docs/asset-sources.md).
+
+## Observe native loading progress
+
+The separate file-backed demonstration adds one root
+`LocalizationProgressPlugin`, automatically providing views for its generated
+UI group and greeting leaf. Its normal dependency still enables only `codegen`,
+with the same build-only dependency:
+
+```sh
+cargo run --manifest-path examples/codegen/Cargo.toml --bin progress
+```
+
+[progress.rs](src/bin/progress.rs) reads native
+`Res<LocalizationProgress<texts::ui::Greeting>>` for its change-gated presentation
+observer, while its runner reads the root view. Both share one provider dispatcher.
+The example orders PostUpdate observation after `LocalizationSystems::Progress`.
+Root counts follow current demand; leaf counts describe its fixed unique schema,
+including unrequested leaves. Preparation readiness is provider-wide in both
+views because a locale commit affects the provider, not one leaf.
+This advanced demonstration selects explicit Full for eager loading, prepares
+Spanish while English
+remains usable, explicitly commits when preparation is ready, and verifies that
+idle frames do not update the observer. Counts describe modules, not downloaded
+bytes; progress is the latest snapshot, not a notification history.
+
+The generated manifest keeps its `assets/localizations/localization.toml` origin;
+this runner sets AssetPlugin's source root to the example's package directory.
+[tests/progress.rs](tests/progress.rs) uses controlled asynchronous byte loads to
+verify pending/ready snapshots, manual commit, target failure/cancellation,
+quiet change detection and group-only recursive selection with the same generated
+provider. The group test includes its aliased greeting leaf, excludes the root
+and starts no translation I/O. No Cargo progress feature
+is needed. Without a progress plugin, ordinary examples have no native progress resource
+or recurring tracker. Passive count queries and optional `diagnostics` do not
+activate it. See [loading progress](../../GUIDE.md#observe-loading-progress) for your
+application's UI and [optional module details](../../GUIDE.md#optional-module-details)
+when individual paths or attempt errors are needed.

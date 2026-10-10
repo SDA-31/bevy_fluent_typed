@@ -1,12 +1,13 @@
-# Migrate from bevy_fluent_typed 0.1.3 to 0.2.2
+# Migrate from bevy_fluent_typed 0.1.3 to 0.3.0
 
-This guide upgrades runtime 0.1.3 to 0.2.2.
+This guide upgrades runtime 0.1.3 to 0.3.0.
 It includes the generated manifest helper and native required-resource waiting.
 
-Start with **Full**, the default mode. It keeps all modules of the selected
-language requested, so you can retain existing full-tree message closures.
-Unlike 0.1.3, resources are not ready immediately when the plugin is added.
-Adopt **Lazy** separately if you want explicit module lifetimes.
+Start with default **Lazy**: inserted text bindings and localized systems request
+their scopes automatically. Existing full-tree bindings request the whole tree;
+prefer smaller scopes where appropriate. Resources become ready asynchronously.
+Select explicit **Full** for eager loading or direct world polling, or **Manual**
+when the application must own requests manually.
 
 ## 1. Update the public facade
 
@@ -14,22 +15,23 @@ Replace the localization entries in your Cargo.toml:
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.2.2", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.3.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.2.2", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["build"] }
 ```
 
-Keep your existing Bevy dependency; update localization metadata as shown in
-[Catalog-only build configuration](#catalog-only-build-configuration). This example uses
-the default Bevy 0.19 backend. For 0.16, 0.17 or 0.18, retain your matching backend
-feature and `default-features = false` on the normal dependency only. Rust 1.95
-and the supported Bevy families are unchanged. Use Cargo resolver 2 or 3.
+The dependency snippet selects Bevy 0.20 by default. Upgrade the application's
+Bevy dependency to `"0.20"`, or retain Bevy 0.16, 0.17, 0.18 or 0.19 by selecting
+its matching backend with `default-features = false` on the normal dependency.
+See the [0.3 migration](migration-0.3.md) for both setups. Rust 1.97.1 is required.
+Use Cargo resolver 2 or 3 and update localization metadata as shown in
+[Catalog-only build configuration](#catalog-only-build-configuration).
 
 Remove development Git/path patches for the runtime, bridge and generator when
 switching to the registry. Standard consumers do not declare a bridge or generator
-dependency; the facade resolves the matching 0.2.2 packages. If you rename the
-facade, use the same alias in both dependency sections.
+dependency; runtime 0.3.0 uses generator 0.2.2. If you rename the facade, use the
+same alias in both dependency sections.
 
 Keep your existing `build.rs`:
 
@@ -75,7 +77,8 @@ For embedded data instead, replace the manifest initializer with:
 let manifest = texts::embed_manifest!();
 ```
 
-This includes all known languages' raw FTL and parses only the selected language.
+This includes all known languages' raw FTL and parses only requested scopes of
+the active or prepared target language.
 Files and embedded data are explicit choices; failed file loads no longer fall
 back to implicitly embedded text. Keep `AssetPlugin` installed for both choices.
 
@@ -120,7 +123,8 @@ readiness follows the [publication schedule](../GUIDE.md#scheduling-and-reload-g
 
 ## 4. Keep existing messages, or narrow their scope
 
-Existing root-bound closures still work in Full mode:
+Existing root-bound closures still work: in Lazy an inserted root binding
+requests the entire tree; explicit Full keeps it loaded independently of bindings:
 
 ```rust
 use bevy_fluent_typed::Message;
@@ -143,55 +147,59 @@ Use `LocalizedText<texts::presentation::Hud>` for the corresponding binding.
 Capture owned arguments in deferred closures; do not capture a translated string
 or an old scope snapshot. Typed message accessor signatures remain unchanged.
 
-## 5. Optionally adopt Lazy
+## 5. Optionally adopt Manual
 
-Full is enough for the minimal migration. To request only selected modules,
-replace plugin construction with:
+Lazy already requests only consumer scopes. Choose Manual only to control requests
+explicitly; its bindings and waiting systems do not create demand. Replace plugin
+construction with:
 
 ```rust
-LocalizationPlugin::<texts::Translations>::new_lazy(manifest)
+LocalizationPlugin::<texts::Translations>::new_manual(manifest)
 ```
 
 The equivalent explicit type is
-`LocalizationPlugin::<texts::Translations, Lazy>::new(manifest)`. Import `Lazy`
+`LocalizationPlugin::<texts::Translations, Manual>::new(manifest)`. Import `Manual`
 from `bevy_fluent_typed`, and update controller system parameters to the same mode:
 
 ```rust
-use bevy_fluent_typed::{Lazy, Localization};
+use bevy_fluent_typed::{Manual, Localization};
 
-fn open_hud(mut localization: ResMut<Localization<texts::Translations, Lazy>>) {
+fn open_hud(mut localization: ResMut<Localization<texts::Translations, Manual>>) {
     localization.load::<texts::presentation::Hud>();
 }
 
-fn close_hud(mut localization: ResMut<Localization<texts::Translations, Lazy>>) {
+fn close_hud(mut localization: ResMut<Localization<texts::Translations, Manual>>) {
     localization.unload::<texts::presentation::Hud>();
 }
 ```
 
 Schedule these on screen entry and exit, or request an always-needed scope in
-`Startup`. Reading a resource, navigation or a message does not request a module.
+`Startup`. In this explicit Manual mode, resource systems, bindings, navigation and messages
+do not request modules automatically.
 Requests for a type are idempotent, not reference-counted: one unload releases
 all repeated loads of that same type. Independent parent/child requests can still
 keep a leaf loaded. Full has no `load` or `unload` methods.
 
-Lazy also works with the no-argument embedded manifest from step 2. It controls
+Manual also works with the no-argument embedded manifest from step 2. It controls
 which catalogs are parsed and retained; embedded static bytes remain for the
 executable's lifetime. Application-held catalog clones can keep parsed scopes
-alive after unloading. See the [complete Lazy application](../GUIDE.md#fully-lazy-complete-mainrs).
+alive after unloading. See the [complete Manual application](../GUIDE.md#manual-loading).
 For selective constant manifests, follow the
 [embedded recipe](../README.md#explicit-embedding).
 
 ## 6. Account for changed reload behavior
 
-| In 0.1.3 | In 0.2.2 |
+| In 0.1.3 | In 0.3.0 |
 | --- | --- |
-| All embedded languages were initialized | Full requests only the selected language; Lazy requests selected scopes |
-| Locale changes could select a retained catalog immediately | Logical requests persist, old-language data is released and the new language loads |
-| A complete language was checked and published together | Checked leaves publish independently; a bad same-language reload retains only that leaf's last good value |
+| All embedded languages were initialized | Lazy requests consumer scopes in the selected language; explicit Full requests that entire language |
+| Locale changes could select a retained catalog immediately | Requests persist; the active language stays usable until all needed target leaves validate and switch automatically |
+| A complete language was checked and published together | Same-language reloads publish leaves independently; locale replacement validates and publishes its desired target leaves together |
 | Unavailable bindings retained their old displayed text | Unavailable bindings clear until their scope is available |
 | Unchanged sources could preserve the snapshot | Successful reloads publish fresh snapshots; idle frames and unchanged siblings retain identity |
 
-Do not rely on an all-files transaction or automatic fallback. Keep source files
+Same-language reloads have no all-files transaction or automatic fallback.
+`set_locale` retains active resources while validating and automatically publishing
+the desired target scopes; see [language switching](migration-0.3.md#let-language-changes-finish-automatically). Keep source files
 coherent when distributing a translation pack. `CatalogUpdate` identifies the
 locale and logical leaf path; update exhaustive event matches for the new shape.
 After a failed same-language reload, `ModuleStatus::Failed` can coexist with a
@@ -246,8 +254,8 @@ settings, keep only `Settings { catalog: ... }`. Generated `CATALOG_PATH` replac
 `..` to share source translations across packages. Runtime logical module paths
 and `translations-directory` still cannot escape their declared scope.
 
-Use generator and runtime 0.2.2 together. See the
-[0.2.1 to 0.2.2 migration](migration-0.2.2.md) for the complete metadata and embedding changes.
+Use runtime 0.3.0 with generator 0.2.2. See the
+[catalog path and embedding migration](migration-0.2.2.md) for the complete changes.
 
 `texts::manifest()` retains `CATALOG_PATH` verbatim. Configure the application's
 Bevy asset source root so that origin resolves, or supply a contract with the

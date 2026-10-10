@@ -2,13 +2,21 @@
 use super::{Gate, pump};
 use crate::bevy::{ecs as bevy_ecs, prelude::*};
 use crate::{
-	FluentCatalog, FluentScope, Lazy, Localization, LocalizationAppExt, LocalizationPlugin, Module,
-	ModuleStatus, ModuleStore, ScopeRegistration,
+	FluentCatalog, FluentScope, Localization, LocalizationAppExt, LocalizationPlugin, Manual,
+	Module, ModuleStatus, ModuleStore, ScopeRegistration,
 };
 use std::sync::{
 	Arc, Mutex,
 	atomic::{AtomicUsize, Ordering},
 };
+
+mod automatic;
+mod automatic_progress;
+mod composition;
+mod lease_preparation;
+mod progress;
+mod scope_progress;
+mod switching;
 
 #[derive(Resource, Clone)]
 struct Root {
@@ -44,6 +52,25 @@ macro_rules! leaf {
 leaf!(Hud, "presentation/hud.ftl");
 leaf!(Panel, "presentation/panel.ftl");
 leaf!(Other, "other.ftl");
+
+#[derive(Resource, Clone)]
+struct Singleton {
+	_hud: Hud,
+}
+
+impl FluentScope for Singleton {
+	type Catalog = Root;
+
+	fn module_paths() -> &'static [&'static str] {
+		Hud::module_paths()
+	}
+
+	fn assemble(modules: &ModuleStore<Root>) -> Option<Self> {
+		Some(Self {
+			_hud: modules.get::<Hud>().ok()?.clone(),
+		})
+	}
+}
 
 impl FluentScope for Presentation {
 	type Catalog = Root;
@@ -108,10 +135,11 @@ impl FluentCatalog for Root {
 	fn scopes() -> Vec<ScopeRegistration<Self>> {
 		vec![
 			ScopeRegistration::new::<Root>(),
-			ScopeRegistration::new::<Presentation>(),
-			ScopeRegistration::new::<Hud>(),
-			ScopeRegistration::new::<Panel>(),
-			ScopeRegistration::new::<Other>(),
+			ScopeRegistration::new::<Presentation>().with_parent::<Root>(),
+			ScopeRegistration::new::<Singleton>().with_parent::<Presentation>(),
+			ScopeRegistration::new::<Hud>().with_parent::<Singleton>(),
+			ScopeRegistration::new::<Panel>().with_parent::<Presentation>(),
+			ScopeRegistration::new::<Other>().with_parent::<Root>(),
 		]
 	}
 
@@ -147,10 +175,14 @@ impl Source {
 	}
 }
 
-fn controlled() -> (App, Source) {
+fn configured() -> (App, Source) {
+	configured_mode::<Manual>()
+}
+
+fn configured_mode<M: crate::LoadingMode>() -> (App, Source) {
 	let source = Source::default();
 	let observed = source.clone();
-	let plugin = LocalizationPlugin::<Root, Lazy>::from_loader(move |locale, path| {
+	let plugin = LocalizationPlugin::<Root, M>::from_loader(move |locale, path| {
 		let gate = Arc::new(Gate::default());
 		let mut requests = observed.0.lock().unwrap();
 		let payload = format!("{locale}:{path}:{}", requests.len());
@@ -168,6 +200,15 @@ fn controlled() -> (App, Source) {
 	});
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, plugin));
+	(app, source)
+}
+
+fn controlled() -> (App, Source) {
+	controlled_mode::<Manual>()
+}
+
+fn controlled_mode<M: crate::LoadingMode>() -> (App, Source) {
+	let (mut app, source) = configured_mode::<M>();
 	app.finish();
 	app.cleanup();
 	assert!(!app.world().contains_resource::<AssetServer>());
@@ -193,7 +234,7 @@ fn out_of_order_leaves_gate_native_resources_and_release_only_unrequested_scopes
 		),
 	);
 	{
-		let mut state = app.world_mut().resource_mut::<Localization<Root, Lazy>>();
+		let mut state = app.world_mut().resource_mut::<Localization<Root, Manual>>();
 		state.load::<Root>();
 		state.load::<Presentation>();
 		state.load::<Hud>();
@@ -202,7 +243,7 @@ fn out_of_order_leaves_gate_native_resources_and_release_only_unrequested_scopes
 
 	pump(&mut app, |_| source.count() == 3);
 	assert_eq!(
-		app.world().resource::<Localization<Root, Lazy>>().pending,
+		app.world().resource::<Localization<Root, Manual>>().pending,
 		3
 	);
 	source.release::<Panel>("en", 0);
@@ -215,7 +256,7 @@ fn out_of_order_leaves_gate_native_resources_and_release_only_unrequested_scopes
 	assert!(!app.world().contains_resource::<Root>());
 	assert_eq!(root_runs.load(Ordering::Relaxed), 0);
 	assert_eq!(
-		app.world().resource::<Localization<Root, Lazy>>().pending,
+		app.world().resource::<Localization<Root, Manual>>().pending,
 		1
 	);
 	source.release::<Other>("en", 0);
@@ -225,11 +266,11 @@ fn out_of_order_leaves_gate_native_resources_and_release_only_unrequested_scopes
 	let panel = Arc::downgrade(&retained.presentation.panel.0);
 	let other = Arc::downgrade(&retained.other.0);
 	assert_eq!(
-		app.world().resource::<Localization<Root, Lazy>>().pending,
+		app.world().resource::<Localization<Root, Manual>>().pending,
 		0
 	);
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.unload::<Root>();
 	let before = root_runs.load(Ordering::Relaxed);
 	app.update();
@@ -241,7 +282,7 @@ fn out_of_order_leaves_gate_native_resources_and_release_only_unrequested_scopes
 	assert!(other.upgrade().is_none());
 	assert!(panel.upgrade().is_some());
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.unload::<Presentation>();
 	let before = group_runs.load(Ordering::Relaxed);
 	app.update();
@@ -252,7 +293,7 @@ fn out_of_order_leaves_gate_native_resources_and_release_only_unrequested_scopes
 	assert!(panel.upgrade().is_none());
 	assert!(hud.upgrade().is_some());
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.unload::<Hud>();
 	app.update();
 	assert!(hud.upgrade().is_none());
@@ -268,7 +309,7 @@ fn out_of_order_leaves_gate_native_resources_and_release_only_unrequested_scopes
 fn parent_unload_discards_pending_siblings_without_refetching_the_retained_leaf() {
 	let (mut app, source) = controlled();
 	{
-		let mut state = app.world_mut().resource_mut::<Localization<Root, Lazy>>();
+		let mut state = app.world_mut().resource_mut::<Localization<Root, Manual>>();
 		state.load::<Root>();
 		state.load::<Hud>();
 	}
@@ -277,15 +318,15 @@ fn parent_unload_discards_pending_siblings_without_refetching_the_retained_leaf(
 	let hud = source.release::<Hud>("en", 0);
 	pump(&mut app, |world| world.contains_resource::<Hud>());
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.unload::<Root>();
 	app.update();
 	assert_eq!(
-		app.world().resource::<Localization<Root, Lazy>>().pending,
+		app.world().resource::<Localization<Root, Manual>>().pending,
 		0
 	);
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.load::<Root>();
 	pump(&mut app, |_| source.count() == 5);
 	source.release::<Panel>("en", 0);
@@ -296,7 +337,7 @@ fn parent_unload_discards_pending_siblings_without_refetching_the_retained_leaf(
 	assert!(!app.world().contains_resource::<Presentation>());
 	assert!(!app.world().contains_resource::<Panel>());
 	assert_eq!(
-		app.world().resource::<Localization<Root, Lazy>>().pending,
+		app.world().resource::<Localization<Root, Manual>>().pending,
 		1
 	);
 	let panel = source.release::<Panel>("en", 1);
@@ -312,7 +353,7 @@ fn parent_unload_discards_pending_siblings_without_refetching_the_retained_leaf(
 fn locale_change_during_partial_loading_never_assembles_a_mixed_language_tree() {
 	let (mut app, source) = controlled();
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.load::<Root>();
 	pump(&mut app, |_| source.count() == 3);
 	source.release::<Hud>("en", 0);
@@ -320,22 +361,40 @@ fn locale_change_during_partial_loading_never_assembles_a_mixed_language_tree() 
 	pump(&mut app, |world| world.contains_resource::<Presentation>());
 	let old = app.world().resource::<Presentation>().clone();
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.set_locale("es");
 	pump(&mut app, |_| source.count() == 6);
-	assert!(!app.world().contains_resource::<Presentation>());
-	assert!(!app.world().contains_resource::<Hud>());
-	assert!(!app.world().contains_resource::<Panel>());
+	assert!(app.world().contains_resource::<Presentation>());
+	assert!(app.world().resource::<Hud>().0.starts_with("en:"));
+	assert!(app.world().resource::<Panel>().0.starts_with("en:"));
 	source.release::<Other>("en", 0);
 	let panel = source.release::<Panel>("es", 0);
 	let other = source.release::<Other>("es", 0);
 	pump(&mut app, |world| {
-		world.contains_resource::<Panel>() && world.contains_resource::<Other>()
+		world
+			.resource::<Localization<Root, Manual>>()
+			.preparation
+			.as_ref()
+			.unwrap()
+			.pending == 1
 	});
-	assert!(!app.world().contains_resource::<Root>());
-	assert!(!app.world().contains_resource::<Presentation>());
+	assert_eq!(
+		app.world()
+			.resource::<Localization<Root, Manual>>()
+			.locale(),
+		"en"
+	);
+	assert!(
+		app.world()
+			.resource::<Presentation>()
+			.hud
+			.0
+			.starts_with("en:")
+	);
 	let hud = source.release::<Hud>("es", 0);
-	pump(&mut app, |world| world.contains_resource::<Root>());
+	pump(&mut app, |world| {
+		world.resource::<Localization<Root, Manual>>().locale() == "es"
+	});
 	let root = app.world().resource::<Root>();
 	assert_eq!(*root.presentation.hud.0, hud);
 	assert_eq!(*root.presentation.panel.0, panel);
@@ -343,14 +402,14 @@ fn locale_change_during_partial_loading_never_assembles_a_mixed_language_tree() 
 	assert!(old.hud.0.starts_with("en:"));
 	assert!(old.panel.0.starts_with("en:"));
 	assert_eq!(
-		app.world().resource::<Localization<Root, Lazy>>().pending,
+		app.world().resource::<Localization<Root, Manual>>().pending,
 		0
 	);
 }
 
 #[test]
 fn full_byte_collection_publishes_complete_groups_despite_a_missing_sibling() {
-	let plugin = LocalizationPlugin::<Root>::from_bytes([
+	let plugin = LocalizationPlugin::<Root, crate::Full>::from_bytes([
 		("en", Hud::module_paths()[0], b"en hud".as_slice()),
 		("en", Panel::module_paths()[0], b"en panel".as_slice()),
 		("es", Hud::module_paths()[0], b"es hud".as_slice()),
@@ -365,18 +424,370 @@ fn full_byte_collection_publishes_complete_groups_despite_a_missing_sibling() {
 	pump(&mut app, |world| {
 		world.contains_resource::<Presentation>()
 			&& matches!(
-				world.resource::<Localization<Root>>().status::<Other>(),
+				world
+					.resource::<Localization<Root, crate::Full>>()
+					.status::<Other>(),
 				ModuleStatus::Failed(_)
 			)
 	});
 	assert!(!app.world().contains_resource::<Root>());
 	assert!(!app.world().contains_resource::<Other>());
 	app.world_mut()
-		.resource_mut::<Localization<Root>>()
+		.resource_mut::<Localization<Root, crate::Full>>()
 		.set_locale("es");
 	pump(&mut app, |world| world.contains_resource::<Root>());
 	let root = app.world().resource::<Root>();
 	assert_eq!(*root.presentation.hud.0, "es hud");
 	assert_eq!(*root.presentation.panel.0, "es panel");
 	assert_eq!(*root.other.0, "es other");
+}
+
+#[test]
+fn preparation_keeps_active_tree_and_commits_all_target_leaves_together() {
+	let (mut app, source) = controlled();
+	app.world_mut()
+		.resource_mut::<Localization<Root, Manual>>()
+		.load::<Root>();
+	pump(&mut app, |_| source.count() == 3);
+	let hud = source.release::<Hud>("en", 0);
+	let panel = source.release::<Panel>("en", 0);
+	let other = source.release::<Other>("en", 0);
+	pump(&mut app, |world| world.contains_resource::<Root>());
+	let old = app.world().resource::<Root>().clone();
+	let label = app
+		.world_mut()
+		.spawn((
+			Text::default(),
+			crate::LocalizedText::<Presentation>::new(|presentation| {
+				format!("{}|{}", presentation.hud.0, presentation.panel.0)
+			}),
+		))
+		.id();
+	app.update();
+	let old_text = app.world().get::<Text>(label).unwrap().0.clone();
+	app.world_mut()
+		.resource_mut::<Localization<Root, Manual>>()
+		.prepare_locale("es");
+	pump(&mut app, |_| source.count() == 6);
+	let next_panel = source.release::<Panel>("es", 0);
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<Root, Manual>>()
+			.preparation
+			.as_ref()
+			.unwrap()
+			.store
+			.status::<Panel>()
+			== ModuleStatus::Ready
+	});
+	assert_eq!(app.world().resource::<Panel>().0.as_str(), panel);
+	assert_eq!(app.world().get::<Text>(label).unwrap().0, old_text);
+	assert!(Arc::ptr_eq(
+		&old.presentation.panel.0,
+		&app.world().resource::<Root>().presentation.panel.0
+	));
+	assert_eq!(
+		app.world_mut()
+			.resource_mut::<Localization<Root, Manual>>()
+			.commit_locale(),
+		Err(crate::CommitLocaleError::Pending)
+	);
+	let next_hud = source.release::<Hud>("es", 0);
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<Root, Manual>>()
+			.preparation
+			.as_ref()
+			.unwrap()
+			.store
+			.status::<Hud>()
+			== ModuleStatus::Ready
+	});
+	assert_eq!(app.world().resource::<Hud>().0.as_str(), hud);
+	assert_eq!(app.world().resource::<Other>().0.as_str(), other);
+	let next_other = source.release::<Other>("es", 0);
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<Root, Manual>>()
+			.preparation_status()
+			== crate::PreparationStatus::Ready
+	});
+	app.world_mut()
+		.resource_mut::<Localization<Root, Manual>>()
+		.commit_locale()
+		.unwrap();
+	app.update();
+	let root = app.world().resource::<Root>();
+	assert_eq!(root.presentation.hud.0.as_str(), next_hud);
+	assert_eq!(root.presentation.panel.0.as_str(), next_panel);
+	assert_eq!(root.other.0.as_str(), next_other);
+	assert_eq!(
+		app.world().get::<Text>(label).unwrap().0,
+		format!("{next_hud}|{next_panel}")
+	);
+	assert_eq!(old.presentation.hud.0.as_str(), hud);
+}
+
+#[test]
+fn changing_demand_releases_staged_siblings_and_revokes_a_queued_commit() {
+	let (mut app, source) = controlled();
+	{
+		let mut localization = app.world_mut().resource_mut::<Localization<Root, Manual>>();
+		localization.load::<Presentation>();
+		localization.load::<Hud>();
+	}
+	pump(&mut app, |_| source.count() == 2);
+	source.release::<Hud>("en", 0);
+	source.release::<Panel>("en", 0);
+	pump(&mut app, |world| world.contains_resource::<Presentation>());
+	app.world_mut()
+		.resource_mut::<Localization<Root, Manual>>()
+		.prepare_locale("es");
+	pump(&mut app, |_| source.count() == 4);
+	let target_hud = source.release::<Hud>("es", 0);
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<Root, Manual>>()
+			.preparation
+			.as_ref()
+			.unwrap()
+			.store
+			.status::<Hud>()
+			== ModuleStatus::Ready
+	});
+	app.world_mut()
+		.resource_mut::<Localization<Root, Manual>>()
+		.unload::<Presentation>();
+	assert_eq!(
+		app.world()
+			.resource::<Localization<Root, Manual>>()
+			.preparation_status(),
+		crate::PreparationStatus::Ready
+	);
+	source.release::<Panel>("es", 0);
+	app.update();
+	assert!(!app.world().contains_resource::<Panel>());
+	{
+		let mut localization = app.world_mut().resource_mut::<Localization<Root, Manual>>();
+		localization.commit_locale().unwrap();
+		localization.load::<Other>();
+		assert!(!localization.commit_requested);
+		assert_eq!(
+			localization.preparation_status(),
+			crate::PreparationStatus::Preparing
+		);
+	}
+	pump(&mut app, |_| source.count() == 6);
+	assert_eq!(
+		app.world()
+			.resource::<Localization<Root, Manual>>()
+			.locale(),
+		"en"
+	);
+	source.release::<Other>("en", 0);
+	source.release::<Other>("es", 0);
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<Root, Manual>>()
+			.preparation_status()
+			== crate::PreparationStatus::Ready
+	});
+	app.world_mut()
+		.resource_mut::<Localization<Root, Manual>>()
+		.commit_locale()
+		.unwrap();
+	app.update();
+	assert_eq!(app.world().resource::<Hud>().0.as_str(), target_hud);
+	assert!(!app.world().contains_resource::<Panel>());
+	assert!(!app.world().contains_resource::<Presentation>());
+	assert!(app.world().contains_resource::<Other>());
+}
+
+#[test]
+fn canceled_byte_preparation_cannot_satisfy_a_later_target_attempt() {
+	let (mut app, source) = controlled();
+	app.world_mut()
+		.resource_mut::<Localization<Root, Manual>>()
+		.load::<Hud>();
+	pump(&mut app, |_| source.count() == 1);
+	let active = source.release::<Hud>("en", 0);
+	pump(&mut app, |world| world.contains_resource::<Hud>());
+	app.world_mut()
+		.resource_mut::<Localization<Root, Manual>>()
+		.prepare_locale("es");
+	pump(&mut app, |_| source.count() == 2);
+	{
+		let mut localization = app.world_mut().resource_mut::<Localization<Root, Manual>>();
+		localization.cancel_preparation();
+		localization.prepare_locale("es");
+	}
+	pump(&mut app, |_| source.count() == 3);
+	source.release::<Hud>("es", 0);
+	app.update();
+	assert_eq!(
+		app.world()
+			.resource::<Localization<Root, Manual>>()
+			.preparation_status(),
+		crate::PreparationStatus::Preparing
+	);
+	assert_eq!(app.world().resource::<Hud>().0.as_str(), active);
+	let target = source.release::<Hud>("es", 1);
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<Root, Manual>>()
+			.preparation_status()
+			== crate::PreparationStatus::Ready
+	});
+	let weak = Arc::downgrade(
+		&app.world()
+			.resource::<Localization<Root, Manual>>()
+			.preparation
+			.as_ref()
+			.unwrap()
+			.store
+			.get::<Hud>()
+			.unwrap()
+			.0,
+	);
+	app.world_mut()
+		.resource_mut::<Localization<Root, Manual>>()
+		.cancel_preparation();
+	assert!(weak.upgrade().is_none());
+	assert_eq!(app.world().resource::<Hud>().0.as_str(), active);
+	assert!(target.starts_with("es:"));
+}
+
+#[test]
+fn physical_demand_changes_synchronize_target_without_changing_scope_ownership() {
+	let (mut app, source) = controlled();
+	app.world_mut()
+		.resource_mut::<Localization<Root, Manual>>()
+		.load::<Hud>();
+	pump(&mut app, |_| source.count() == 1);
+	source.release::<Hud>("en", 0);
+	pump(&mut app, |world| world.contains_resource::<Hud>());
+	app.world_mut()
+		.resource_mut::<Localization<Root, Manual>>()
+		.prepare_locale("es");
+	pump(&mut app, |_| source.count() == 2);
+	source.release::<Hud>("es", 0);
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<Root, Manual>>()
+			.preparation_status()
+			== crate::PreparationStatus::Ready
+	});
+	let requested = app
+		.world()
+		.resource::<Localization<Root, Manual>>()
+		.requested
+		.clone();
+	{
+		let mut state = app.world_mut().resource_mut::<Localization<Root, Manual>>();
+		Arc::make_mut(&mut state.desired).insert(Panel::module_paths()[0]);
+		state.requests_changed = true;
+	}
+	pump(&mut app, |_| source.count() == 4);
+	assert_eq!(
+		app.world()
+			.resource::<Localization<Root, Manual>>()
+			.requested,
+		requested
+	);
+	assert_eq!(
+		app.world()
+			.resource::<Localization<Root, Manual>>()
+			.preparation_status(),
+		crate::PreparationStatus::Preparing
+	);
+	source.release::<Panel>("en", 0);
+	source.release::<Panel>("es", 0);
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<Root, Manual>>()
+			.preparation_status()
+			== crate::PreparationStatus::Ready
+	});
+	app.world_mut()
+		.resource_mut::<Localization<Root, Manual>>()
+		.commit_locale()
+		.unwrap();
+	{
+		let mut state = app.world_mut().resource_mut::<Localization<Root, Manual>>();
+		Arc::make_mut(&mut state.desired).remove(Panel::module_paths()[0]);
+		state.requests_changed = true;
+	}
+	app.update();
+	let state = app.world().resource::<Localization<Root, Manual>>();
+	assert_eq!(state.locale(), "en");
+	assert!(!state.commit_requested);
+	assert!(!app.world().contains_resource::<Panel>());
+	assert!(
+		state
+			.preparation
+			.as_ref()
+			.unwrap()
+			.store
+			.get::<Panel>()
+			.is_err()
+	);
+	assert_eq!(state.preparation_status(), crate::PreparationStatus::Ready);
+	app.world_mut()
+		.resource_mut::<Localization<Root, Manual>>()
+		.commit_locale()
+		.unwrap();
+	app.update();
+	assert_eq!(
+		app.world()
+			.resource::<Localization<Root, Manual>>()
+			.locale(),
+		"es"
+	);
+	assert!(!app.world().contains_resource::<Panel>());
+}
+
+#[test]
+fn group_and_leaf_leases_share_io_and_discard_released_pending_siblings() {
+	let (mut app, source) = controlled();
+	let (group, hud) = {
+		let mut state = app.world_mut().resource_mut::<Localization<Root, Manual>>();
+		(state.hold::<Presentation>(), state.hold::<Hud>())
+	};
+
+	pump(&mut app, |_| source.count() == 2);
+	let value = source.release::<Hud>("en", 0);
+	pump(&mut app, |world| world.contains_resource::<Hud>());
+
+	drop(group);
+	app.update();
+	assert!(!app.world().contains_resource::<Panel>());
+	assert_eq!(
+		app.world().resource::<Localization<Root, Manual>>().pending,
+		0
+	);
+
+	let group = app
+		.world_mut()
+		.resource_mut::<Localization<Root, Manual>>()
+		.hold::<Presentation>();
+	pump(&mut app, |_| source.count() == 3);
+	source.release::<Panel>("en", 0);
+	app.update();
+	assert!(!app.world().contains_resource::<Panel>());
+
+	let panel = source.release::<Panel>("en", 1);
+	pump(&mut app, |world| world.contains_resource::<Presentation>());
+	assert_eq!(*app.world().resource::<Presentation>().hud.0, value);
+	assert_eq!(*app.world().resource::<Presentation>().panel.0, panel);
+	assert_eq!(source.count(), 3);
+
+	drop(group);
+	app.update();
+	assert!(!app.world().contains_resource::<Presentation>());
+	assert!(!app.world().contains_resource::<Panel>());
+	assert!(app.world().contains_resource::<Hud>());
+
+	drop(hud);
+	app.update();
+	assert!(!app.world().contains_resource::<Hud>());
 }

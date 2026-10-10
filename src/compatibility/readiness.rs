@@ -1,4 +1,12 @@
 //! Narrow, dynamically selected read access for inferred catalog parameters.
+#![cfg_attr(
+	feature = "bevy-0-20",
+	allow(
+		deprecated,
+		reason = "Bevy 0.20 retains the narrow resource views shared with older backends."
+	)
+)]
+
 use crate::bevy::{
 	ecs::{
 		system::{
@@ -9,22 +17,30 @@ use crate::bevy::{
 	},
 	prelude::World,
 };
+use crate::demand::{Consumer, Consumers};
 use crate::systems::{CatalogReadiness, ParameterTypes};
 use std::{marker::PhantomData, sync::Arc};
 
-#[cfg(any(feature = "bevy-0-18", feature = "bevy-0-19"))]
+#[cfg(any(feature = "bevy-0-18", feature = "bevy-0-19", feature = "bevy-0-20"))]
 use crate::bevy::ecs::change_detection::Tick;
-#[cfg(not(any(feature = "bevy-0-18", feature = "bevy-0-19")))]
+#[cfg(not(any(feature = "bevy-0-18", feature = "bevy-0-19", feature = "bevy-0-20")))]
 use crate::bevy::ecs::component::Tick;
+
+#[cfg(all(not(feature = "bevy-0-16"), not(feature = "bevy-0-20")))]
+use crate::bevy::ecs::query::FilteredAccessSet as SystemAccess;
+#[cfg(feature = "bevy-0-20")]
+use crate::bevy::ecs::system::SystemAccess;
 
 pub(crate) struct Probe {
 	pub(crate) access: Box<dyn Fn(&mut FilteredResourcesBuilder) + Send + Sync>,
 	pub(crate) ready: Box<dyn Fn(&FilteredResources) -> bool + Send + Sync>,
+	pub(crate) consumer: Option<fn(&mut World) -> Arc<Consumer>>,
 }
 
 pub(crate) struct Readiness<'w, 's, P> {
 	resources: FilteredResources<'w, 's>,
 	probes: &'s [Arc<Probe>],
+	pub(crate) consumers: &'s Consumers,
 	marker: PhantomData<fn() -> P>,
 }
 
@@ -39,6 +55,7 @@ impl<P> Readiness<'_, '_, P> {
 pub(crate) struct ReadinessState {
 	resources: <FilteredResources<'static, 'static> as SystemParam>::State,
 	probes: Vec<Arc<Probe>>,
+	consumers: Consumers,
 }
 
 fn probes<P: ParameterTypes>(world: &World) -> Vec<Arc<Probe>> {
@@ -63,6 +80,10 @@ unsafe impl<P: ParameterTypes + 'static> SystemParam for Readiness<'_, '_, P> {
 	#[cfg(feature = "bevy-0-16")]
 	fn init_state(world: &mut World, meta: &mut SystemMeta) -> Self::State {
 		let probes = probes::<P>(world);
+		let consumers = probes
+			.iter()
+			.filter_map(|probe| probe.consumer.map(|acquire| acquire(world)))
+			.collect();
 		let resources =
 			FilteredResourcesParamBuilder::new(|builder: &mut FilteredResourcesBuilder| {
 				for probe in &probes {
@@ -71,12 +92,20 @@ unsafe impl<P: ParameterTypes + 'static> SystemParam for Readiness<'_, '_, P> {
 			})
 			.build(world, meta);
 
-		ReadinessState { resources, probes }
+		ReadinessState {
+			resources,
+			probes,
+			consumers,
+		}
 	}
 
 	#[cfg(not(feature = "bevy-0-16"))]
 	fn init_state(world: &mut World) -> Self::State {
 		let probes = probes::<P>(world);
+		let consumers = probes
+			.iter()
+			.filter_map(|probe| probe.consumer.map(|acquire| acquire(world)))
+			.collect();
 		let resources =
 			FilteredResourcesParamBuilder::new(|builder: &mut FilteredResourcesBuilder| {
 				for probe in &probes {
@@ -85,20 +114,24 @@ unsafe impl<P: ParameterTypes + 'static> SystemParam for Readiness<'_, '_, P> {
 			})
 			.build(world);
 
-		ReadinessState { resources, probes }
+		ReadinessState {
+			resources,
+			probes,
+			consumers,
+		}
 	}
 
 	#[cfg(not(feature = "bevy-0-16"))]
 	fn init_access(
 		state: &Self::State,
 		meta: &mut SystemMeta,
-		access: &mut crate::bevy::ecs::query::FilteredAccessSet,
+		access: &mut SystemAccess,
 		world: &mut World,
 	) {
 		FilteredResources::init_access(&state.resources, meta, access, world);
 	}
 
-	#[cfg(not(feature = "bevy-0-19"))]
+	#[cfg(not(any(feature = "bevy-0-19", feature = "bevy-0-20")))]
 	unsafe fn get_param<'w, 's>(
 		state: &'s mut Self::State,
 		meta: &SystemMeta,
@@ -113,11 +146,12 @@ unsafe impl<P: ParameterTypes + 'static> SystemParam for Readiness<'_, '_, P> {
 		Readiness {
 			resources,
 			probes: &state.probes,
+			consumers: &state.consumers,
 			marker: PhantomData,
 		}
 	}
 
-	#[cfg(feature = "bevy-0-19")]
+	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 	unsafe fn get_param<'w, 's>(
 		state: &'s mut Self::State,
 		meta: &SystemMeta,
@@ -132,6 +166,7 @@ unsafe impl<P: ParameterTypes + 'static> SystemParam for Readiness<'_, '_, P> {
 		Ok(Readiness {
 			resources,
 			probes: &state.probes,
+			consumers: &state.consumers,
 			marker: PhantomData,
 		})
 	}

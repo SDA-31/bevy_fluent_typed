@@ -32,15 +32,23 @@ impl<'a> Fixture<'a> {
 			"examples/codegen",
 			"examples/no_codegen",
 			"examples/icu",
+			"examples/asset_source",
 		] {
 			copy(&source.join(name), &path.join(name))?;
 		}
 
+		let backend = crate::matrix::backend(version)?;
+		let bsn = matches!(backend.as_str(), "bevy-0-19" | "bevy-0-20");
+		let mut generated_examples = vec!["codegen", "minimal", "icu", "asset_source"];
+
+		if bsn {
+			copy(&source.join("examples/bsn"), &path.join("examples/bsn"))?;
+			generated_examples.push("bsn");
+		}
+
 		// Keep the smallest example free of backend-forwarding features: forwarding
 		// a feature to the same dependency name would also enable it on the host.
-		let backend = crate::matrix::backend(version)?;
-
-		for example in ["codegen", "minimal", "icu"] {
+		for example in generated_examples {
 			let example_manifest = path.join(format!("examples/{example}/Cargo.toml"));
 			let original = fs::read_to_string(&example_manifest)?;
 			let features = if example == "minimal" {
@@ -63,12 +71,41 @@ impl<'a> Fixture<'a> {
 			)?;
 		}
 
+		if bsn {
+			let manifest = path.join("examples/bsn/Cargo.toml");
+			let original = fs::read_to_string(&manifest)?;
+			let scene_dependency = "bevy = { version = \"0.20.0\"";
+
+			if !original.contains(scene_dependency) {
+				return Err("BSN example's scene dependency changed".into());
+			}
+
+			fs::write(
+				manifest,
+				original.replace(
+					scene_dependency,
+					&format!("bevy = {{ version = \"{version}\""),
+				),
+			)?;
+
+			if backend == "bevy-0-19" {
+				let tests = path.join("examples/bsn/src/tests.rs");
+				fs::write(
+					&tests,
+					fs::read_to_string(&tests)?
+						.replace("native/bevy_0_20.rs", "native/bevy_0_19.rs"),
+				)?;
+			}
+		}
+
+		let bsn_member = if bsn { ", \"examples/bsn\"" } else { "" };
+
 		let manifest = path.join("Cargo.toml");
 		let generator = serde_json::to_string(&options.generator.to_string_lossy())?;
 		fs::write(
 			&manifest,
 			format!(
-				"{}\n[workspace]\nmembers = [\"examples/minimal\", \"examples/codegen\", \"examples/no_codegen\", \"examples/icu\", \"version-pins\"]\nresolver = \"3\"\n[patch.crates-io]\nfluent_typed_codegen = {{ path = {generator} }}\n[profile.dev]\ndebug = 0\n",
+				"{}\n[workspace]\nmembers = [\"examples/minimal\", \"examples/codegen\", \"examples/no_codegen\", \"examples/icu\", \"examples/asset_source\", \"version-pins\"{bsn_member}]\nresolver = \"3\"\n[patch.crates-io]\nfluent_typed_codegen = {{ path = {generator} }}\n[profile.dev]\ndebug = 0\n",
 				fs::read_to_string(&manifest)?
 			),
 		)?;
@@ -99,11 +136,13 @@ impl<'a> Fixture<'a> {
 	pub(crate) fn cargo(&self, arguments: &[&str], capture: bool) -> Result<Output> {
 		println!("+ cargo {}", arguments.join(" "));
 		let mut command = Command::new("cargo");
-		command.current_dir(&self.path).args(arguments);
+		command.current_dir(&self.path);
 
 		if self.options.offline {
 			command.arg("--offline");
 		}
+
+		command.args(arguments);
 
 		if let Some(target) = &self.options.target {
 			command.env("CARGO_TARGET_DIR", target);

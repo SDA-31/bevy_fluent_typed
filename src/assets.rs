@@ -1,10 +1,15 @@
 //! One typed asset per logical module and locale, using Bevy's own source I/O.
+mod preparation;
+
 use crate::bevy::{
 	asset::{self as bevy_asset, AssetLoader, LoadContext, io::Reader},
 	prelude::*,
 };
 use crate::catalog::SharedScope;
 use crate::{FluentCatalog, Module, compatibility};
+pub(crate) use preparation::{
+	AssetAttempt, PreparationAttempts, PreparationGuard, PreparedModuleAsset, PreparedModuleLoader,
+};
 use std::{
 	any::type_name,
 	collections::HashMap,

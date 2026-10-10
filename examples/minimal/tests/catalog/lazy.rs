@@ -2,15 +2,17 @@
 use crate::{Locale, Translations, texts};
 use localization_runtime::bevy::prelude::*;
 use localization_runtime::{
-	Full, Lazy, LoadingMode, Localization, LocalizationPlugin, LocalizedText, Message, ModuleStatus,
+	Full, LoadingMode, Localization, LocalizationPlugin, LocalizedText, Manual, Message,
+	ModuleStatus,
 };
+use std::time::{Duration, Instant};
 
 fn app() -> App {
 	let mut app = App::new();
 	app.add_plugins((
 		MinimalPlugins,
 		AssetPlugin::default(),
-		LocalizationPlugin::<Translations, Lazy>::new(super::EMBEDDED),
+		LocalizationPlugin::<Translations, Manual>::new(super::EMBEDDED),
 	));
 	app.finish();
 	app.cleanup();
@@ -18,19 +20,19 @@ fn app() -> App {
 }
 
 #[test]
-fn lazy_plugin_loads_from_a_typed_leaf_only_embedded_manifest() {
+fn manual_plugin_loads_from_a_typed_leaf_only_embedded_manifest() {
 	texts::embed_manifest! { const HUD = presentation::Hud; }
 
 	let mut app = App::new();
 	app.add_plugins((
 		MinimalPlugins,
 		AssetPlugin::default(),
-		LocalizationPlugin::<Translations, Lazy>::new(HUD),
+		LocalizationPlugin::<Translations, Manual>::new(HUD),
 	));
 	app.finish();
 	app.cleanup();
 	app.world_mut()
-		.resource_mut::<Localization<Translations, Lazy>>()
+		.resource_mut::<Localization<Translations, Manual>>()
 		.load::<texts::presentation::Hud>();
 	app.update();
 	assert_eq!(
@@ -46,9 +48,9 @@ fn lazy_plugin_loads_from_a_typed_leaf_only_embedded_manifest() {
 	assert!(!app.world().contains_resource::<Translations>());
 
 	app.world_mut()
-		.resource_mut::<Localization<Translations, Lazy>>()
+		.resource_mut::<Localization<Translations, Manual>>()
 		.set_locale(Locale::Es);
-	app.update();
+	wait_for_locale(&mut app, Locale::Es);
 	assert_eq!(
 		app.world()
 			.resource::<texts::presentation::Hud>()
@@ -78,23 +80,23 @@ fn assert_idle<M: LoadingMode>(mut app: App) {
 }
 
 #[test]
-fn settled_full_empty_lazy_and_partial_lazy_controllers_remain_unchanged() {
+fn settled_full_empty_manual_and_partial_manual_controllers_remain_unchanged() {
 	let mut full = App::new();
 	full.add_plugins((
 		MinimalPlugins,
 		AssetPlugin::default(),
-		LocalizationPlugin::<Translations>::new(super::EMBEDDED),
+		LocalizationPlugin::<Translations, Full>::new(super::EMBEDDED),
 	));
 	full.finish();
 	full.cleanup();
 	assert_idle::<Full>(full);
-	assert_idle::<Lazy>(app());
+	assert_idle::<Manual>(app());
 	let mut partial = app();
 	partial
 		.world_mut()
-		.resource_mut::<Localization<Translations, Lazy>>()
+		.resource_mut::<Localization<Translations, Manual>>()
 		.load::<texts::presentation::Hud>();
-	assert_idle::<Lazy>(partial);
+	assert_idle::<Manual>(partial);
 }
 
 #[test]
@@ -115,7 +117,7 @@ fn overlapping_group_leaf_and_root_requests_release_only_their_own_demand() {
 	{
 		let mut localization = app
 			.world_mut()
-			.resource_mut::<Localization<Translations, Lazy>>();
+			.resource_mut::<Localization<Translations, Manual>>();
 		assert_eq!(
 			localization.status::<Translations>(),
 			ModuleStatus::Unloaded
@@ -126,7 +128,7 @@ fn overlapping_group_leaf_and_root_requests_release_only_their_own_demand() {
 	}
 
 	app.update();
-	let localization = app.world().resource::<Localization<Translations, Lazy>>();
+	let localization = app.world().resource::<Localization<Translations, Manual>>();
 	let hud = localization.modules().presentation().hud().unwrap();
 	assert_eq!(hud.msg_title(), "Flight HUD");
 	assert!(localization.catalog().is_none());
@@ -134,7 +136,7 @@ fn overlapping_group_leaf_and_root_requests_release_only_their_own_demand() {
 	assert!(!app.world().contains_resource::<Translations>());
 	let retained = hud.clone();
 	app.world_mut()
-		.resource_mut::<Localization<Translations, Lazy>>()
+		.resource_mut::<Localization<Translations, Manual>>()
 		.unload::<texts::Presentation>();
 	app.update();
 	assert!(app.world().contains_resource::<texts::presentation::Hud>());
@@ -144,7 +146,7 @@ fn overlapping_group_leaf_and_root_requests_release_only_their_own_demand() {
 	);
 	assert!(!app.world().contains_resource::<texts::Presentation>());
 	app.world_mut()
-		.resource_mut::<Localization<Translations, Lazy>>()
+		.resource_mut::<Localization<Translations, Manual>>()
 		.unload::<texts::presentation::Hud>();
 	app.update();
 	assert!(!app.world().contains_resource::<texts::presentation::Hud>());
@@ -153,19 +155,39 @@ fn overlapping_group_leaf_and_root_requests_release_only_their_own_demand() {
 	{
 		let mut localization = app
 			.world_mut()
-			.resource_mut::<Localization<Translations, Lazy>>();
+			.resource_mut::<Localization<Translations, Manual>>();
 		localization.load::<Translations>();
 		localization.set_locale(Locale::Es);
 	}
 
-	app.update();
+	wait_for_locale(&mut app, Locale::Es);
 	assert_eq!(app.world().resource::<Translations>().locale(), Locale::Es);
 	assert_eq!(app.world().get::<Text>(label).unwrap().0, "Panel de vuelo");
 	app.world_mut()
-		.resource_mut::<Localization<Translations, Lazy>>()
+		.resource_mut::<Localization<Translations, Manual>>()
 		.unload::<Translations>();
 	app.update();
 	assert!(!app.world().contains_resource::<Translations>());
 	assert!(!app.world().contains_resource::<texts::Presentation>());
 	assert!(!app.world().contains_resource::<texts::presentation::Hud>());
+}
+
+fn wait_for_locale(app: &mut App, locale: Locale) {
+	let deadline = Instant::now() + Duration::from_secs(10);
+
+	loop {
+		app.update();
+
+		if app
+			.world()
+			.resource::<Localization<Translations, Manual>>()
+			.locale() == locale
+			&& app.world().contains_resource::<texts::presentation::Hud>()
+		{
+			return;
+		}
+
+		assert!(Instant::now() < deadline, "lazy locale switch timed out");
+		std::thread::sleep(Duration::from_millis(1));
+	}
 }

@@ -2,6 +2,7 @@
 #![cfg_attr(feature = "runtime", doc = include_str!("../docs/runtime.md"))]
 #![cfg_attr(feature = "runtime", doc = include_str!("../docs/asset-sources.md"))]
 #![cfg_attr(feature = "runtime", doc = include_str!("../docs/formatting.md"))]
+#![cfg_attr(feature = "runtime", doc = include_str!("../docs/bsn.md"))]
 #![cfg_attr(feature = "build", doc = include_str!("../docs/build.md"))]
 #![warn(missing_docs)]
 
@@ -10,7 +11,8 @@
 		feature = "bevy-0-16",
 		feature = "bevy-0-17",
 		feature = "bevy-0-18",
-		feature = "bevy-0-19"
+		feature = "bevy-0-19",
+		feature = "bevy-0-20"
 	)),
 	any(
 		not(feature = "build"),
@@ -19,7 +21,9 @@
 		feature = "watch"
 	)
 ))]
-compile_error!("select one Bevy backend: bevy-0-16, bevy-0-17, bevy-0-18 or bevy-0-19 (default)");
+compile_error!(
+	"select one Bevy backend: bevy-0-16, bevy-0-17, bevy-0-18, bevy-0-19 or bevy-0-20 (default)"
+);
 
 #[cfg(any(
 	all(
@@ -29,9 +33,18 @@ compile_error!("select one Bevy backend: bevy-0-16, bevy-0-17, bevy-0-18 or bevy
 	all(feature = "bevy-0-17", feature = "bevy-0-18"),
 	all(feature = "bevy-0-17", feature = "bevy-0-19"),
 	all(feature = "bevy-0-18", feature = "bevy-0-19"),
+	all(
+		feature = "bevy-0-20",
+		any(
+			feature = "bevy-0-16",
+			feature = "bevy-0-17",
+			feature = "bevy-0-18",
+			feature = "bevy-0-19"
+		)
+	),
 ))]
 compile_error!(
-	"Bevy backends are mutually exclusive; disable default features to select an older backend"
+	"Bevy backends are mutually exclusive; disable default features to select another backend"
 );
 
 #[cfg(all(feature = "runtime", feature = "manifest"))]
@@ -46,8 +59,12 @@ mod bytes;
 mod catalog;
 #[cfg(feature = "runtime")]
 mod compatibility;
+#[cfg(feature = "runtime")]
+mod demand;
 #[cfg(feature = "build")]
 mod generation;
+#[cfg(feature = "runtime")]
+mod leases;
 #[cfg(feature = "runtime")]
 mod loading;
 #[cfg(feature = "runtime")]
@@ -56,6 +73,10 @@ mod message;
 mod mode;
 #[cfg(feature = "runtime")]
 mod plugin;
+#[cfg(feature = "runtime")]
+mod preparation;
+#[cfg(feature = "runtime")]
+mod progress;
 #[cfg(feature = "runtime")]
 mod resources;
 #[cfg(feature = "runtime")]
@@ -98,11 +119,19 @@ pub use fluent_typed_codegen::{LocalizationManifest, ManifestError};
 #[cfg(any(feature = "manifest", feature = "build"))]
 pub use fluent_typed_codegen::{CatalogConfig, ConfigError, ConfigField, FieldError, PathError};
 #[cfg(feature = "runtime")]
+pub use leases::ModuleLease;
+#[cfg(feature = "runtime")]
 pub use message::{CatalogUpdate, CatalogUpdateReader, LocalizedText, Message, ReloadCatalogs};
 #[cfg(feature = "runtime")]
-pub use mode::{Full, Lazy, LoadingMode};
+pub use mode::{Full, Lazy, LoadingMode, Manual};
 #[cfg(feature = "runtime")]
 pub use plugin::{LocalizationPlugin, LocalizationSystems};
+#[cfg(feature = "runtime")]
+pub use preparation::{CommitLocaleError, PreparationStatus};
+#[cfg(all(feature = "runtime", feature = "diagnostics"))]
+pub use progress::ModuleDiagnostic;
+#[cfg(feature = "runtime")]
+pub use progress::{LoadingProgress, LocalizationProgress, LocalizationProgressPlugin};
 #[cfg(feature = "runtime")]
 pub use scope::{ModuleStore, ScopeRegistration};
 #[cfg(feature = "runtime")]
@@ -117,24 +146,36 @@ pub use systems::{IntoLocalizedSystems, LocalizationAppExt, localized};
 pub use fluent_typed;
 
 /// The selected Bevy backend, also used by generated resource implementations.
-#[cfg(feature = "bevy-0-19")]
+#[cfg(feature = "bevy-0-20")]
+#[doc(hidden)]
+pub use bevy_0_20 as bevy;
+
+#[cfg(all(feature = "bevy-0-19", not(feature = "bevy-0-20")))]
 #[doc(hidden)]
 pub use bevy_0_19 as bevy;
 
-#[cfg(all(feature = "bevy-0-18", not(feature = "bevy-0-19")))]
+#[cfg(all(
+	feature = "bevy-0-18",
+	not(any(feature = "bevy-0-19", feature = "bevy-0-20"))
+))]
 #[doc(hidden)]
 pub use bevy_0_18 as bevy;
 
 #[cfg(all(
 	feature = "bevy-0-17",
-	not(any(feature = "bevy-0-18", feature = "bevy-0-19"))
+	not(any(feature = "bevy-0-18", feature = "bevy-0-19", feature = "bevy-0-20"))
 ))]
 #[doc(hidden)]
 pub use bevy_0_17 as bevy;
 
 #[cfg(all(
 	feature = "bevy-0-16",
-	not(any(feature = "bevy-0-17", feature = "bevy-0-18", feature = "bevy-0-19"))
+	not(any(
+		feature = "bevy-0-17",
+		feature = "bevy-0-18",
+		feature = "bevy-0-19",
+		feature = "bevy-0-20"
+	))
 ))]
 #[doc(hidden)]
 pub use bevy_0_16 as bevy;
