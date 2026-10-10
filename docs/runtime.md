@@ -493,7 +493,7 @@ use bevy_fluent_typed::PreparationStatus;
 
 localization.prepare_locale(texts::Locale::Es);
 // Poll in a later update; required Res<Scope> consumers keep using the active locale.
-if localization.preparation_status() == PreparationStatus::Ready {
+if let PreparationStatus::Ready = localization.preparation_status() {
     localization.commit_locale()?;
 }
 ```
