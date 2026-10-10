@@ -11,6 +11,7 @@ use std::sync::{
 };
 
 mod automatic;
+mod switching;
 
 #[derive(Resource, Clone)]
 struct Root {
@@ -329,19 +330,35 @@ fn locale_change_during_partial_loading_never_assembles_a_mixed_language_tree() 
 		.resource_mut::<Localization<Root, Lazy>>()
 		.set_locale("es");
 	pump(&mut app, |_| source.count() == 6);
-	assert!(!app.world().contains_resource::<Presentation>());
-	assert!(!app.world().contains_resource::<Hud>());
-	assert!(!app.world().contains_resource::<Panel>());
+	assert!(app.world().contains_resource::<Presentation>());
+	assert!(app.world().resource::<Hud>().0.starts_with("en:"));
+	assert!(app.world().resource::<Panel>().0.starts_with("en:"));
 	source.release::<Other>("en", 0);
 	let panel = source.release::<Panel>("es", 0);
 	let other = source.release::<Other>("es", 0);
 	pump(&mut app, |world| {
-		world.contains_resource::<Panel>() && world.contains_resource::<Other>()
+		world
+			.resource::<Localization<Root, Lazy>>()
+			.preparation
+			.as_ref()
+			.unwrap()
+			.pending == 1
 	});
-	assert!(!app.world().contains_resource::<Root>());
-	assert!(!app.world().contains_resource::<Presentation>());
+	assert_eq!(
+		app.world().resource::<Localization<Root, Lazy>>().locale(),
+		"en"
+	);
+	assert!(
+		app.world()
+			.resource::<Presentation>()
+			.hud
+			.0
+			.starts_with("en:")
+	);
 	let hud = source.release::<Hud>("es", 0);
-	pump(&mut app, |world| world.contains_resource::<Root>());
+	pump(&mut app, |world| {
+		world.resource::<Localization<Root, Lazy>>().locale() == "es"
+	});
 	let root = app.world().resource::<Root>();
 	assert_eq!(*root.presentation.hud.0, hud);
 	assert_eq!(*root.presentation.panel.0, panel);

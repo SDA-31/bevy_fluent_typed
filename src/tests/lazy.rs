@@ -290,7 +290,7 @@ fn no_io_until_demand_and_pending_locale_results_cannot_publish_into_current_lan
 	app.world_mut()
 		.resource_mut::<Localization<TestCatalog, Lazy>>()
 		.set_locale("es");
-	pump(&mut app, |_| gate.state.lock().unwrap().1.len() == 2);
+	pump(&mut app, |_| gate.state.lock().unwrap().1.len() >= 2);
 	gate.release();
 	pump(&mut app, |world| {
 		world
@@ -302,12 +302,12 @@ fn no_io_until_demand_and_pending_locale_results_cannot_publish_into_current_lan
 		assert_eq!(app.world().resource::<TestCatalog>().0, "es");
 	}
 	let paths = &gate.state.lock().unwrap().1;
-	assert_eq!(
-		paths,
-		&[
-			PathBuf::from("nested/data/ja/ui.ftl"),
-			PathBuf::from("nested/data/es/ui.ftl"),
-		]
+	assert_eq!(paths[0], PathBuf::from("nested/data/ja/ui.ftl"));
+	assert!(
+		paths
+			.iter()
+			.skip(1)
+			.all(|path| path == Path::new("nested/data/es/ui.ftl"))
 	);
 }
 
@@ -499,9 +499,11 @@ fn lazy_constructors_wait_for_explicit_demand_and_clear_bindings_on_unload() {
 			app.world()
 				.resource::<Localization<TestCatalog, Lazy>>()
 				.catalog()
-				.is_none()
+				.is_some()
 		);
-		app.update();
+		pump(&mut app, |world| {
+			world.resource::<Localization<TestCatalog, Lazy>>().locale() == "es"
+		});
 		assert_eq!(app.world().get::<Text>(label).unwrap().0, "es");
 		app.world_mut()
 			.resource_mut::<Localization<TestCatalog, Lazy>>()
@@ -512,7 +514,9 @@ fn lazy_constructors_wait_for_explicit_demand_and_clear_bindings_on_unload() {
 		app.world_mut()
 			.resource_mut::<Localization<TestCatalog, Lazy>>()
 			.load::<TestCatalog>();
-		app.update();
+		pump(&mut app, |world| {
+			world.resource::<Localization<TestCatalog, Lazy>>().locale() == "es"
+		});
 		assert_eq!(app.world().get::<Text>(label).unwrap().0, "es");
 	}
 }
@@ -891,13 +895,12 @@ fn target_handoff_waits_for_an_obsolete_normal_reader_and_preserves_fresh_commit
 	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
 	gate.pass_new_reads.store(false, Ordering::SeqCst);
 	files.insert_asset_text(Path::new("nested/data/es/ui.ftl"), "obsolete es read");
-	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
-		.set_locale("es");
+	let obsolete = app
+		.world()
+		.resource::<AssetServer>()
+		.load::<crate::assets::ModuleAsset<TestCatalog>>("controlled://nested/data/es/ui.ftl");
 	pump(&mut app, |_| !gate.state.lock().unwrap().2.is_empty());
-	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
-		.set_locale("ja");
+	drop(obsolete);
 	gate.pass_new_reads.store(true, Ordering::SeqCst);
 	pump(&mut app, |world| {
 		world

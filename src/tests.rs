@@ -19,6 +19,7 @@ mod loader;
 mod preparation;
 #[cfg(feature = "manifest")]
 mod scheduling;
+mod switching;
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 mod template;
 #[cfg(feature = "manifest")]
@@ -83,7 +84,7 @@ fn manifest() -> LocalizationManifest {
 }
 
 #[test]
-fn selected_locale_releases_previous_data_but_keeps_logical_requests() {
+fn selected_locale_preserves_active_data_and_logical_requests_until_ready() {
 	let mut state = Localization::<TestCatalog, Lazy>::default();
 	assert_eq!(state.locale(), "ja");
 	assert!(state.catalog().is_none());
@@ -93,7 +94,9 @@ fn selected_locale_releases_previous_data_but_keeps_logical_requests() {
 		.insert_leaf("ui.ftl", Arc::new(TestCatalog("ready".into())));
 	assert_eq!(state.catalog().unwrap().0, "ready");
 	state.set_locale("es");
-	assert!(state.catalog().is_none());
+	assert_eq!(state.catalog().unwrap().0, "ready");
+	assert_eq!(state.locale(), "ja");
+	assert_eq!(state.prepared_locale(), Some("es"));
 	assert!(state.desired().contains("ui.ftl"));
 	state.unload::<TestCatalog>();
 	assert!(state.desired().is_empty());

@@ -129,10 +129,15 @@ root to Bevy's base directory (the package directory under `cargo run`) so
 For another source layout, pass a `LocalizationManifest` with its runtime origin.
 
 The default **Auto** mode loads only scopes used by inserted `LocalizedText`
-bindings and systems registered with the localization helpers.
+bindings and systems registered with the localization helpers. Optional
+`load`/`unload` calls can keep an additional scope loaded independently.
 `add_localized_startup_systems` requests the HUD and runs `show_title` once
 `Res<Hud>` is ready; it then releases its temporary demand. The application
 continues normally while it waits.
+
+Use `localization.set_locale(texts::Locale::Es)` to change language. The plugin
+keeps the active resources and text until the requested language is ready, then
+switches automatically. A failed target leaves the active language usable.
 See the [loading guide](GUIDE.md) for automatic module lifetime and optional manual loading.
 
 ## Comparison with bevy_fluent
@@ -234,8 +239,9 @@ A leaf is one complete FTL file in memory. Split large catalogs into modules and
 use [automatic loading](GUIDE.md#automatic-module-lifetime) to release unused ones.
 Explicit embedding keeps static source bytes for the executable's lifetime.
 
-Files publish independently, without automatic fallback or a multi-file
-transaction. See [reload guarantees](GUIDE.md#scheduling-and-reload-guarantees)
+Same-language file reloads publish independently, without a multi-file
+transaction or automatic fallback. Language changes publish their requested
+target scopes together after validation. See [reload guarantees](GUIDE.md#scheduling-and-reload-guarantees)
 for overlapping watcher/custom-reader requests. Number formatting, storage
 transports, fonts and shaping remain application responsibilities.
 

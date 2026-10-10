@@ -86,7 +86,7 @@ fn pump(app: &mut App, ready: impl Fn(&World) -> bool) {
 }
 
 #[test]
-fn watched_modules_publish_independently_and_locale_switch_drops_previous_snapshots() {
+fn watched_modules_publish_independently_and_failed_locale_switch_keeps_active_snapshots() {
 	let fixture = tempfile::tempdir().unwrap();
 	let root = fixture.path();
 	// macOS /var is a symlink to /private/var. Watcher events use the physical
@@ -208,15 +208,24 @@ fn watched_modules_publish_independently_and_locale_switch_drops_previous_snapsh
 	pump(&mut app, |world| {
 		world.resource::<Outcomes>().rejected.contains(&Locale::En)
 	});
-	assert!(!app.world().contains_resource::<texts::presentation::Hud>());
-	assert!(!app.world().contains_resource::<Translations>());
+	assert_eq!(app.world().resource::<Translations>().locale(), Locale::Es);
+	assert_eq!(
+		app.world()
+			.resource::<texts::presentation::Hud>()
+			.msg_title(),
+		"Nuevo HUD"
+	);
 	assert_eq!(previous.msg_title(), "Updated HUD");
 
 	app.world_mut().resource_mut::<Outcomes>().loaded.clear();
 	replace_title(root, Locale::En, "presentation/hud.ftl", "Recovered HUD");
+	app.world_mut()
+		.resource_mut::<Localization<Translations>>()
+		.set_locale(Locale::En);
 	pump(&mut app, |world| {
 		world.get_resource::<Translations>().is_some_and(|root| {
-			root.presentation().hud().msg_title() == "Recovered HUD"
+			root.locale() == Locale::En
+				&& root.presentation().hud().msg_title() == "Recovered HUD"
 				&& root.presentation().panel().msg_title() == "Pending panel"
 		})
 	});

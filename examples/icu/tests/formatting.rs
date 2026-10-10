@@ -11,13 +11,33 @@ use bevy_fluent_typed::bevy::prelude::*;
 use icu_decimal::{input::Decimal, options::GroupingStrategy};
 use icu_experimental::dimension::percent::formatter::PercentFormatter;
 use icu_locale_core::locale;
+use std::time::{Duration, Instant};
 use writeable::Writeable;
 
 fn switch(app: &mut App, locale: texts::Locale) {
 	app.world_mut()
 		.resource_mut::<Localization<texts::Translations>>()
 		.set_locale(locale);
-	app.update();
+	let deadline = Instant::now() + Duration::from_secs(10);
+
+	loop {
+		app.update();
+
+		if app
+			.world()
+			.resource::<Localization<texts::Translations>>()
+			.locale() == locale
+			&& app.world().contains_resource::<texts::presentation::Hud>()
+		{
+			return;
+		}
+
+		assert!(
+			Instant::now() < deadline,
+			"formatter locale switch timed out"
+		);
+		std::thread::sleep(Duration::from_millis(1));
+	}
 }
 
 fn plain(text: &str) -> String {

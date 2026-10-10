@@ -1,4 +1,4 @@
-//! Private staging and an explicit publication boundary for locale changes.
+//! Private locale staging for automatic switching and manual publication control.
 use crate::bevy::prelude::*;
 use crate::{FluentCatalog, LoadingMode, Localization, ModuleError, ModuleStatus};
 use std::fmt;
@@ -53,6 +53,12 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	/// Prepare the currently requested scopes in another locale without publishing them.
 	/// Repeating the target is idempotent and retries failed leaves. A different target
 	/// replaces the previous preparation. Preparing the active locale performs no I/O.
+	/// This advanced call takes over manual publication control, even for a target
+	/// already requested by `set_locale`; automatic switching stops until requested again.
+	/// Preparation follows the current consumers and manual pins in Auto, manual
+	/// requests in Lazy, or all modules in Full. Manual failures are inspected
+	/// through `preparation_status`, without `Rejected` notifications; successful
+	/// leaves publish on commit. Active resources remain available throughout.
 	///
 	/// # Panics
 	/// Panics if the locale is not declared by the provider.
@@ -61,6 +67,11 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			C::locales().contains(&locale),
 			"locale must belong to the provider"
 		);
+		self.switch_when_ready = false;
+
+		if let Some(preparation) = self.preparation.as_mut() {
+			preparation.switch_when_ready = false;
+		}
 
 		if let Some(preparation) = self.preparation.as_mut()
 			&& preparation.locale() == locale
@@ -94,7 +105,7 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	}
 
 	/// Inspect the latest attempt for every currently requested target leaf.
-	/// An empty Lazy demand is ready without acquiring any modules.
+	/// An empty Auto/Lazy demand is ready without acquiring any modules.
 	pub fn preparation_status(&self) -> PreparationStatus {
 		let Some(preparation) = self.preparation.as_ref() else {
 			return PreparationStatus::Idle;
@@ -139,7 +150,9 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	/// Schedule a validated target for the next PreUpdate Publish boundary.
 	/// Active catalogs and `locale()` remain unchanged until that boundary.
 	/// Changes to scope demand or explicit retries revoke a queued commit; commit again
-	/// after preparation is ready. Revalidation at publication also checks source changes.
+	/// after preparation is ready. Automatic `set_locale` intent instead continues
+	/// through changes and retries without a separate commit call. Publication
+	/// rechecks source readiness.
 	///
 	/// # Errors
 	/// Returns a typed error when preparation is absent, pending or failed.
@@ -155,11 +168,13 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 		}
 	}
 
-	/// Drop target snapshots and tasks/handles; keep the selected locale usable.
+	/// Cancel manual preparation or pending automatic switching; keep the active locale.
+	/// Drops target snapshots and tasks/handles and cancels queued publication.
 	/// External acquisition may continue, but its completion cannot publish a target.
 	pub fn cancel_preparation(&mut self) {
 		self.preparation = None;
 		self.commit_requested = false;
+		self.switch_when_ready = false;
 	}
 
 	pub(crate) fn synchronize_preparation_requests(&mut self) {
@@ -180,7 +195,19 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 }
 
 pub(crate) fn commit<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
-	if !world.resource::<Localization<C, M>>().commit_requested {
+	let localization = world.resource::<Localization<C, M>>();
+
+	if !localization.commit_requested && !localization.switch_when_ready {
+		return;
+	}
+
+	// A pending or failed automatic target is not a controller mutation. File
+	// reconciliation continues polling retiring handles before this boundary.
+	if localization.preparation_status() != PreparationStatus::Ready {
+		if localization.commit_requested {
+			world.resource_mut::<Localization<C, M>>().commit_requested = false;
+		}
+
 		return;
 	}
 
@@ -197,7 +224,10 @@ pub(crate) fn commit<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
 		}
 
 		if localization.preparation_status() != PreparationStatus::Ready {
-			localization.commit_requested = false;
+			if localization.commit_requested {
+				localization.commit_requested = false;
+			}
+
 			return;
 		}
 
@@ -206,6 +236,7 @@ pub(crate) fn commit<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
 			.take()
 			.expect("validated preparation");
 		localization.commit_requested = false;
+		localization.switch_when_ready = false;
 
 		if preparation.locale() == localization.locale() {
 			return;

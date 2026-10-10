@@ -369,7 +369,7 @@ pub(crate) fn publish<C: FluentCatalog, M: LoadingMode>(
 				.states
 				.insert(path, ModuleStatus::Failed(error.clone()));
 
-			if localization.staged {
+			if localization.staged && !localization.switch_when_ready {
 				return;
 			}
 

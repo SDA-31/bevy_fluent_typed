@@ -19,7 +19,9 @@ pub trait LoadingMode: sealed::Sealed + Send + Sync + 'static {
 /// Inserted `LocalizedText<S>` retains its scope until removed. Required direct
 /// `Res<S>` parameters registered with localization helpers retain it while their
 /// system state exists. One-time helpers release their demand after invocation.
-/// Unattached messages, optional resources and world inspection are passive.
+/// Optional `Localization::load`/`unload` calls add or remove idempotent manual
+/// pins without evicting automatic consumers or overlapping pins. Unattached
+/// messages, optional resources and world inspection are passive.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Auto;
 

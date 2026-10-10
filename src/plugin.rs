@@ -47,10 +47,13 @@ enum Source<C: FluentCatalog> {
 /// Manifest sources require AssetPlugin; byte sources need only MinimalPlugins.
 /// Default Auto loads scopes used by inserted text bindings and required `Res`
 /// systems registered through localization helpers. Plain systems, optional
-/// resources and world inspection do not establish demand. Explicit Full requests
+/// resources and world inspection do not establish demand. Optional Auto manual
+/// pins retain additional scopes independently. Explicit Full requests
 /// every module; explicit Lazy waits for `load` calls. Creating this value
 /// performs no I/O.
 /// Only one plugin/controller mode may own a given root provider in an App.
+/// `Localization::set_locale` retains active resources until desired target scopes
+/// validate, then switches automatically at publication.
 pub struct LocalizationPlugin<C: FluentCatalog, M: LoadingMode = Auto> {
 	source: Source<C>,
 	marker: PhantomData<fn() -> (C, M)>,

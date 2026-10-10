@@ -80,7 +80,7 @@ fn named_source_publishes_generated_resources_and_existing_text_without_watching
 		.resource_mut::<Localization<texts::Translations>>()
 		.set_locale(texts::Locale::Ru);
 	*app.world_mut().resource_mut::<Outcomes>() = Default::default();
-	application::wait_for_load(&mut app);
+	application::wait_for_locale(&mut app, texts::Locale::Ru);
 	assert_eq!(
 		app.world().resource::<texts::ui::Hud>().msg_title(),
 		"Готово"
@@ -89,7 +89,7 @@ fn named_source_publishes_generated_resources_and_existing_text_without_watching
 		.resource_mut::<Localization<texts::Translations>>()
 		.set_locale(texts::Locale::En);
 	*app.world_mut().resource_mut::<Outcomes>() = Default::default();
-	application::wait_for_load(&mut app);
+	application::wait_for_locale(&mut app, texts::Locale::En);
 	assert_eq!(
 		app.world().resource::<texts::ui::Hud>().msg_title(),
 		"Ready to explore"
@@ -127,7 +127,7 @@ fn invalid_module_retains_its_value_while_independent_siblings_publish() {
 		.resource_mut::<Localization<texts::Translations>>()
 		.set_locale(texts::Locale::Es);
 	*app.world_mut().resource_mut::<Outcomes>() = Default::default();
-	application::wait_for_load(&mut app);
+	application::wait_for_locale(&mut app, texts::Locale::Es);
 	assert_eq!(
 		app.world().resource::<texts::ui::Hud>().msg_title(),
 		"Actualizado"
@@ -144,7 +144,7 @@ fn invalid_module_retains_its_value_while_independent_siblings_publish() {
 		.resource_mut::<Localization<texts::Translations>>()
 		.set_locale(texts::Locale::En);
 	*app.world_mut().resource_mut::<Outcomes>() = Default::default();
-	application::wait_for_load(&mut app);
+	application::wait_for_locale(&mut app, texts::Locale::En);
 	assert_eq!(
 		app.world().resource::<texts::ui::Hud>().msg_title(),
 		"Pending HUD"

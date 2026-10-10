@@ -33,10 +33,12 @@ leaves, or the whole `Translations` tree. Loading a scope requests all its leave
 | Manage loading explicitly, including hybrid lifetimes | `Lazy` | Explicit `load` and `unload` |
 
 Use `LocalizationPlugin::<texts::Translations>::new(texts::manifest())` for the
-usual automatic path. With no consumers, no FTL modules are read or parsed.
+usual automatic path. With no consumers or manual pins, no FTL modules are
+read or parsed.
 A scope requests complete FTL leaves, not individual messages. Creating an
 unattached `Message` or binding, inspecting the world, or navigating a controller
-view is passive. `Auto` and `Full` have no `load` or `unload` methods.
+view is passive. Auto also supports optional manual pins; Full has no
+`load` or `unload` methods.
 
 ## Automatic module lifetime
 
@@ -69,14 +71,32 @@ read does not keep the catalog loaded afterward.
 Plain `app.add_systems(Update, function_with_res)` does not infer loading demand.
 Use the existing localization helper for automatic required-resource consumers.
 `Option<Res<Scope>>`, standalone messages, and `World::get_resource` inspection
-neither request nor retain a module. For an application that polls resources
+neither request nor retain a module. For an application that polls the complete language
 directly, select `LocalizationPlugin::<texts::Translations, Full>::new(manifest)`
 and use the matching `Localization<texts::Translations, Full>` controller type.
 
-After the last automatic consumer disappears, the plugin releases parsed
+After the last consumer and manual pin disappear, the plugin releases parsed
 snapshots and strong asset handles at synchronization. Bevy may retire assets
 on later updates. Application-owned clones may keep parsed data alive; embedded
 static bytes and buffers passed to `from_bytes` have their own source lifetime.
+
+### Optional manual retention
+
+Most text and resource consumers need no additional calls. To preload a scope or
+keep it available independently of consumers, use the same Auto controller:
+
+```rust,ignore
+// In a system with ResMut<Localization<texts::Translations>>:
+localization.load::<texts::presentation::Hud>();
+// When that extra retention is no longer needed:
+localization.unload::<texts::presentation::Hud>();
+```
+
+`load` creates an idempotent manual pin per scope type. Two loads followed by one
+unload remove that pin; automatic consumers and other overlapping pins still
+retain their leaves. `unload` cannot evict a scope used by a binding or localized
+system. Pins persist across language changes. Explicit Lazy uses the same manual
+calls without automatic consumers; Full always requests the complete language.
 
 The following examples add a pause screen and Spanish. Keep the quickstart's
 manifest and English HUD; add these files:
@@ -256,9 +276,10 @@ app.add_localized_systems(Update, update_hud);
 ```
 
 The library infers the required catalog types from direct `Res<Scope>` parameters.
-Before loading, after unloading and during a locale transition, the system waits
-without blocking the frame. It resumes when its catalogs are ready. A complete
-parent waits for all its children; a HUD leaf does not wait for the pause module.
+While a required scope is absent, the system waits without blocking the frame.
+It resumes when its catalogs are ready. During a locale switch, it continues
+using ready active resources until the target is published. A complete parent
+waits for all its children; a HUD leaf does not wait for the pause module.
 In Auto, the helper requests and retains the required scopes from system
 initialization until the system state is dropped. This applies even when an
 additional `run_if` is false. Explicit Lazy still needs `load`/`unload`; Full
@@ -318,8 +339,10 @@ Use `status::<Scope>()` to distinguish `Unloaded`, `Loading`, `Ready` and
 `Failed(error)`. A separate observer can report load errors while required systems
 wait. An invalid same-language reload preserves the last good value, so its
 consumers can run while the latest attempt has status `Failed`. Send
-`ReloadCatalogs` to retry requested leaves; in explicit Lazy, repeating
-`load::<Scope>()` also retries failed leaves.
+`ReloadCatalogs` to retry requested leaves. Repeating `load::<Scope>()` in Auto
+or Lazy also retries failed active and prepared leaves while keeping its manual
+pin. Repeating `set_locale` retries failures in that requested language without
+pinning scopes or reloading already-ready active leaves.
 
 ## Navigate from the root or a parent
 
@@ -417,62 +440,79 @@ fn select_spanish(mut localization: ResMut<AppLocalization>) {
 }
 ```
 
-Call it from your language-selection action. Existing scope requests stay active;
-previous-language data is cleared and the same requested modules load in Spanish.
-Bindings update as their resources become ready. No old-language fallback is used.
-For a different initial language, insert `AppLocalization::new(texts::Locale::Es)`
-before installing the plugin. Otherwise the manifest's default language is used.
+Call it from your language-selection action. The plugin loads and validates the
+currently needed scopes in Spanish while `locale()`, native resources, controller
+views and bound text keep using the active language. When all target leaves are
+ready, it automatically publishes them together at the next PreUpdate
+`LocalizationSystems::Publish` boundary. Text refreshes in PostUpdate. No separate
+`commit_locale()` call is needed. Consumers added or removed during acquisition
+update the target demand as well.
 
-To keep the active language usable while acquiring a target, prepare it first:
+`prepared_locale()` reports the pending target; `preparation_status()` reports
+`Preparing`, `Ready`, `Failed(error)` or `Idle`. A failed target leaves the active
+language usable and emits `CatalogUpdate::Rejected` with the target locale. It
+is not retried every frame. Repeat `set_locale(target)`, retry a failed requested
+scope with `load::<Scope>()`, or send `ReloadCatalogs` after correcting the source.
+The latest requested language wins; selecting the active language cancels a
+pending target and retries only failed active leaves, without adding manual pins
+or reloading ready leaves. Repeating a pending target does not duplicate loads.
+
+For a different initial language, insert `AppLocalization::new(texts::Locale::Es)`
+before installing the plugin. Selecting a locale before the first app update
+also chooses only that initial language. Otherwise the manifest default is used.
+No implicit fallback locale or retained locale cache is introduced.
+
+### Advanced: prepare and choose the publication time
+
+Use explicit preparation only when the application must decide when a validated
+target becomes active, for example at a transition boundary:
 
 ```rust,ignore
 use bevy_fluent_typed::PreparationStatus;
 
 localization.prepare_locale(texts::Locale::Es);
-// Poll in a later update; required Res<Scope> consumers keep using the active locale.
+// In a later update, publish only when the application is also ready to switch:
 if localization.preparation_status() == PreparationStatus::Ready {
     localization.commit_locale()?;
 }
 ```
 
-`prepared_locale()` reports the target, including during acquisition. Preparation
-loads exactly the current requests in either Full or Lazy mode, using the plugin's
-existing source and checked parsers. Target leaves remain private: native resources,
-controller views and bound text continue using the active locale. `commit_locale()`
-returns `CommitLocaleError::NotPrepared`, `Pending` or `Failed(ModuleError)` until
-all requested target leaves passed their latest attempt; a retained earlier good
-snapshot cannot satisfy a failed retry. A successful call queues an atomic locale
-swap for the next PreUpdate `LocalizationSystems::Publish` boundary. `locale()`
-changes there, together with every available native scope; bindings refresh in
-PostUpdate. No target loading notifications appear in `CatalogUpdate` before
-commit; committed requested leaves emit `Loaded`.
+`prepare_locale` takes over manual control, including for a target already
+requested with `set_locale`: it stops automatic switching. Preparation follows
+current automatic consumers and manual pins in Auto, explicit requests in Lazy,
+or the whole language in Full, using the existing source and checked parsers.
+Target leaves remain private until commit. `commit_locale()` returns
+`CommitLocaleError::NotPrepared`, `Pending` or `Failed(ModuleError)` until every
+requested target leaf passes its latest attempt. A retained earlier good target
+snapshot does not satisfy a failed retry. Success queues the coordinated swap
+for the next PreUpdate Publish boundary; committed leaves emit `Loaded`.
+Manual preparation failures remain available through `preparation_status()`;
+they do not emit `Rejected`. Automatic `set_locale` failures emit `Rejected`
+for their target before switching.
 
-Repeating `prepare_locale` for the same target keeps its successful leaves and
-retries failures. A different target replaces it. Lazy `load`/`unload` requests
-also update target demand; changing demand or requesting a retry revokes a queued
-commit. Poll readiness and commit again. Publication rechecks readiness and revokes
-the commit if a newly observed target source failure makes it unavailable.
-`cancel_preparation()` drops target snapshots and tasks/handles. External I/O may
-finish later, but canceled attempts cannot satisfy a replacement preparation.
-`set_locale()` cancels preparation, including when selecting the active locale.
-Preparing the active locale is immediately ready, preserves snapshots and performs
-no extra I/O. An empty Lazy request set is also ready without loading any modules.
+Repeating `prepare_locale` keeps successful leaves and retries failures; a
+different target replaces it. Changing the required leaf union, or explicitly
+retrying leaves, revokes a queued manual commit. Poll readiness and commit again.
+Publication rechecks source readiness. Automatic `set_locale` intent instead
+continues through demand changes and explicit retries, and commits when ready.
 
-Preparation retains active and target parsed leaves until cancellation or commit;
-there is no retained locale cache. Application-owned clones and the source's own
-buffers retain their usual lifetime. File sources use Bevy's normal AssetReader
-and AssetLoader with a private typed preparation asset and per-attempt identities.
-Repreparing or retrying the same file waits asynchronously for its previous
-preparation handle to retire. Before commit, target files also wait for obsolete
-normal catalog handles to retire so the handoff cannot reconnect a canceled
-reader. An uncancelable reader opening the source or another owner retaining
-such a handle may delay readiness. Cancellation returns immediately and active
-catalog consumers keep running throughout. Source metadata must allow Bevy to select the requested
-asset type; explicit `.meta` files selecting a different loader cause preparation
-to fail. Remove that loader override or configure Bevy's metadata policy for your
-source. Automatic watching and `ReloadCatalogs` continue to work after commit.
-This does not snapshot a changing archive or order overlapping external reloads;
-keep the source coherent while preparing, as described below.
+`cancel_preparation()` cancels both manual preparation and pending automatic
+switching, dropping target snapshots and tasks/handles. External I/O may finish
+later, but canceled attempts cannot publish a replacement target. Preparing the
+active locale is immediately ready and performs no additional I/O. An empty
+Auto/Lazy demand also needs no module acquisition.
+
+Preparation retains active and target parsed leaves until cancellation or commit.
+Application-owned clones and source buffers retain their usual lifetime. File
+sources use Bevy's AssetReader and AssetLoader with private preparation assets
+and per-attempt identities. A retry may wait asynchronously for obsolete handles
+to retire; uncancelable readers or another owner retaining a handle may delay
+readiness. Active consumers keep running. Source metadata must allow Bevy to
+select the requested asset type; `.meta` files selecting another loader cause
+preparation to fail. Remove that override or configure the source's metadata
+policy. Watching and `ReloadCatalogs` continue after commit. Preparation does not
+snapshot a changing archive or order overlapping external reloads; keep the
+source coherent, as described below.
 
 To retry all requested FTL files on Bevy 0.17–0.20:
 
@@ -504,13 +544,17 @@ the application.
 
 Publication runs in PreUpdate's `LocalizationSystems::Publish`, then again in
 PostUpdate before `LocalizationSystems::Refresh`, where text bindings refresh.
-A language change in Update changes the controller immediately; scope resources
-follow at publication. Consumers that must observe the synchronized result in
-that frame should run in PostUpdate after `LocalizationSystems::Refresh`.
+`set_locale` prepares the target while leaving the active controller locale and
+resources usable. A ready target switches at PreUpdate Publish, then bindings
+refresh in PostUpdate. Consumers that need the refreshed text in that frame
+should run after `LocalizationSystems::Refresh`.
 
 Checked leaves publish independently. A bad same-language reload keeps that
-leaf's last good value; valid siblings can still change. Ordinary same-language reloads have no multi-file
-transaction; explicit locale preparation commits its requested target leaves together. Successful reloads publish fresh snapshots even if text is identical;
+leaf's last good value; valid siblings can still change. Ordinary same-language
+reloads have no multi-file transaction. Locale replacement commits its currently
+requested target leaves together after validation, automatically with `set_locale`
+or at the application's chosen time with `prepare_locale`/`commit_locale`.
+Successful reloads publish fresh snapshots even if text is identical;
 idle frames and unchanged siblings preserve resource identity and change ticks.
 
 The plugin serializes its own reload requests per module and coalesces pending
@@ -679,7 +723,7 @@ choose explicit Full to preserve eager loading or direct world polling.
 ## Compile-time mode boundaries
 
 `Auto`, `Full` and `Lazy` implement the sealed `LoadingMode` trait. Explicit
-requests exist only on Lazy. The compiler rejects requests on Full and scopes
+requests are available on Auto and Lazy. The compiler rejects requests on Full and scopes
 belonging to another root:
 
 ```compile_fail,E0599

@@ -42,19 +42,22 @@ fn main() {
 			.resource_mut::<Localization<Texts>>()
 			.set_locale(locale);
 		let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
-		while app
-			.world()
-			.resource::<Localization<Texts>>()
-			.catalog()
-			.is_none()
-		{
+
+		loop {
 			app.update();
+			let localization = app.world().resource::<Localization<Texts>>();
+
+			if localization.locale() == locale && localization.catalog().is_some() {
+				break;
+			}
+
 			assert!(
 				std::time::Instant::now() < deadline,
 				"example translation load timed out"
 			);
 			std::thread::sleep(std::time::Duration::from_millis(5));
 		}
+
 		println!("{}", app.world().get::<Text>(label).unwrap().0);
 	}
 }

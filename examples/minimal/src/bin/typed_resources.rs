@@ -3,6 +3,7 @@ extern crate localization_runtime as bevy_fluent_typed;
 
 use bevy_fluent_typed::bevy::{asset::AssetPlugin, prelude::*};
 use bevy_fluent_typed::{Localization, LocalizationAppExt, LocalizationPlugin, LocalizedText};
+use std::time::{Duration, Instant};
 
 bevy_fluent_typed::translations!(pub mod texts);
 
@@ -17,13 +18,12 @@ fn main() {
 		.add_localized_startup_systems(show_hud);
 	app.finish();
 	app.cleanup();
-	app.update();
-	app.update(); // Allow the once-helper to run after automatic publication.
+	wait_for_hud(&mut app, texts::Locale::En);
 
 	app.world_mut()
 		.resource_mut::<Localization<texts::Translations>>()
 		.set_locale(texts::Locale::Es);
-	app.update();
+	wait_for_hud(&mut app, texts::Locale::Es);
 
 	// Direct resources and existing text bindings follow the same language switch.
 	let hud: &texts::presentation::Hud = app.world().resource();
@@ -45,4 +45,26 @@ fn show_hud(mut commands: Commands, translations: Res<texts::Translations>) {
 		Text::default(),
 		LocalizedText::<texts::presentation::Hud>::new(|hud| hud.msg_detail("Ada")),
 	));
+}
+
+fn wait_for_hud(app: &mut App, locale: texts::Locale) {
+	let deadline = Instant::now() + Duration::from_secs(10);
+
+	loop {
+		app.update();
+		let mut labels = app.world_mut().query::<&Text>();
+
+		if app
+			.world()
+			.resource::<Localization<texts::Translations>>()
+			.locale() == locale
+			&& app.world().contains_resource::<texts::presentation::Hud>()
+			&& labels.iter(app.world()).any(|text| !text.0.is_empty())
+		{
+			return;
+		}
+
+		assert!(Instant::now() < deadline, "HUD translation load timed out");
+		std::thread::sleep(Duration::from_millis(1));
+	}
 }

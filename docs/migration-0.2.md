@@ -191,12 +191,14 @@ For selective constant manifests, follow the
 | In 0.1.3 | In 0.3.0 |
 | --- | --- |
 | All embedded languages were initialized | Auto requests consumer scopes in the selected language; explicit Full requests that entire language |
-| Locale changes could select a retained catalog immediately | Logical requests persist, old-language data is released and the new language loads |
-| A complete language was checked and published together | Checked leaves publish independently; a bad same-language reload retains only that leaf's last good value |
+| Locale changes could select a retained catalog immediately | Requests persist; the active language stays usable until all needed target leaves validate and switch automatically |
+| A complete language was checked and published together | Same-language reloads publish leaves independently; locale replacement validates and publishes its desired target leaves together |
 | Unavailable bindings retained their old displayed text | Unavailable bindings clear until their scope is available |
 | Unchanged sources could preserve the snapshot | Successful reloads publish fresh snapshots; idle frames and unchanged siblings retain identity |
 
-Do not rely on an all-files transaction or automatic fallback. Keep source files
+Same-language reloads have no all-files transaction or automatic fallback.
+`set_locale` retains active resources while validating and automatically publishing
+the desired target scopes; see [language switching](migration-0.3.md#let-language-changes-finish-automatically). Keep source files
 coherent when distributing a translation pack. `CatalogUpdate` identifies the
 locale and logical leaf path; update exhaustive event matches for the new shape.
 After a failed same-language reload, `ModuleStatus::Failed` can coexist with a

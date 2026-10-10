@@ -108,10 +108,15 @@ root to Bevy's base directory (the package directory under `cargo run`) so
 For another source layout, pass a `LocalizationManifest` with its runtime origin.
 
 The default **Auto** mode loads only scopes used by inserted `LocalizedText`
-bindings and systems registered with the localization helpers.
+bindings and systems registered with the localization helpers. Optional
+`load`/`unload` calls can keep an additional scope loaded independently.
 `add_localized_startup_systems` requests the HUD and runs `show_title` once
 `Res<Hud>` is ready; it then releases its temporary demand. The application
 continues normally while it waits.
+
+Use `localization.set_locale(texts::Locale::Es)` to change language. The plugin
+keeps the active resources and text until the requested language is ready, then
+switches automatically. A failed target leaves the active language usable.
 See the [loading guide](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md) for automatic module lifetime and optional manual loading.
 
 ## Explicit embedding

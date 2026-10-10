@@ -99,7 +99,9 @@ one-time helper.
 Default Auto requests required scopes when localized systems initialize. A
 recurring system retains them until its system state is dropped, including when
 `run_if` is false. Inserted `LocalizedText` bindings independently retain their
-scopes until removed. Explicit Full requests the complete selected language;
+scopes until removed. Optional Auto `load`/`unload` calls add or remove an
+idempotent manual pin; they cannot evict scopes still owned by consumers or
+overlapping pins. Explicit Full requests the complete selected language;
 explicit Lazy still requires application-owned `load`/`unload` calls. Plain
 `add_systems`, optional resources and world inspection do not create demand.
 

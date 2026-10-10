@@ -42,14 +42,18 @@ fn main() -> Result<(), String> {
 			LocalizedText::<texts::Ui>::new(|ui| ui.msg_example_greeting("Ada")),
 		))
 		.id();
-	console::run_until_loaded(&mut app, label, watch)?;
+	let locale = app
+		.world()
+		.resource::<Localization<Translations>>()
+		.locale();
+	console::run_until_loaded(&mut app, label, locale, watch)?;
 
 	// The same entity and deferred argument survive each language switch.
 	for &locale in Translations::locales() {
 		app.world_mut()
 			.resource_mut::<Localization<Translations>>()
 			.set_locale(locale);
-		console::run_until_loaded(&mut app, label, false)?;
+		console::run_until_loaded(&mut app, label, locale, false)?;
 		println!("{locale}: {}", app.world().get::<Text>(label).unwrap().0);
 	}
 

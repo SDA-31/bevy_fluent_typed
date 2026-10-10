@@ -41,8 +41,9 @@ fn main() {
 		loop {
 			app.update();
 
-			if let Some(greeting) = app.world().get_resource::<texts::ui::Greeting>() {
-				// Publication removed the previous-language resource before this read.
+			if let Some(greeting) = app.world().get_resource::<texts::ui::Greeting>()
+				&& greeting.locale() == locale
+			{
 				println!("{}", greeting.msg_hello());
 				break;
 			}

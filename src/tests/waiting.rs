@@ -237,7 +237,7 @@ fn original_function_ordering_and_bevy_configuration_are_preserved() {
 }
 
 #[test]
-fn a_locale_change_within_update_cannot_expose_the_previous_snapshot() {
+fn a_locale_change_within_update_preserves_the_active_snapshot_until_publication() {
 	let mut app = app();
 	app.add_plugins(LocalizationPlugin::<TestCatalog, crate::Full>::new(
 		manifest(),
@@ -255,9 +255,12 @@ fn a_locale_change_within_update_cannot_expose_the_previous_snapshot() {
 			.chain(),
 	);
 	app.update();
-	assert!(app.world().resource::<Observations>().required.is_empty());
+	assert_eq!(app.world().resource::<Observations>().required, ["ja"]);
 	app.update();
-	assert_eq!(app.world().resource::<Observations>().required, ["es"]);
+	assert_eq!(
+		app.world().resource::<Observations>().required,
+		["ja", "es"]
+	);
 }
 
 #[test]

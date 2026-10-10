@@ -82,8 +82,9 @@ Leaf-name helper macros and selector expression arguments are removed.
 
 Embedding includes only selected source bytes, including in debug builds.
 Auto consumers or explicit Full/Lazy govern parsing and module lifetime; selected static bytes remain
-for the executable's lifetime. Byte inputs, native resource waiting, language
-switching and reload guarantees are unchanged. Test file/ZIP origins and locale
+for the executable's lifetime. Byte inputs and native resource waiting retain
+their APIs; follow [0.3 language switching](migration-0.3.md#let-language-changes-finish-automatically)
+for the active-until-ready `set_locale` contract. Test file/ZIP origins and locale
 switches after migration. See the [changelog](../CHANGELOG.md).
 
 ## Typed configuration and build errors

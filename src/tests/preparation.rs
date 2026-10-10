@@ -232,7 +232,7 @@ fn failed_target_retry_does_not_accept_a_retained_old_good_snapshot() {
 }
 
 #[test]
-fn empty_lazy_demand_and_immediate_locale_selection_supersede_preparation() {
+fn empty_lazy_demand_and_selecting_the_active_locale_supersede_preparation() {
 	let calls = Arc::new(AtomicUsize::new(0));
 	let observed = calls.clone();
 	let plugin = LocalizationPlugin::<TestCatalog, Lazy>::from_loader(move |locale, _| {

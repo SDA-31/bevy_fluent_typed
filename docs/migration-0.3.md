@@ -23,7 +23,7 @@ their ownership ends when their system state is dropped.
 when ready and releases demand after the body returns, including returned
 errors. Deferred bindings take over demand without an unloading gap.
 
-No consumers means no module reads or parsing. Plain `add_systems`, optional
+No consumers or manual pins means no module reads or parsing. Plain `add_systems`, optional
 resources, `World::get_resource` inspection and unattached messages do not
 request modules. Keep explicit Full if your application directly polls the
 world or needs a complete language loaded independently of consumers:
@@ -36,10 +36,36 @@ app.add_plugins(LocalizationPlugin::<texts::Translations, Full>::new(texts::mani
 type AppLocalization = Localization<texts::Translations, Full>;
 ```
 
-Existing manual Lazy code keeps its explicit mode and `load`/`unload` calls.
+Auto also accepts optional `load::<Scope>()`/`unload::<Scope>()` calls to preload
+or retain a scope independently of consumers. These are idempotent manual pins:
+one unload removes the pin after repeated loads, but cannot evict automatic
+consumers or other overlapping pins. Existing manual Lazy code keeps its
+explicit mode and `load`/`unload` calls.
 `LocalizationPlugin::<texts::Translations>::new_lazy(manifest)` still selects
 Lazy. Use the same mode on the plugin and its controller; resource scopes such
 as `Res<Hud>` do not change. See [module lifetime](../GUIDE.md#automatic-module-lifetime).
+
+## Let language changes finish automatically
+
+Keep the usual `localization.set_locale(target)` call. It now prepares all
+currently desired target leaves, keeps the active language's resources and text
+usable, and switches automatically after validation at PreUpdate Publish.
+`locale()` reports the active language until that switch; `prepared_locale()`
+and `preparation_status()` inspect the target. Consumers and manual pins added
+or removed during acquisition update the target demand.
+
+The latest target wins; selecting the active language cancels a pending target
+and retries failed active leaves without reloading ready ones or adding pins.
+Repeating a pending target does not start duplicate loads. A failed target emits
+`Rejected` for that language and keeps the active resources; there is no per-frame
+retry loop. Repeat `set_locale(target)`, retry a failed requested scope with
+`load`, or send `ReloadCatalogs` after correcting the source.
+
+Manual `prepare_locale`/`commit_locale` remains an advanced option for choosing
+publication time. Calling `prepare_locale` takes over manual control even for the
+same pending automatic target. `cancel_preparation` cancels either kind of switch.
+Same-language file reloads still publish independently; coordinated language
+replacement does not provide a snapshot of a changing external source.
 
 ## Use Bevy 0.20
 

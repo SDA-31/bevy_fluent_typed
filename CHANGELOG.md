@@ -12,9 +12,10 @@ remains `fluent_typed_codegen` 0.2.2.
 
 ### Added
 
-- Explicit locale preparation and validated commit at the publication boundary,
-  keeping active resources available while target translations load. Supports
-  Full/Lazy demand, cancellation, byte sources and private typed Bevy assets.
+- Optional manual scope pins in Auto through idempotent `load`/`unload`, without
+  releasing scopes still owned by automatic consumers or overlapping pins.
+- Advanced locale preparation and explicit commit for application-chosen
+  publication time, supporting Auto/Full/Lazy, cancellation and byte/file sources.
 - Stable Bevy 0.20 support through `bevy-0-20`, including typed resources,
   readiness, deferred startup, custom asset sources and translation hot reload.
 - Cloneable `LocalizedText` bindings and native `FromTemplate` integration for
@@ -27,9 +28,17 @@ remains `fluent_typed_codegen` 0.2.2.
 
 ### Changed
 
+- **Breaking:** `set_locale` keeps the active language, resources and text until
+  every currently desired target leaf validates, then switches automatically at
+  the publication boundary. Target failures leave active resources usable; the
+  latest target wins, selecting the active language cancels the pending switch,
+  and explicit retries avoid per-frame retry loops. `locale()` reports the active
+  language; target inspection uses `prepared_locale`/`preparation_status`. See the
+  [migration guide](docs/migration-0.3.md#let-language-changes-finish-automatically).
 - **Breaking:** plugin and controller loading default to `Auto` instead of
   `Full`. Inserted text bindings and localized required-resource systems request
-  and retain only their scopes; without consumers, modules are not loaded.
+  and retain only their scopes; without consumers or manual pins, modules are
+  not loaded.
   Select explicit `Full` for eager loading or direct world polling, or retain
   explicit `Lazy` for manual requests. See the [migration guide](docs/migration-0.3.md).
 - **Breaking:** default features select Bevy 0.20 instead of 0.19. Older

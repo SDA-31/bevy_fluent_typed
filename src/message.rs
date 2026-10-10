@@ -92,7 +92,10 @@ impl<C: FluentScope> From<Message<C>> for LocalizedText<C> {
 	}
 }
 
-/// The host application decides how to present successful/rejected reloads.
+/// The host application decides how to present successful/rejected acquisitions.
+/// Automatic switching failures are reported before switching; successful target
+/// leaves report `Loaded` when their locale is committed. Manual preparation
+/// failures remain available through `Localization::preparation_status`.
 #[cfg_attr(feature = "bevy-0-16", derive(crate::bevy::prelude::Event))]
 #[cfg_attr(not(feature = "bevy-0-16"), derive(crate::bevy::prelude::Message))]
 pub enum CatalogUpdate<C: FluentCatalog> {
@@ -104,9 +107,10 @@ pub enum CatalogUpdate<C: FluentCatalog> {
 		/// Logical module whose checked candidate was published.
 		path: String,
 	},
-	/// A load failed; a previous good value for this same-language leaf is retained.
+	/// A load failed. Same-language reloads retain the last good leaf; failed
+	/// target preparation keeps the active locale's resources usable.
 	Rejected {
-		/// Affected selected language; optional for application/provider diagnostics.
+		/// Affected active or prepared target language; optional for provider diagnostics.
 		locale: Option<C::Locale>,
 		/// Logical module path; source errors may also contain the concrete asset address.
 		path: String,
