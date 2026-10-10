@@ -4,7 +4,10 @@ use crate::assets::ModuleAsset;
 #[cfg(feature = "manifest")]
 use crate::bevy::prelude::Handle;
 use crate::bevy::{ecs as bevy_ecs, prelude::Resource, tasks::Task};
-use crate::{FluentCatalog, FluentScope, Full, Lazy, LoadingMode, ModuleStatus, ModuleStore};
+use crate::leases::LeaseRequests;
+use crate::{
+	FluentCatalog, FluentScope, Full, Lazy, LoadingMode, ModuleLease, ModuleStatus, ModuleStore,
+};
 use std::{
 	any::TypeId,
 	collections::{BTreeMap, BTreeSet, HashMap},
@@ -39,7 +42,8 @@ impl<C: FluentCatalog> RequestedModule<C> {
 
 /// Controller for the selected locale and the scopes requested by the application.
 ///
-/// Full mode always requests the root. Lazy mode exposes idempotent scope requests.
+/// Full mode always requests the root. Lazy mode exposes idempotent scope requests
+/// and independent ownership leases.
 /// Resource publication is synchronized at the plugin's Publish/Refresh boundaries.
 #[derive(Resource)]
 pub struct Localization<C: FluentCatalog, M: LoadingMode = Full> {
@@ -48,6 +52,7 @@ pub struct Localization<C: FluentCatalog, M: LoadingMode = Full> {
 	pub(crate) entries: BTreeMap<&'static str, RequestedModule<C>>,
 	pub(crate) retry: BTreeSet<&'static str>,
 	pub(crate) published: HashMap<TypeId, u64>,
+	leases: LeaseRequests,
 	desired: Arc<BTreeSet<&'static str>>,
 	pub(crate) synchronized: u64,
 	pub(crate) requests_changed: bool,
@@ -89,6 +94,7 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			entries: BTreeMap::new(),
 			retry: BTreeSet::new(),
 			published: HashMap::new(),
+			leases: LeaseRequests::default(),
 			desired: Arc::new(desired),
 			synchronized: u64::MAX,
 			requests_changed: true,
@@ -147,6 +153,28 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 		self.desired.clone()
 	}
 
+	pub(crate) fn has_dropped_leases(&self) -> bool {
+		self.leases.has_releases()
+	}
+
+	pub(crate) fn release_dropped_leases(&mut self) {
+		if self.leases.release_dropped() {
+			self.requests_changed = true;
+			self.rebuild_desired();
+		}
+	}
+
+	fn rebuild_desired(&mut self) {
+		self.desired = Arc::new(
+			self.requested
+				.values()
+				.copied()
+				.chain(self.leases.paths())
+				.flat_map(|paths| paths.iter().copied())
+				.collect(),
+		);
+	}
+
 	pub(crate) fn finish_request(&mut self, path: &str) -> &mut RequestedModule<C> {
 		let entry = self
 			.entries
@@ -162,6 +190,20 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 }
 
 impl<C: FluentCatalog> Localization<C, Lazy> {
+	/// Hold an independent leaf, group or root request until its token drops.
+	/// Loading starts at publication; a token dropped before then performs no I/O.
+	/// Explicit `load`/`unload` requests and other leases remain independent.
+	/// Locale changes retain the demand. A failed attempt can be retried with
+	/// `load::<S>()` or `ReloadCatalogs`; acquiring another lease does not retry it.
+	pub fn hold<S: FluentScope<Catalog = C>>(&mut self) -> ModuleLease<S> {
+		let lease = self.leases.hold::<S>();
+
+		self.requests_changed = true;
+		Arc::make_mut(&mut self.desired).extend(S::module_paths().iter().copied());
+
+		lease
+	}
+
 	/// Request a leaf, complete group or complete root until explicitly unloaded.
 	/// Repeated requests are idempotent, not reference counted: one `unload::<S>()`
 	/// releases any number of earlier `load::<S>()` calls for that scope type.
@@ -183,17 +225,12 @@ impl<C: FluentCatalog> Localization<C, Lazy> {
 		}
 	}
 
-	/// Release this explicit request. Independent overlapping requests remain active.
+	/// Release this explicit request. Independent leases and overlapping requests remain active.
 	/// The plugin releases unneeded resources and strong handles at synchronization.
 	pub fn unload<S: FluentScope<Catalog = C>>(&mut self) {
 		if self.requested.remove(&TypeId::of::<S>()).is_some() {
 			self.requests_changed = true;
-			self.desired = Arc::new(
-				self.requested
-					.values()
-					.flat_map(|paths| paths.iter().copied())
-					.collect(),
-			);
+			self.rebuild_desired();
 		}
 	}
 }

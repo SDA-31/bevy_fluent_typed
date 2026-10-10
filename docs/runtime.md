@@ -151,9 +151,8 @@ Keep the HUD's request while the game uses it. This gives hybrid loading. Releas
 that request with `unload::<texts::presentation::Hud>()` when its owner exits too.
 
 Requests are idempotent **per scope type**, not reference-counted calls. Two
-`load::<Hud>()` calls followed by one `unload::<Hud>()` release that request. If
-several application systems share ownership, coordinate that ownership in your
-application. Independent parent/child requests do overlap:
+`load::<Hud>()` calls followed by one `unload::<Hud>()` release that request.
+Independent parent/child requests do overlap:
 
 ```rust,ignore
 localization.load::<texts::Presentation>();
@@ -162,14 +161,38 @@ localization.unload::<texts::Presentation>(); // The explicit Hud request remain
 localization.unload::<texts::presentation::Hud>(); // Now it can be released.
 ```
 
+For independent screen owners, keep a `ModuleLease<Scope>` returned by `hold`:
+
+```rust,ignore
+use bevy_fluent_typed::ModuleLease;
+
+fn open_pause(mut commands: Commands, mut localization: ResMut<AppLocalization>) {
+    let lease: ModuleLease<texts::screens::Pause> =
+        localization.hold::<texts::screens::Pause>();
+    commands.spawn(lease); // Despawning this owner releases its demand.
+}
+```
+
+Continue consuming ready translations through native `Res<Scope>` and the
+readiness helpers below. Each `hold` creates an independent owner, including
+repeated holds of the same scope; overlapping groups and leaves share loading.
+Dropping a token on any thread releases only its owner's demand at the next
+publication boundary. Explicit `load` requests survive token drops, and `unload`
+releases only the explicit request. Dropping before the first publication starts
+no I/O. Tokens retain demand across language changes and do not keep a removed
+controller alive. They cannot be cloned; an application may share one token
+through `Arc`, releasing it when the last clone drops. Neither bindings nor
+readiness helpers acquire leases. Failed attempts still retry through `load` or
+`ReloadCatalogs`; acquiring another lease does not retry a failed attempt.
+
 `load::<texts::Translations>()` requests the whole tree. It removes the memory
 benefit of partial loading while that request remains active. Subdivide very
 large translations into useful FTL files: a leaf is parsed and retained as a
 whole, not one message at a time.
 
-After the last request is released, the plugin drops its scope snapshots and
-strong asset handles at synchronization. Bevy may retire assets over later
-updates. Application-owned clones can keep data alive, and explicitly embedded
+After the last explicit request or lease is released, the plugin drops its scope
+snapshots and strong asset handles at synchronization. Bevy may retire assets over
+later updates. Application-owned clones can keep data alive, and explicitly embedded
 static bytes always remain in the executable. There is no language cache or
 implicit fallback.
 
@@ -191,7 +214,8 @@ The library infers the required catalog types from direct `Res<Scope>` parameter
 Before loading, after unloading and during a locale transition, the system waits
 without blocking the frame. It resumes when its catalogs are ready. A complete
 parent waits for all its children; a HUD leaf does not wait for the pause module.
-In Lazy mode, keep the explicit `load::<Scope>()` and `unload::<Scope>()` calls:
+In Lazy mode, retain a lease or keep the explicit `load::<Scope>()` and
+`unload::<Scope>()` calls:
 registering a system does not request or retain a module. Keep the loading
 request active for as long as that screen needs its translations. Full mode
 keeps all modules of the selected language loaded automatically.
@@ -551,6 +575,13 @@ explicit requests on Full and scopes belonging to another root:
 use bevy_fluent_typed::{FluentCatalog, Full, Localization};
 fn request<C: FluentCatalog>(state: &mut Localization<C, Full>) {
     state.load::<C>();
+}
+```
+
+```compile_fail,E0599
+use bevy_fluent_typed::{FluentCatalog, Full, Localization};
+fn hold<C: FluentCatalog>(state: &mut Localization<C, Full>) {
+    let _lease = state.hold::<C>();
 }
 ```
 

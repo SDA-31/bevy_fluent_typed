@@ -12,6 +12,9 @@ remains `fluent_typed_codegen` 0.2.2.
 
 ### Added
 
+- Independent `ModuleLease<Scope>` ownership in Lazy mode through
+  `localization.hold::<Scope>()`. Dropping a token releases only its owner's
+  request at publication; other leases and explicit requests remain active.
 - Stable Bevy 0.20 support through `bevy-0-20`, including typed resources,
   readiness, deferred startup, custom asset sources and translation hot reload.
 - Cloneable `LocalizedText` bindings and native `FromTemplate` integration for
