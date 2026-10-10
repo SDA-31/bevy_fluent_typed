@@ -25,12 +25,14 @@ remains `fluent_typed_codegen` 0.2.2.
   activate native tracking. Progress counting collects no detail vectors or
   per-module error copies; passive per-scope queries require no registration.
 
-- Explicit locale preparation and validated commit at the publication boundary,
-  keeping active resources available while target translations load. Supports
-  Full/Lazy demand, cancellation, byte sources and private typed Bevy assets.
-- Independent `ModuleLease<Scope>` ownership in Lazy mode through
+- Optional manual scope pins in Lazy through idempotent `load`/`unload`, without
+  releasing scopes still owned by automatic consumers, leases or overlapping pins.
+- Advanced locale preparation and explicit commit for application-chosen
+  publication time, supporting Lazy/Full/Manual, cancellation and byte/file sources.
+- Independent `ModuleLease<Scope>` ownership in Lazy and Manual through
   `localization.hold::<Scope>()`. Dropping a token releases only its owner's
-  request at publication; other leases and explicit requests remain active.
+  request at publication; other leases, automatic consumers and explicit requests
+  remain active.
 - Stable Bevy 0.20 support through `bevy-0-20`, including typed resources,
   readiness, deferred startup, custom asset sources and translation hot reload.
 - Cloneable `LocalizedText` bindings and native `FromTemplate` integration for
@@ -39,10 +41,30 @@ remains `fluent_typed_codegen` 0.2.2.
   [scene recipe](docs/bsn.md) and an executable example covering module lifetime
   and translation updates.
 - A UI text default for standalone `LocalizedText` components: refresh inserts
-  `Text::default()` only when neither `Text` nor `Text2d` is present.
+  `Text::default()` only when no `Text`, `Text2d` or `TextSpan` is present.
+- `LocalizedText` bindings on `TextSpan` children of UI and world-text roots,
+  with the same automatic scope lifetime and locale switching as root bindings.
+  Span refresh does not create a root `Text`; hierarchy and styles remain
+  application-owned. Includes native BSN constructors and module release.
 
 ### Changed
 
+- **Breaking:** `set_locale` keeps the active language, resources and text until
+  every currently desired target leaf validates, then switches automatically at
+  the publication boundary. Target failures leave active resources usable; the
+  latest target wins, selecting the active language cancels the pending switch,
+  and explicit retries avoid per-frame retry loops. `locale()` reports the active
+  language; target inspection uses `prepared_locale`/`preparation_status`. See the
+  [migration guide](docs/migration-0.3.md#let-language-changes-finish-automatically).
+- **Breaking:** plugin and controller loading default to `Lazy` instead of
+  `Full`. Inserted text bindings and localized required-resource systems request
+  and retain only their scopes; without consumers, manual pins or leases, modules are
+  not loaded.
+  Select explicit `Full` for eager loading or direct world polling, or retain
+  explicit `Manual` for manual requests. See the [migration guide](docs/migration-0.3.md).
+- **Breaking:** the previous explicit-request `Lazy` mode is renamed to `Manual`,
+  and `new_lazy` becomes `new_manual`. The new default `Lazy` loads scopes
+  automatically from consumers; `Full` keeps its eager behavior.
 - **Breaking:** default features select Bevy 0.20 instead of 0.19. Older
   applications disable defaults and select their backend explicitly.
 - **Breaking:** the Rust minimum is 1.97.1, matching stable Bevy 0.20. Runtime

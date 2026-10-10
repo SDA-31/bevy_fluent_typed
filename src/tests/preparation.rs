@@ -4,8 +4,8 @@ use super::TestCatalog;
 use crate::bevy::ecs as bevy_ecs;
 use crate::bevy::prelude::*;
 use crate::{
-	CommitLocaleError, Full, Lazy, LoadingMode, Localization, LocalizationAppExt,
-	LocalizationPlugin, LocalizedText, PreparationStatus,
+	CommitLocaleError, Full, LoadingMode, Localization, LocalizationAppExt, LocalizationPlugin,
+	LocalizedText, Manual, PreparationStatus,
 };
 use std::{
 	sync::{
@@ -146,30 +146,30 @@ fn exercise_bytes<M: LoadingMode>() {
 }
 
 #[test]
-fn bytes_full_and_lazy_publish_only_on_explicit_commit() {
+fn bytes_full_and_manual_publish_only_on_explicit_commit() {
 	exercise_bytes::<Full>();
-	exercise_bytes::<Lazy>();
+	exercise_bytes::<Manual>();
 }
 
 #[test]
 fn failed_target_retry_does_not_accept_a_retained_old_good_snapshot() {
 	let payload = Arc::new(Mutex::new(Ok::<_, String>(b"first".to_vec())));
 	let source = payload.clone();
-	let plugin = LocalizationPlugin::<TestCatalog, Lazy>::from_loader(move |_, _| {
+	let plugin = LocalizationPlugin::<TestCatalog, Manual>::from_loader(move |_, _| {
 		std::future::ready(source.lock().unwrap().clone())
 	});
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, plugin));
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
 	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.prepare_locale("es");
 	pump(&mut app, |world| {
 		world
-			.resource::<Localization<TestCatalog, Lazy>>()
+			.resource::<Localization<TestCatalog, Manual>>()
 			.preparation_status()
 			== PreparationStatus::Ready
 	});
@@ -183,48 +183,48 @@ fn failed_target_retry_does_not_accept_a_retained_old_good_snapshot() {
 	pump(&mut app, |world| {
 		matches!(
 			world
-				.resource::<Localization<TestCatalog, Lazy>>()
+				.resource::<Localization<TestCatalog, Manual>>()
 				.preparation_status(),
 			PreparationStatus::Failed(_)
 		)
 	});
 	assert!(matches!(
 		app.world_mut()
-			.resource_mut::<Localization<TestCatalog, Lazy>>()
+			.resource_mut::<Localization<TestCatalog, Manual>>()
 			.commit_locale(),
 		Err(CommitLocaleError::Failed(_))
 	));
 	assert_eq!(app.world().resource::<TestCatalog>().0, "first");
 	*payload.lock().unwrap() = Ok(b"repaired".to_vec());
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
 	assert_eq!(
 		app.world()
-			.resource::<Localization<TestCatalog, Lazy>>()
+			.resource::<Localization<TestCatalog, Manual>>()
 			.preparation_status(),
 		PreparationStatus::Preparing
 	);
 	assert_eq!(
 		app.world_mut()
-			.resource_mut::<Localization<TestCatalog, Lazy>>()
+			.resource_mut::<Localization<TestCatalog, Manual>>()
 			.commit_locale(),
 		Err(CommitLocaleError::Pending)
 	);
 	pump(&mut app, |world| {
 		world
-			.resource::<Localization<TestCatalog, Lazy>>()
+			.resource::<Localization<TestCatalog, Manual>>()
 			.preparation_status()
 			== PreparationStatus::Ready
 	});
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.commit_locale()
 		.unwrap();
 	app.update();
 	assert_eq!(
 		app.world()
-			.resource::<Localization<TestCatalog, Lazy>>()
+			.resource::<Localization<TestCatalog, Manual>>()
 			.locale(),
 		"es"
 	);
@@ -232,10 +232,10 @@ fn failed_target_retry_does_not_accept_a_retained_old_good_snapshot() {
 }
 
 #[test]
-fn empty_lazy_demand_and_immediate_locale_selection_supersede_preparation() {
+fn empty_manual_demand_and_selecting_the_active_locale_supersede_preparation() {
 	let calls = Arc::new(AtomicUsize::new(0));
 	let observed = calls.clone();
-	let plugin = LocalizationPlugin::<TestCatalog, Lazy>::from_loader(move |locale, _| {
+	let plugin = LocalizationPlugin::<TestCatalog, Manual>::from_loader(move |locale, _| {
 		observed.fetch_add(1, Ordering::Relaxed);
 		std::future::ready(Ok::<_, String>(locale.as_bytes().to_vec()))
 	});
@@ -244,7 +244,7 @@ fn empty_lazy_demand_and_immediate_locale_selection_supersede_preparation() {
 	{
 		let mut localization = app
 			.world_mut()
-			.resource_mut::<Localization<TestCatalog, Lazy>>();
+			.resource_mut::<Localization<TestCatalog, Manual>>();
 		localization.prepare_locale("es");
 		assert_eq!(localization.preparation_status(), PreparationStatus::Ready);
 		localization.commit_locale().unwrap();
@@ -253,14 +253,14 @@ fn empty_lazy_demand_and_immediate_locale_selection_supersede_preparation() {
 	assert_eq!(calls.load(Ordering::Relaxed), 0);
 	assert_eq!(
 		app.world()
-			.resource::<Localization<TestCatalog, Lazy>>()
+			.resource::<Localization<TestCatalog, Manual>>()
 			.locale(),
 		"es"
 	);
 	{
 		let mut localization = app
 			.world_mut()
-			.resource_mut::<Localization<TestCatalog, Lazy>>();
+			.resource_mut::<Localization<TestCatalog, Manual>>();
 		localization.prepare_locale("de");
 		localization.set_locale("es");
 		assert_eq!(localization.preparation_status(), PreparationStatus::Idle);
@@ -285,22 +285,22 @@ fn embedded_manifest_preparation_publishes_no_target_resources_before_commit() {
 	app.add_plugins((
 		MinimalPlugins,
 		AssetPlugin::default(),
-		LocalizationPlugin::<TestCatalog>::new(super::manifest()),
+		LocalizationPlugin::<TestCatalog, crate::Full>::new(super::manifest()),
 	));
 	app.update();
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, crate::Full>>()
 		.prepare_locale("es");
 	app.update();
 	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
 	assert_eq!(
 		app.world()
-			.resource::<Localization<TestCatalog>>()
+			.resource::<Localization<TestCatalog, crate::Full>>()
 			.preparation_status(),
 		PreparationStatus::Ready
 	);
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, crate::Full>>()
 		.commit_locale()
 		.unwrap();
 	app.update();
@@ -356,21 +356,23 @@ fn filesystem_target_preparation_uses_normal_asset_loader_and_active_reload() {
 			watch_for_changes_override: Some(false),
 			..default()
 		},
-		LocalizationPlugin::<TestCatalog>::new(manifest),
+		LocalizationPlugin::<TestCatalog, crate::Full>::new(manifest),
 	));
 	app.finish();
 	app.cleanup();
 	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, crate::Full>>()
 		.prepare_locale("es");
 	pump(&mut app, |world| {
 		world
-			.resource::<Localization<TestCatalog>>()
+			.resource::<Localization<TestCatalog, crate::Full>>()
 			.preparation_status()
 			== PreparationStatus::Ready
 	});
-	let state = app.world().resource::<Localization<TestCatalog>>();
+	let state = app
+		.world()
+		.resource::<Localization<TestCatalog, crate::Full>>();
 	let entry = &state.preparation.as_ref().unwrap().entries["ui.ftl"];
 	assert!(entry.preparation_request.is_some());
 	assert!(
@@ -385,13 +387,15 @@ fn filesystem_target_preparation_uses_normal_asset_loader_and_active_reload() {
 	);
 	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, crate::Full>>()
 		.commit_locale()
 		.unwrap();
 	app.update();
 	assert_eq!(app.world().resource::<TestCatalog>().0, "es");
 	assert!(
-		app.world().resource::<Localization<TestCatalog>>().entries["ui.ftl"]
+		app.world()
+			.resource::<Localization<TestCatalog, crate::Full>>()
+			.entries["ui.ftl"]
 			.handle
 			.as_ref()
 			.unwrap()
@@ -403,7 +407,7 @@ fn filesystem_target_preparation_uses_normal_asset_loader_and_active_reload() {
 	// Commit reconnects the normal asset namespace asynchronously. Wait for
 	// that read to publish before exercising a separate explicit reload.
 	let normal_read_settled = |world: &World| {
-		let state = world.resource::<Localization<TestCatalog>>();
+		let state = world.resource::<Localization<TestCatalog, crate::Full>>();
 		let entry = &state.entries["ui.ftl"];
 		let asset = entry.handle.as_ref().and_then(|handle| {
 			world
@@ -439,7 +443,7 @@ fn filesystem_target_preparation_uses_normal_asset_loader_and_active_reload() {
 	pump(&mut app, |world| {
 		matches!(
 			world
-				.resource::<Localization<TestCatalog>>()
+				.resource::<Localization<TestCatalog, crate::Full>>()
 				.status::<TestCatalog>(),
 			crate::ModuleStatus::Failed(_)
 		)
@@ -584,8 +588,8 @@ fn preparation_preserves_foreign_ftl_loader_and_multiple_provider_namespaces() {
 	app.init_asset::<ForeignAsset>()
 		.register_asset_loader(ForeignLoader);
 	app.add_plugins((
-		LocalizationPlugin::<TestCatalog>::new(manifest.clone()),
-		LocalizationPlugin::<SecondCatalog>::new(manifest),
+		LocalizationPlugin::<TestCatalog, crate::Full>::new(manifest.clone()),
+		LocalizationPlugin::<SecondCatalog, crate::Full>::new(manifest),
 	));
 	app.finish();
 	app.cleanup();
@@ -602,27 +606,27 @@ fn preparation_preserves_foreign_ftl_loader_and_multiple_provider_namespaces() {
 			&& world.resource::<Assets<ForeignAsset>>().contains(&foreign)
 	});
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, crate::Full>>()
 		.prepare_locale("es");
 	app.world_mut()
-		.resource_mut::<Localization<SecondCatalog>>()
+		.resource_mut::<Localization<SecondCatalog, crate::Full>>()
 		.prepare_locale("es");
 	pump(&mut app, |world| {
 		world
-			.resource::<Localization<TestCatalog>>()
+			.resource::<Localization<TestCatalog, crate::Full>>()
 			.preparation_status()
 			== PreparationStatus::Ready
 			&& world
-				.resource::<Localization<SecondCatalog>>()
+				.resource::<Localization<SecondCatalog, crate::Full>>()
 				.preparation_status()
 				== PreparationStatus::Ready
 	});
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, crate::Full>>()
 		.commit_locale()
 		.unwrap();
 	app.world_mut()
-		.resource_mut::<Localization<SecondCatalog>>()
+		.resource_mut::<Localization<SecondCatalog, crate::Full>>()
 		.commit_locale()
 		.unwrap();
 	app.update();
@@ -678,8 +682,8 @@ fn matching_settings_on_another_catalog_loader_fail_without_entering_expected_lo
 		.add_plugins((
 			MinimalPlugins,
 			AssetPlugin::default(),
-			LocalizationPlugin::<TestCatalog>::new(manifest.clone()),
-			LocalizationPlugin::<SecondCatalog>::new(manifest),
+			LocalizationPlugin::<TestCatalog, crate::Full>::new(manifest.clone()),
+			LocalizationPlugin::<SecondCatalog, crate::Full>::new(manifest),
 		));
 	app.finish();
 	app.cleanup();
@@ -687,17 +691,19 @@ fn matching_settings_on_another_catalog_loader_fail_without_entering_expected_lo
 		world.contains_resource::<TestCatalog>() && world.contains_resource::<SecondCatalog>()
 	});
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, crate::Full>>()
 		.prepare_locale("es");
 	pump(&mut app, |world| {
 		matches!(
 			world
-				.resource::<Localization<TestCatalog>>()
+				.resource::<Localization<TestCatalog, crate::Full>>()
 				.preparation_status(),
 			PreparationStatus::Failed(_)
 		)
 	});
-	let state = app.world().resource::<Localization<TestCatalog>>();
+	let state = app
+		.world()
+		.resource::<Localization<TestCatalog, crate::Full>>();
 	let attempt = state.preparation.as_ref().unwrap().entries["ui.ftl"]
 		.preparation_attempt
 		.as_ref()
@@ -719,7 +725,7 @@ fn matching_settings_on_another_catalog_loader_fail_without_entering_expected_lo
 		1
 	);
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, crate::Full>>()
 		.cancel_preparation();
 	assert_eq!(
 		app.world()

@@ -2,11 +2,12 @@
 use crate::LocalizationManifest;
 use crate::bevy::{ecs as bevy_ecs, prelude::*};
 use crate::{
-	FluentCatalog, FluentScope, Lazy, Localization, LocalizedText, Message, Module, ModuleStore,
+	FluentCatalog, FluentScope, Localization, LocalizedText, Manual, Message, Module, ModuleStore,
 	ScopeRegistration, bindings,
 };
 use std::sync::Arc;
 
+mod automatic;
 #[cfg(feature = "manifest")]
 mod bindings_lifecycle;
 mod bytes;
@@ -21,6 +22,8 @@ mod progress;
 mod progress_registration;
 #[cfg(feature = "manifest")]
 mod scheduling;
+mod spans;
+mod switching;
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 mod template;
 #[cfg(feature = "manifest")]
@@ -85,8 +88,8 @@ fn manifest() -> LocalizationManifest {
 }
 
 #[test]
-fn selected_locale_releases_previous_data_but_keeps_logical_requests() {
-	let mut state = Localization::<TestCatalog, Lazy>::default();
+fn selected_locale_preserves_active_data_and_logical_requests_until_ready() {
+	let mut state = Localization::<TestCatalog, Manual>::default();
 	assert_eq!(state.locale(), "ja");
 	assert!(state.catalog().is_none());
 	state.load::<TestCatalog>();
@@ -95,7 +98,9 @@ fn selected_locale_releases_previous_data_but_keeps_logical_requests() {
 		.insert_leaf("ui.ftl", Arc::new(TestCatalog("ready".into())));
 	assert_eq!(state.catalog().unwrap().0, "ready");
 	state.set_locale("es");
-	assert!(state.catalog().is_none());
+	assert_eq!(state.catalog().unwrap().0, "ready");
+	assert_eq!(state.locale(), "ja");
+	assert_eq!(state.prepared_locale(), Some("es"));
 	assert!(state.desired().contains("ui.ftl"));
 	state.unload::<TestCatalog>();
 	assert!(state.desired().is_empty());
@@ -135,7 +140,7 @@ fn deferred_messages_refresh_and_clear_existing_ui_and_world_labels() {
 #[test]
 fn default_ui_respects_explicit_targets_and_waits_for_a_catalog() {
 	let mut app = App::new();
-	bindings::register::<TestCatalog>(&mut app);
+	bindings::register::<TestCatalog>(&mut app, false);
 	let binding = LocalizedText::<TestCatalog>::new(|catalog| catalog.0.clone());
 	let implicit = app.world_mut().spawn(binding.clone()).id();
 	let ui = app

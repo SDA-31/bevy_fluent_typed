@@ -35,7 +35,8 @@ This is Bevy's ordinary `source://path` syntax; `translations` is a name chosen 
 the application, not a built-in protocol or archive format. Only the requested FTL modules are read through that source. `parse` already
 supplied the TOML contract; the plugin does not fetch or watch the TOML.
 
-`add_localized_startup_systems(show_title)` waits until the reader has loaded
+In default Lazy, `add_localized_startup_systems(show_title)` requests the HUD
+and waits until the reader has loaded
 the HUD resource, then prints its typed message and exits. A separate
 `report_failure` system handles rejected loads while the resource is unavailable. The headless schedule runner replaces
 a window's event loop; no manual polling or test bookkeeping is needed in main.

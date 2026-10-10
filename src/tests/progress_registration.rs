@@ -2,8 +2,8 @@
 use super::TestCatalog;
 use crate::bevy::prelude::*;
 use crate::{
-	Lazy, Localization, LocalizationPlugin, LocalizationProgress, LocalizationProgressPlugin,
-	ModuleStatus, PreparationStatus,
+	Full, Localization, LocalizationPlugin, LocalizationProgress, LocalizationProgressPlugin,
+	Manual, ModuleStatus, PreparationStatus,
 };
 use std::{
 	sync::{
@@ -30,7 +30,7 @@ fn pump(app: &mut App, ready: impl Fn(&World) -> bool) {
 	}
 }
 
-fn plugin() -> LocalizationPlugin<TestCatalog> {
+fn plugin() -> LocalizationPlugin<TestCatalog, Full> {
 	LocalizationPlugin::from_bytes([
 		("ja", "ui.ftl", b"ja".as_slice()),
 		("es", "ui.ftl", b"es".as_slice()),
@@ -40,7 +40,7 @@ fn plugin() -> LocalizationPlugin<TestCatalog> {
 
 fn assert_untracked(world: &World) {
 	assert!(!world.contains_resource::<Progress>());
-	let state = world.resource::<Localization<TestCatalog>>();
+	let state = world.resource::<Localization<TestCatalog, Full>>();
 	assert!(!state.store.progress_version.enabled());
 	assert_eq!(state.store.progress_version.revision, 0);
 	assert!(!state.retry.enabled());
@@ -56,7 +56,7 @@ fn loading_and_passive_queries_do_not_enable_recurring_progress() {
 	assert_untracked(app.world());
 	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, Full>>()
 		.set_locale("es");
 	pump(&mut app, |world| {
 		world
@@ -68,7 +68,7 @@ fn loading_and_passive_queries_do_not_enable_recurring_progress() {
 		app.update();
 		let counts = app
 			.world()
-			.resource::<Localization<TestCatalog>>()
+			.resource::<Localization<TestCatalog, Full>>()
 			.progress::<TestCatalog>();
 		assert_eq!(counts.ready, 1);
 		assert_eq!(counts.locale, "es");
@@ -77,13 +77,13 @@ fn loading_and_passive_queries_do_not_enable_recurring_progress() {
 }
 
 #[test]
-fn request_before_plugin_infers_lazy_mode_and_repeated_request_preserves_the_resource() {
+fn request_before_plugin_infers_manual_mode_and_repeated_request_preserves_the_resource() {
 	let mut app = App::new();
 	app.add_plugins(MinimalPlugins)
 		.add_plugins(LocalizationProgressPlugin::<TestCatalog>::new());
 	assert!(!app.world().contains_resource::<Progress>());
 	app.add_plugins(
-		LocalizationPlugin::<TestCatalog, Lazy>::from_bytes([("ja", "ui.ftl", b"ja".as_slice())])
+		LocalizationPlugin::<TestCatalog, Manual>::from_bytes([("ja", "ui.ftl", b"ja".as_slice())])
 			.unwrap(),
 	);
 	assert_eq!(app.world().resource::<Progress>().active().total, 0);
@@ -111,7 +111,7 @@ fn request_before_plugin_infers_lazy_mode_and_repeated_request_preserves_the_res
 	app.update();
 	assert!(ran.load(Ordering::Relaxed));
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
 	pump(&mut app, |world| {
 		world.resource::<Progress>().active().ready == 1
@@ -142,7 +142,7 @@ fn request_before_plugin_infers_lazy_mode_and_repeated_request_preserves_the_res
 #[test]
 fn plugin_snapshots_preloaded_active_and_prepared_data_and_idle_publication_keeps_controller_ticks()
 {
-	let mut state = Localization::<TestCatalog>::default();
+	let mut state = Localization::<TestCatalog, Full>::default();
 	state
 		.store
 		.insert_leaf("ui.ftl", Arc::new(TestCatalog("ja".into())));
@@ -160,7 +160,7 @@ fn plugin_snapshots_preloaded_active_and_prepared_data_and_idle_publication_keep
 	assert_untracked(app.world());
 	assert!(
 		!app.world()
-			.resource::<Localization<TestCatalog>>()
+			.resource::<Localization<TestCatalog, Full>>()
 			.preparation
 			.as_ref()
 			.unwrap()
@@ -177,7 +177,7 @@ fn plugin_snapshots_preloaded_active_and_prepared_data_and_idle_publication_keep
 	assert_eq!(progress.preparation_status(), &PreparationStatus::Ready);
 	let controller_tick = app
 		.world()
-		.get_resource_ref::<Localization<TestCatalog>>()
+		.get_resource_ref::<Localization<TestCatalog, Full>>()
 		.unwrap()
 		.last_changed();
 	let progress_tick = app
@@ -189,7 +189,7 @@ fn plugin_snapshots_preloaded_active_and_prepared_data_and_idle_publication_keep
 	crate::progress::publish::<TestCatalog, crate::Full>(app.world_mut());
 	assert_eq!(
 		app.world()
-			.get_resource_ref::<Localization<TestCatalog>>()
+			.get_resource_ref::<Localization<TestCatalog, Full>>()
 			.unwrap()
 			.last_changed(),
 		controller_tick

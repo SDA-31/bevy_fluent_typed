@@ -161,13 +161,15 @@ fn explicit_contract_named_source_and_last_good_recovery_work_without_codegen() 
 		},
 	))
 	.init_resource::<Failures>()
-	.add_plugins(LocalizationPlugin::<OpaqueProvider>::new(manifest()))
+	.add_plugins(LocalizationPlugin::<OpaqueProvider, crate::Full>::new(
+		manifest(),
+	))
 	.add_systems(PreUpdate, observe.after(LocalizationSystems::Publish));
 	app.finish();
 	app.cleanup();
 	pump_until(&mut app, |world| {
 		world
-			.resource::<Localization<OpaqueProvider>>()
+			.resource::<Localization<OpaqueProvider, crate::Full>>()
 			.catalog()
 			.is_some_and(|catalog| catalog.0 == "External")
 	});
@@ -181,7 +183,7 @@ fn explicit_contract_named_source_and_last_good_recovery_work_without_codegen() 
 	pump_until(&mut app, |world| world.resource::<Failures>().0 > 0);
 	assert_eq!(
 		app.world()
-			.resource::<Localization<OpaqueProvider>>()
+			.resource::<Localization<OpaqueProvider, crate::Full>>()
 			.catalog()
 			.unwrap()
 			.0,
@@ -192,7 +194,7 @@ fn explicit_contract_named_source_and_last_good_recovery_work_without_codegen() 
 	request_reload(app.world_mut());
 	pump_until(&mut app, |world| {
 		world
-			.resource::<Localization<OpaqueProvider>>()
+			.resource::<Localization<OpaqueProvider, crate::Full>>()
 			.catalog()
 			.is_some_and(|catalog| catalog.0 == "Not yet published")
 	});
@@ -233,13 +235,15 @@ fn virtual_source_without_files_or_watcher_reloads_and_recovers_from_missing_mod
 			},
 		))
 		.init_resource::<Failures>()
-		.add_plugins(LocalizationPlugin::<OpaqueProvider>::new(manifest()))
+		.add_plugins(LocalizationPlugin::<OpaqueProvider, crate::Full>::new(
+			manifest(),
+		))
 		.add_systems(PreUpdate, observe.after(LocalizationSystems::Publish));
 	app.finish();
 	app.cleanup();
 	pump_until(&mut app, |world| {
 		world
-			.resource::<Localization<OpaqueProvider>>()
+			.resource::<Localization<OpaqueProvider, crate::Full>>()
 			.catalog()
 			.is_some_and(|catalog| catalog.0 == "Virtual")
 	});
@@ -248,7 +252,7 @@ fn virtual_source_without_files_or_watcher_reloads_and_recovers_from_missing_mod
 	pump_until(&mut app, |world| world.resource::<Failures>().0 == 1);
 	assert_eq!(
 		app.world()
-			.resource::<Localization<OpaqueProvider>>()
+			.resource::<Localization<OpaqueProvider, crate::Full>>()
 			.catalog()
 			.unwrap()
 			.0,
@@ -261,7 +265,7 @@ fn virtual_source_without_files_or_watcher_reloads_and_recovers_from_missing_mod
 	request_reload(app.world_mut());
 	pump_until(&mut app, |world| {
 		world
-			.resource::<Localization<OpaqueProvider>>()
+			.resource::<Localization<OpaqueProvider, crate::Full>>()
 			.catalog()
 			.is_some_and(|catalog| catalog.0 == "Recovered")
 	});
@@ -281,19 +285,37 @@ fn named_source_address_index_distinguishes_locales_for_the_same_module() {
 	let mut app = App::new();
 	app.register_asset_source("test", memory_source(files))
 		.add_plugins((MinimalPlugins, AssetPlugin::default()))
-		.add_plugins(LocalizationPlugin::<OpaqueProvider>::new(manifest()));
+		.add_plugins(LocalizationPlugin::<OpaqueProvider, crate::Full>::new(
+			manifest(),
+		));
 	app.finish();
 	app.cleanup();
 
 	for (locale, expected) in [("en", "English"), ("fr", "French"), ("en", "English")] {
 		app.world_mut()
-			.resource_mut::<Localization<OpaqueProvider>>()
+			.resource_mut::<Localization<OpaqueProvider, crate::Full>>()
 			.set_locale(locale);
 		pump_until(&mut app, |world| {
 			world
-				.resource::<Localization<OpaqueProvider>>()
+				.resource::<Localization<OpaqueProvider, crate::Full>>()
 				.catalog()
 				.is_some_and(|catalog| catalog.0 == expected)
+		});
+
+		// Publication reconnects a normal asset read for watching. Wait for its
+		// candidate to be accepted before treating subsequent frames as idle.
+		pump_until(&mut app, |world| {
+			let state = world.resource::<Localization<OpaqueProvider, crate::Full>>();
+			let entry = &state.entries["ui/title.ftl"];
+			let asset = entry.handle.as_ref().and_then(|handle| {
+				world
+					.resource::<Assets<crate::assets::ModuleAsset<OpaqueProvider>>>()
+					.get(handle)
+			});
+
+			!entry.pending
+				&& state.retry.is_empty()
+				&& asset.is_some_and(|asset| entry.accepted == Some(asset.revision))
 		});
 	}
 
@@ -305,7 +327,7 @@ fn named_source_address_index_distinguishes_locales_for_the_same_module() {
 
 	let changed = app
 		.world()
-		.get_resource_ref::<Localization<OpaqueProvider>>()
+		.get_resource_ref::<Localization<OpaqueProvider, crate::Full>>()
 		.unwrap()
 		.last_changed();
 
@@ -315,7 +337,7 @@ fn named_source_address_index_distinguishes_locales_for_the_same_module() {
 
 	assert_eq!(
 		app.world()
-			.get_resource_ref::<Localization<OpaqueProvider>>()
+			.get_resource_ref::<Localization<OpaqueProvider, crate::Full>>()
 			.unwrap()
 			.last_changed(),
 		changed

@@ -70,13 +70,6 @@ impl ObservedSet {
 
 		changed
 	}
-
-	pub(crate) fn clear(&mut self) {
-		if !self.paths.is_empty() {
-			self.paths.clear();
-			self.changed();
-		}
-	}
 }
 
 impl Extend<&'static str> for ObservedSet {

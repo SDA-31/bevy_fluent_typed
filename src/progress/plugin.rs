@@ -6,7 +6,7 @@ use std::marker::PhantomData;
 /// Observe a scope and all its descendants without requesting translations.
 ///
 /// Add through `App::add_plugins`. The owning localization plugin supplies the
-/// Full/Lazy mode; either plugin order is supported. Multiple scopes of one
+/// Lazy/Full/Manual mode; either plugin order is supported. Multiple scopes of one
 /// provider share a tracker, and repeated registration of a scope is idempotent.
 /// Register during App setup, before `App::finish` or `App::cleanup`.
 /// The selected scope and every registered descendant get their own

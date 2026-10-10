@@ -39,7 +39,7 @@ messages, typed arguments and live edits see the larger [integration suite](../m
 
 The application declares `const EMBEDDED = Translations;` inside
 `texts::embed_manifest!`, passes that manifest to the plugin and parses the
-selected language during an update. [tests/output.rs](tests/output.rs) checks the executable's three greetings; there is no test collection wrapper in main.
+selected language when its inserted `LocalizedText<Greeting>` needs it during an update. [tests/output.rs](tests/output.rs) checks the executable's three greetings; there is no test collection wrapper in main.
 
 [MIT](LICENSE).
 
@@ -55,9 +55,11 @@ cargo run --manifest-path examples/codegen/Cargo.toml --bin bytes
 to `LocalizationPlugin::from_bytes` and prints the same three greetings using
 ordinary generated resources. It deliberately embeds its small input with
 `include_bytes!`; no runtime manifest or AssetPlugin is required. The buffers
-are retained for repeat loads. This example uses `Full` and keeps the selected
-language ready. For on-demand reading and unloading, follow the
-[Lazy guide](../../GUIDE.md#fully-lazy-complete-mainrs) using Bevy's asset system;
+are retained for repeat loads. Default Lazy requests the greeting scope through
+the inserted `LocalizedText<Greeting>` binding and keeps it ready while that
+binding exists. World inspection alone does not create demand. For on-demand
+file reading and module lifetime, use [Lazy](../../GUIDE.md#automatic-module-lifetime)
+and Bevy's asset system;
 custom storage belongs in an [asset source](../../docs/asset-sources.md).
 
 ## Observe native loading progress
@@ -78,7 +80,8 @@ The example orders PostUpdate observation after `LocalizationSystems::Progress`.
 Root counts follow current demand; leaf counts describe its fixed unique schema,
 including unrequested leaves. Preparation readiness is provider-wide in both
 views because a locale commit affects the provider, not one leaf.
-It loads the English catalog in default Full mode, prepares Spanish while English
+This advanced demonstration selects explicit Full for eager loading, prepares
+Spanish while English
 remains usable, explicitly commits when preparation is ready, and verifies that
 idle frames do not update the observer. Counts describe modules, not downloaded
 bytes; progress is the latest snapshot, not a notification history.

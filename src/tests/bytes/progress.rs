@@ -106,18 +106,21 @@ fn full_loading_and_ordinary_locale_selection_publish_without_idle_observer_runs
 	assert_idle(&mut app, &calls);
 
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, Full>>()
 		.set_locale("es");
 	pump(&mut app, |_| source.count() == 2);
 	let progress = app.world().resource::<Progress>();
-	assert_eq!(progress.active().locale, "es");
-	assert_eq!(progress.active().loading, 1);
-	assert_eq!(progress.active().available, 0);
-	assert!(progress.preparation().is_none());
-	assert!(!app.world().contains_resource::<TestCatalog>());
+	assert_eq!(progress.active().locale, "ja");
+	assert_eq!(progress.active().ready, 1);
+	assert_eq!(progress.active().available, 1);
+	assert_eq!(progress.preparation().unwrap().locale, "es");
+	assert_eq!(progress.preparation().unwrap().loading, 1);
+	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
+
 	source.release(1);
 	pump(&mut app, |world| {
-		world.resource::<Progress>().active().ready == 1
+		let active = world.resource::<Progress>().active();
+		active.locale == "es" && active.ready == 1
 	});
 	assert_eq!(app.world().resource::<TestCatalog>().0, "es");
 	assert_idle(&mut app, &calls);
@@ -132,7 +135,7 @@ fn prepare_failure_retry_cancel_and_commit_keep_active_progress_independent() {
 		world.resource::<Progress>().active().ready == 1
 	});
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, Full>>()
 		.prepare_locale("ja");
 	app.update();
 	let progress = app.world().resource::<Progress>();
@@ -141,7 +144,7 @@ fn prepare_failure_retry_cancel_and_commit_keep_active_progress_independent() {
 	assert_eq!(source.count(), 1);
 	#[cfg(feature = "diagnostics")]
 	{
-		let state = app.world().resource::<Localization<TestCatalog>>();
+		let state = app.world().resource::<Localization<TestCatalog, Full>>();
 		assert_eq!(
 			state.preparation_diagnostics::<TestCatalog>().unwrap(),
 			state.diagnostics::<TestCatalog>()
@@ -149,14 +152,14 @@ fn prepare_failure_retry_cancel_and_commit_keep_active_progress_independent() {
 	}
 	assert_idle(&mut app, &calls);
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, Full>>()
 		.cancel_preparation();
 	app.update();
 	assert!(app.world().resource::<Progress>().preparation().is_none());
 
 	source.fail.store(true, Ordering::Release);
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, Full>>()
 		.prepare_locale("es");
 	pump(&mut app, |_| source.count() == 2);
 	let progress = app.world().resource::<Progress>();
@@ -183,7 +186,7 @@ fn prepare_failure_retry_cancel_and_commit_keep_active_progress_independent() {
 	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
 	#[cfg(feature = "diagnostics")]
 	{
-		let state = app.world().resource::<Localization<TestCatalog>>();
+		let state = app.world().resource::<Localization<TestCatalog, Full>>();
 		assert_eq!(
 			state.diagnostics::<TestCatalog>()[0].status,
 			crate::ModuleStatus::Ready
@@ -196,7 +199,7 @@ fn prepare_failure_retry_cancel_and_commit_keep_active_progress_independent() {
 
 	source.fail.store(false, Ordering::Release);
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, Full>>()
 		.prepare_locale("es");
 	pump(&mut app, |_| source.count() == 3);
 	assert_eq!(
@@ -226,7 +229,7 @@ fn prepare_failure_retry_cancel_and_commit_keep_active_progress_independent() {
 	assert_idle(&mut app, &calls);
 
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog>>()
+		.resource_mut::<Localization<TestCatalog, Full>>()
 		.commit_locale()
 		.unwrap();
 	app.update();
@@ -238,7 +241,7 @@ fn prepare_failure_retry_cancel_and_commit_keep_active_progress_independent() {
 	#[cfg(feature = "diagnostics")]
 	assert!(
 		app.world()
-			.resource::<Localization<TestCatalog>>()
+			.resource::<Localization<TestCatalog, Full>>()
 			.preparation_diagnostics::<TestCatalog>()
 			.is_none()
 	);
@@ -269,7 +272,7 @@ fn failed_active_reload_retains_availability_and_controller_replacement_resets_i
 	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
 	#[cfg(feature = "diagnostics")]
 	{
-		let state = app.world().resource::<Localization<TestCatalog>>();
+		let state = app.world().resource::<Localization<TestCatalog, Full>>();
 		let modules = state.diagnostics::<TestCatalog>();
 		assert!(matches!(modules[0].status, crate::ModuleStatus::Failed(_)));
 		assert!(modules[0].usable);
@@ -279,7 +282,7 @@ fn failed_active_reload_retains_availability_and_controller_replacement_resets_i
 
 	source.fail.store(false, Ordering::Release);
 	app.world_mut()
-		.insert_resource(Localization::<TestCatalog>::default());
+		.insert_resource(Localization::<TestCatalog, Full>::default());
 	pump(&mut app, |_| source.count() == 3);
 	assert_eq!(app.world().resource::<Progress>().active().available, 0);
 	assert_eq!(app.world().resource::<Progress>().active().loading, 1);

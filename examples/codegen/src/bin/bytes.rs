@@ -1,6 +1,6 @@
 //! Generated accessors with application-supplied bytes; no runtime manifest.
 use bevy_fluent_typed::bevy::prelude::*;
-use bevy_fluent_typed::{Localization, LocalizationPlugin};
+use bevy_fluent_typed::{Localization, LocalizationPlugin, LocalizedText};
 
 bevy_fluent_typed::translations!(mod texts);
 
@@ -25,6 +25,10 @@ fn main() {
 	.expect("known locale/module keys");
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, plugin));
+	app.world_mut()
+		.spawn(LocalizedText::<texts::ui::Greeting>::new(|greeting| {
+			greeting.msg_hello()
+		}));
 	app.finish();
 	app.cleanup();
 
@@ -34,11 +38,14 @@ fn main() {
 			.set_locale(locale);
 		let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
 
+		// This headless demo drives Bevy frames manually; normal apps use App::run().
+		// Each update lets Bevy publish completed loads and refresh localized text.
 		loop {
 			app.update();
 
-			if let Some(greeting) = app.world().get_resource::<texts::ui::Greeting>() {
-				// Publication removed the previous-language resource before this read.
+			if let Some(greeting) = app.world().get_resource::<texts::ui::Greeting>()
+				&& greeting.locale() == locale
+			{
 				println!("{}", greeting.msg_hello());
 				break;
 			}

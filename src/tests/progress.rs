@@ -2,7 +2,7 @@ use super::TestCatalog;
 #[cfg(feature = "diagnostics")]
 use crate::ModuleStatus;
 use crate::bevy::{ecs as bevy_ecs, prelude::*};
-use crate::{FluentScope, Lazy, Localization, LocalizationPlugin, ModuleStore, ReloadCatalogs};
+use crate::{FluentScope, Localization, LocalizationPlugin, Manual, ModuleStore, ReloadCatalogs};
 use std::{
 	sync::{Arc, Mutex},
 	time::{Duration, Instant},
@@ -40,7 +40,7 @@ impl FluentScope for Empty {
 
 #[test]
 fn inspection_deduplicates_paths_and_does_not_request_unknown_or_empty_scopes() {
-	let mut state = Localization::<TestCatalog, Lazy>::default();
+	let mut state = Localization::<TestCatalog, Manual>::default();
 	let progress = state.progress::<Repeated>();
 	assert_eq!(progress.locale, "ja");
 	assert_eq!(progress.total, 2);
@@ -110,7 +110,7 @@ fn pump(app: &mut App, ready: impl Fn(&World) -> bool) {
 fn failed_reload_diagnostics_keep_errors_and_last_good_availability_until_unload() {
 	let data = Arc::new(Mutex::new(Ok(b"first".to_vec())));
 	let source = data.clone();
-	let plugin = LocalizationPlugin::<TestCatalog, Lazy>::from_loader(move |_, _| {
+	let plugin = LocalizationPlugin::<TestCatalog, Manual>::from_loader(move |_, _| {
 		std::future::ready(source.lock().unwrap().clone())
 	});
 	let mut app = App::new();
@@ -118,7 +118,7 @@ fn failed_reload_diagnostics_keep_errors_and_last_good_availability_until_unload
 	app.finish();
 	app.cleanup();
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
 	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
 
@@ -135,11 +135,11 @@ fn failed_reload_diagnostics_keep_errors_and_last_good_availability_until_unload
 			.write_message(ReloadCatalogs::<TestCatalog>::default());
 		pump(&mut app, |world| {
 			world
-				.resource::<Localization<TestCatalog, Lazy>>()
+				.resource::<Localization<TestCatalog, Manual>>()
 				.progress::<TestCatalog>()
 				.failed == 1
 		});
-		let state = app.world().resource::<Localization<TestCatalog, Lazy>>();
+		let state = app.world().resource::<Localization<TestCatalog, Manual>>();
 		let progress = state.progress::<TestCatalog>();
 		assert_eq!(progress.total, 1);
 		assert_eq!(progress.failed, 1);
@@ -160,12 +160,12 @@ fn failed_reload_diagnostics_keep_errors_and_last_good_availability_until_unload
 	}
 
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.unload::<TestCatalog>();
 	app.update();
 	let progress = app
 		.world()
-		.resource::<Localization<TestCatalog, Lazy>>()
+		.resource::<Localization<TestCatalog, Manual>>()
 		.progress::<TestCatalog>();
 	assert_eq!(progress.total, 1);
 	assert_eq!(progress.unloaded, 1);
@@ -174,7 +174,7 @@ fn failed_reload_diagnostics_keep_errors_and_last_good_availability_until_unload
 	#[cfg(feature = "diagnostics")]
 	assert!(
 		!app.world()
-			.resource::<Localization<TestCatalog, Lazy>>()
+			.resource::<Localization<TestCatalog, Manual>>()
 			.diagnostics::<TestCatalog>()[0]
 			.usable
 	);

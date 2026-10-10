@@ -1,7 +1,7 @@
 use super::TestCatalog;
 use crate::bevy::prelude::*;
 use crate::{
-	Lazy, Localization, LocalizationAppExt, LocalizationPlugin, LocalizedText, ModuleStatus,
+	Localization, LocalizationAppExt, LocalizationPlugin, LocalizedText, Manual, ModuleStatus,
 };
 use std::{
 	any::TypeId,
@@ -16,7 +16,7 @@ use std::{
 mod progress;
 mod tree;
 
-fn pump(app: &mut App, ready: impl Fn(&World) -> bool) {
+pub(super) fn pump(app: &mut App, ready: impl Fn(&World) -> bool) {
 	let deadline = Instant::now() + Duration::from_secs(10);
 
 	loop {
@@ -93,12 +93,12 @@ fn bytes_publish_checked_resources_and_bindings_without_asset_plugin() {
 		matches!(
 			world
 				.resource::<Localization<TestCatalog>>()
-				.status::<TestCatalog>(),
-			ModuleStatus::Failed(_)
+				.preparation_status(),
+			crate::PreparationStatus::Failed(_)
 		)
 	});
-	assert!(!app.world().contains_resource::<TestCatalog>());
-	assert!(app.world().get::<Text>(label).unwrap().0.is_empty());
+	assert_eq!(app.world().resource::<TestCatalog>().0, "Japanese");
+	assert_eq!(app.world().get::<Text>(label).unwrap().0, "Japanese");
 }
 
 #[test]
@@ -148,7 +148,7 @@ type Requests = Arc<Mutex<Vec<(&'static str, Arc<Gate>)>>>;
 fn controlled() -> (App, Requests) {
 	let requests = Requests::default();
 	let observed = requests.clone();
-	let plugin = LocalizationPlugin::<TestCatalog, Lazy>::from_loader(move |locale, path| {
+	let plugin = LocalizationPlugin::<TestCatalog, Manual>::from_loader(move |locale, path| {
 		assert_eq!(path, "ui.ftl");
 		let gate = Arc::new(Gate::default());
 		observed.lock().unwrap().push((locale, gate.clone()));
@@ -162,7 +162,7 @@ fn controlled() -> (App, Requests) {
 }
 
 #[test]
-fn lazy_loader_waits_for_demand_and_discards_old_locale_completion() {
+fn manual_loader_waits_for_demand_and_discards_old_locale_completion() {
 	let (mut app, requests) = controlled();
 	let runs = Arc::new(AtomicUsize::new(0));
 	let observed = runs.clone();
@@ -177,24 +177,27 @@ fn lazy_loader_waits_for_demand_and_discards_old_locale_completion() {
 	assert!(requests.lock().unwrap().is_empty());
 	assert_eq!(runs.load(Ordering::Relaxed), 0);
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
 	pump(&mut app, |_| requests.lock().unwrap().len() == 1);
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
 	app.update();
 	assert_eq!(requests.lock().unwrap().len(), 1);
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.set_locale("es");
 	pump(&mut app, |_| requests.lock().unwrap().len() == 2);
 	requests.lock().unwrap()[0].1.release();
-	app.update();
-	assert!(!app.world().contains_resource::<TestCatalog>());
-	assert_eq!(runs.load(Ordering::Relaxed), 0);
-	requests.lock().unwrap()[1].1.release();
 	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
+	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
+	requests.lock().unwrap()[1].1.release();
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<TestCatalog, Manual>>()
+			.locale() == "es"
+	});
 	assert_eq!(app.world().resource::<TestCatalog>().0, "es");
 
 	for _ in 0..3 {
@@ -207,15 +210,15 @@ fn lazy_loader_waits_for_demand_and_discards_old_locale_completion() {
 fn unloaded_request_cannot_satisfy_a_new_request_for_the_same_leaf() {
 	let (mut app, requests) = controlled();
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
 	pump(&mut app, |_| requests.lock().unwrap().len() == 1);
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.unload::<TestCatalog>();
 	app.update();
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
 	pump(&mut app, |_| requests.lock().unwrap().len() == 2);
 	requests.lock().unwrap()[0].1.release();
@@ -230,7 +233,7 @@ fn unloaded_request_cannot_satisfy_a_new_request_for_the_same_leaf() {
 fn pending_reload_requests_coalesce_into_one_fresh_fetch() {
 	let (mut app, requests) = controlled();
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
 	pump(&mut app, |_| requests.lock().unwrap().len() == 1);
 
@@ -246,14 +249,14 @@ fn pending_reload_requests_coalesce_into_one_fresh_fetch() {
 	requests.lock().unwrap()[1].1.release();
 	pump(&mut app, |world| {
 		world
-			.resource::<Localization<TestCatalog, Lazy>>()
+			.resource::<Localization<TestCatalog, Manual>>()
 			.status::<TestCatalog>()
 			== ModuleStatus::Ready
 	});
 	assert_eq!(requests.lock().unwrap().len(), 2);
 	assert!(
 		app.world()
-			.resource::<Localization<TestCatalog, Lazy>>()
+			.resource::<Localization<TestCatalog, Manual>>()
 			.retry
 			.is_empty()
 	);
@@ -263,11 +266,11 @@ fn pending_reload_requests_coalesce_into_one_fresh_fetch() {
 fn load_and_parse_failures_keep_last_good_data_and_can_retry() {
 	let data = Arc::new(Mutex::new(Ok(b"first".to_vec())));
 	let source = data.clone();
-	let mut app = app(LocalizationPlugin::<TestCatalog, Lazy>::from_loader(
+	let mut app = app(LocalizationPlugin::<TestCatalog, Manual>::from_loader(
 		move |_, _| std::future::ready(source.lock().unwrap().clone()),
 	));
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
 	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
 
@@ -279,14 +282,14 @@ fn load_and_parse_failures_keep_last_good_data_and_can_retry() {
 		reload(&mut app);
 		pump(
 			&mut app,
-			|world| matches!(world.resource::<Localization<TestCatalog, Lazy>>().status::<TestCatalog>(), ModuleStatus::Failed(ref error) if error.starts_with(expected)),
+			|world| matches!(world.resource::<Localization<TestCatalog, Manual>>().status::<TestCatalog>(), ModuleStatus::Failed(ref error) if error.starts_with(expected)),
 		);
 		assert_eq!(app.world().resource::<TestCatalog>().0, "first");
 	}
 
 	*data.lock().unwrap() = Ok(b"repaired".to_vec());
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
 	pump(&mut app, |world| {
 		world.resource::<TestCatalog>().0 == "repaired"
@@ -314,7 +317,7 @@ impl Drop for Buffer {
 fn loader_releases_input_after_parse_and_unload_releases_its_snapshot() {
 	let live = Arc::new(AtomicUsize::new(0));
 	let counter = live.clone();
-	let mut app = app(LocalizationPlugin::<TestCatalog, Lazy>::from_loader(
+	let mut app = app(LocalizationPlugin::<TestCatalog, Manual>::from_loader(
 		move |_, _| {
 			counter.fetch_add(1, Ordering::Relaxed);
 			std::future::ready(Ok::<_, String>(Buffer {
@@ -324,26 +327,26 @@ fn loader_releases_input_after_parse_and_unload_releases_its_snapshot() {
 		},
 	));
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
 	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
 	assert_eq!(live.load(Ordering::Relaxed), 0);
 	let weak = Arc::downgrade(
 		&app.world()
-			.resource::<Localization<TestCatalog, Lazy>>()
+			.resource::<Localization<TestCatalog, Manual>>()
 			.store
 			.values[&TypeId::of::<TestCatalog>()]
 			.value,
 	);
 	app.world_mut()
-		.resource_mut::<Localization<TestCatalog, Lazy>>()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.unload::<TestCatalog>();
 	app.update();
 	assert!(weak.upgrade().is_none());
 	assert!(!app.world().contains_resource::<TestCatalog>());
 	assert_eq!(
 		app.world()
-			.resource::<Localization<TestCatalog, Lazy>>()
+			.resource::<Localization<TestCatalog, Manual>>()
 			.pending,
 		0
 	);

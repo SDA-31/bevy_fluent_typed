@@ -2,8 +2,8 @@
 use super::{Hud, Other, Panel, Presentation, Root, Singleton, configured, pump};
 use crate::bevy::prelude::*;
 use crate::{
-	FluentScope, Lazy, Localization, LocalizationPlugin, LocalizationProgress,
-	LocalizationProgressPlugin, PreparationStatus,
+	FluentScope, Localization, LocalizationPlugin, LocalizationProgress,
+	LocalizationProgressPlugin, Manual, PreparationStatus,
 };
 use std::sync::{
 	Arc,
@@ -21,7 +21,7 @@ fn recursive_root_plugin_shares_schedules_and_does_not_load_unrequested_files() 
 		.add_plugins(LocalizationProgressPlugin::<Root>::new());
 	assert!(!app.world().contains_resource::<LocalizationProgress<Hud>>());
 
-	app.add_plugins(LocalizationPlugin::<Root, Lazy>::from_loader(
+	app.add_plugins(LocalizationPlugin::<Root, Manual>::from_loader(
 		move |locale, path| {
 			observed.fetch_add(1, Ordering::Relaxed);
 			std::future::ready(Ok::<_, String>(format!("{locale}:{path}").into_bytes()))
@@ -101,7 +101,7 @@ fn recursive_root_plugin_shares_schedules_and_does_not_load_unrequested_files() 
 	assert!(!app.world().contains_resource::<Hud>());
 
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.load::<Hud>();
 	pump(&mut app, |world| {
 		world.resource::<LocalizationProgress<Hud>>().active().ready == 1
@@ -129,7 +129,7 @@ fn recursive_root_plugin_shares_schedules_and_does_not_load_unrequested_files() 
 		.last_changed();
 
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.load::<Other>();
 	pump(&mut app, |world| world.contains_resource::<Other>());
 	assert_eq!(
@@ -148,7 +148,7 @@ fn recursive_root_plugin_shares_schedules_and_does_not_load_unrequested_files() 
 	);
 
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.prepare_locale("es");
 	pump(&mut app, |world| {
 		world
@@ -162,7 +162,7 @@ fn recursive_root_plugin_shares_schedules_and_does_not_load_unrequested_files() 
 	assert_eq!(group.preparation_status(), &PreparationStatus::Ready);
 
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.commit_locale()
 		.unwrap();
 	app.update();
@@ -184,7 +184,7 @@ fn recursive_root_plugin_shares_schedules_and_does_not_load_unrequested_files() 
 	let weak = Arc::downgrade(&app.world().resource::<Hud>().0);
 
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.unload::<Hud>();
 	app.update();
 	assert!(weak.upgrade().is_none());
@@ -202,7 +202,7 @@ fn ready_scope_counters_cannot_hide_another_requested_modules_preparation_failur
 	let mut app = App::new();
 	app.add_plugins((
 		MinimalPlugins,
-		LocalizationPlugin::<Root>::from_bytes([
+		LocalizationPlugin::<Root, crate::Full>::from_bytes([
 			("en", Hud::module_paths()[0], b"hud".as_slice()),
 			("en", Panel::module_paths()[0], b"panel".as_slice()),
 			("en", Other::module_paths()[0], b"other".as_slice()),
@@ -223,7 +223,7 @@ fn ready_scope_counters_cannot_hide_another_requested_modules_preparation_failur
 	);
 
 	app.world_mut()
-		.resource_mut::<Localization<Root>>()
+		.resource_mut::<Localization<Root, crate::Full>>()
 		.prepare_locale("es");
 	pump(&mut app, |world| {
 		let hud = world.resource::<LocalizationProgress<Hud>>();
@@ -241,13 +241,13 @@ fn ready_scope_counters_cannot_hide_another_requested_modules_preparation_failur
 	);
 	assert!(
 		app.world_mut()
-			.resource_mut::<Localization<Root>>()
+			.resource_mut::<Localization<Root, crate::Full>>()
 			.commit_locale()
 			.is_err()
 	);
 
 	app.world_mut()
-		.resource_mut::<Localization<Root>>()
+		.resource_mut::<Localization<Root, crate::Full>>()
 		.cancel_preparation();
 	app.update();
 	assert!(
@@ -258,7 +258,7 @@ fn ready_scope_counters_cannot_hide_another_requested_modules_preparation_failur
 	);
 
 	app.world_mut()
-		.resource_mut::<Localization<Root>>()
+		.resource_mut::<Localization<Root, crate::Full>>()
 		.prepare_locale("en");
 	app.update();
 	let hud = app.world().resource::<LocalizationProgress<Hud>>();
@@ -275,14 +275,18 @@ fn scope_subscriptions_bind_to_their_own_provider_and_loading_mode() {
 		MinimalPlugins,
 		LocalizationProgressPlugin::<Hud>::new(),
 		LocalizationProgressPlugin::<TestCatalog>::new(),
-		LocalizationPlugin::<Root, Lazy>::from_bytes([(
+		LocalizationPlugin::<Root, Manual>::from_bytes([(
 			"en",
 			Hud::module_paths()[0],
 			b"hud".as_slice(),
 		)])
 		.unwrap(),
-		LocalizationPlugin::<TestCatalog>::from_bytes([("ja", "ui.ftl", b"ja".as_slice())])
-			.unwrap(),
+		LocalizationPlugin::<TestCatalog, crate::Full>::from_bytes([(
+			"ja",
+			"ui.ftl",
+			b"ja".as_slice(),
+		)])
+		.unwrap(),
 	));
 
 	app.finish();
@@ -325,7 +329,7 @@ fn scope_subscriptions_bind_to_their_own_provider_and_loading_mode() {
 		.last_changed();
 
 	app.world_mut()
-		.resource_mut::<Localization<Root, Lazy>>()
+		.resource_mut::<Localization<Root, Manual>>()
 		.load::<Hud>();
 	pump(&mut app, |world| world.contains_resource::<Hud>());
 	assert_eq!(
