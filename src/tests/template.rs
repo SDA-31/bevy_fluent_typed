@@ -60,6 +60,6 @@ fn default_template_requires_an_explicit_message() {
 	assert!(
 		error
 			.to_string()
-			.contains("LocalizedText requires a message")
+			.contains("LocalizedText requires a formatting closure or Message")
 	);
 }

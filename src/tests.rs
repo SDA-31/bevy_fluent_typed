@@ -13,6 +13,7 @@ mod bytes;
 mod documentation;
 #[cfg(feature = "manifest")]
 mod lazy;
+mod leases;
 #[cfg(feature = "manifest")]
 mod loader;
 mod preparation;

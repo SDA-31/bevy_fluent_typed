@@ -55,6 +55,10 @@ pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 	source: Res<ByteSource<C>>,
 	mut updates: MessageWriter<CatalogUpdate<C>>,
 ) {
+	if localization.has_dropped_leases() {
+		localization.release_dropped_leases();
+	}
+
 	if localization.requests_changed && localization.preparation.is_some() {
 		localization.synchronize_preparation_requests();
 	}

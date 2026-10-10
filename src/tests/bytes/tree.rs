@@ -10,6 +10,8 @@ use std::sync::{
 	atomic::{AtomicUsize, Ordering},
 };
 
+mod lease_preparation;
+
 #[derive(Resource, Clone)]
 struct Root {
 	presentation: Presentation,
@@ -677,4 +679,50 @@ fn physical_demand_changes_synchronize_target_without_changing_scope_ownership()
 		"es"
 	);
 	assert!(!app.world().contains_resource::<Panel>());
+}
+
+#[test]
+fn group_and_leaf_leases_share_io_and_discard_released_pending_siblings() {
+	let (mut app, source) = controlled();
+	let (group, hud) = {
+		let mut state = app.world_mut().resource_mut::<Localization<Root, Lazy>>();
+		(state.hold::<Presentation>(), state.hold::<Hud>())
+	};
+
+	pump(&mut app, |_| source.count() == 2);
+	let value = source.release::<Hud>("en", 0);
+	pump(&mut app, |world| world.contains_resource::<Hud>());
+
+	drop(group);
+	app.update();
+	assert!(!app.world().contains_resource::<Panel>());
+	assert_eq!(
+		app.world().resource::<Localization<Root, Lazy>>().pending,
+		0
+	);
+
+	let group = app
+		.world_mut()
+		.resource_mut::<Localization<Root, Lazy>>()
+		.hold::<Presentation>();
+	pump(&mut app, |_| source.count() == 3);
+	source.release::<Panel>("en", 0);
+	app.update();
+	assert!(!app.world().contains_resource::<Panel>());
+
+	let panel = source.release::<Panel>("en", 1);
+	pump(&mut app, |world| world.contains_resource::<Presentation>());
+	assert_eq!(*app.world().resource::<Presentation>().hud.0, value);
+	assert_eq!(*app.world().resource::<Presentation>().panel.0, panel);
+	assert_eq!(source.count(), 3);
+
+	drop(group);
+	app.update();
+	assert!(!app.world().contains_resource::<Presentation>());
+	assert!(!app.world().contains_resource::<Panel>());
+	assert!(app.world().contains_resource::<Hud>());
+
+	drop(hud);
+	app.update();
+	assert!(!app.world().contains_resource::<Hud>());
 }

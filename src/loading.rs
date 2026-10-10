@@ -60,6 +60,10 @@ pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 	mut assets: CatalogAssets<C>,
 	mut updates: MessageWriter<CatalogUpdate<C>>,
 ) {
+	if localization.has_dropped_leases() {
+		localization.release_dropped_leases();
+	}
+
 	if localization.requests_changed && localization.preparation.is_some() {
 		localization.synchronize_preparation_requests();
 	}
@@ -389,6 +393,11 @@ pub(crate) fn report_failures<C: FluentCatalog, M: LoadingMode>(
 	mut localization: ResMut<Localization<C, M>>,
 	mut updates: MessageWriter<CatalogUpdate<C>>,
 ) {
+	if localization.has_dropped_leases() {
+		localization.release_dropped_leases();
+		localization.synchronize_preparation_requests();
+	}
+
 	for event in events.read() {
 		report_failure(&mut localization, event, &mut updates);
 	}
