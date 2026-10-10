@@ -166,6 +166,22 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 		"--features",
 		&format!("{backend},manifest,watch"),
 	])?;
+
+	for features in [
+		format!("{backend},diagnostics,watch"),
+		format!("{backend},manifest,diagnostics,watch"),
+	] {
+		fixture.success(&[
+			"test",
+			"--locked",
+			"-p",
+			"bevy_fluent_typed",
+			"--no-default-features",
+			"--features",
+			&features,
+		])?;
+	}
+
 	let example = ["--locked", "-p", "localization-example"];
 	fixture.success(&[&["test"][..], &example].concat())?;
 

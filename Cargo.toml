@@ -13,7 +13,7 @@ license = "MIT"
 publish = ["crates-io"]
 
 [package.metadata.docs.rs]
-features = ["codegen", "watch", "build"]
+features = ["codegen", "watch", "build", "diagnostics"]
 
 [features]
 default = ["bevy-0-20", "manifest"]
@@ -27,6 +27,8 @@ runtime = ["dep:fluent-typed"]
 manifest = ["dep:fluent_typed_codegen", "fluent_typed_codegen/manifest"]
 build = ["dep:fluent_typed_codegen", "fluent_typed_codegen/build"]
 codegen = ["manifest", "dep:fluent-syntax"]
+# Opt-in scope progress and per-leaf diagnostics, without additional dependencies.
+diagnostics = []
 watch = ["bevy_0_16?/file_watcher", "bevy_0_16?/multi_threaded", "bevy_0_17?/file_watcher", "bevy_0_18?/file_watcher", "bevy_0_19?/file_watcher", "bevy_0_20?/file_watcher"]
 
 [dependencies]

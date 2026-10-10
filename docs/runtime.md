@@ -321,6 +321,37 @@ or Lazy also retries failed active and prepared leaves while keeping its manual
 pin. Repeating `set_locale` retries failures in that requested language without
 pinning scopes or reloading already-ready active leaves.
 
+### Optional loading diagnostics
+
+Enable the optional `diagnostics` feature on the normal dependency:
+
+```toml
+bevy_fluent_typed = { version = "0.3.0", features = ["codegen", "diagnostics"] }
+```
+
+It is disabled by default. `status::<Scope>()` remains available without it;
+`progress`, `LoadingProgress` and `ModuleDiagnostic` require `diagnostics`.
+The feature adds no dependencies or background systems. Keep the build dependency
+unchanged.
+
+Use `localization.progress::<Scope>()` to inspect a loading screen or report a
+partial group's state. The returned `LoadingProgress<Locale>` contains the
+active locale, `total`, `ready`, `loading`, `failed`, `unloaded` and `available`
+leaf counts, plus sorted `modules` diagnostics with `path`, `status` and `usable`.
+The same query is available on `ModuleStore` through a handwritten provider's
+view. It neither requests modules nor starts I/O; diagnostics are built only
+when queried.
+
+During a language switch, these counts continue describing the active resources
+and displayed text. Inspect `prepared_locale()` and `preparation_status()` for
+the target language; its private leaves are not included in active progress.
+
+`total` counts all unique leaves in the scope, including unrequested leaves.
+The four attempt counts sum to `total`; `available` counts usable snapshots
+separately, so a failed or loading reload may still contribute to it. Failed
+diagnostics retain the original error. Unknown states are `Unloaded`, and empty
+scopes return zero counts. These are module counts, not byte-download progress.
+
 ## Navigate from the root or a parent
 
 The controller's views work with a partially loaded tree:

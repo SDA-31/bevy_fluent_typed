@@ -73,6 +73,8 @@ mod mode;
 mod plugin;
 #[cfg(feature = "runtime")]
 mod preparation;
+#[cfg(all(feature = "runtime", feature = "diagnostics"))]
+mod progress;
 #[cfg(feature = "runtime")]
 mod resources;
 #[cfg(feature = "runtime")]
@@ -122,6 +124,8 @@ pub use mode::{Auto, Full, Lazy, LoadingMode};
 pub use plugin::{LocalizationPlugin, LocalizationSystems};
 #[cfg(feature = "runtime")]
 pub use preparation::{CommitLocaleError, PreparationStatus};
+#[cfg(all(feature = "runtime", feature = "diagnostics"))]
+pub use progress::{LoadingProgress, ModuleDiagnostic};
 #[cfg(feature = "runtime")]
 pub use scope::{ModuleStore, ScopeRegistration};
 #[cfg(feature = "runtime")]

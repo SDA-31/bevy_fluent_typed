@@ -16,6 +16,9 @@ remains `fluent_typed_codegen` 0.2.2.
   releasing scopes still owned by automatic consumers or overlapping pins.
 - Advanced locale preparation and explicit commit for application-chosen
   publication time, supporting Auto/Full/Lazy, cancellation and byte/file sources.
+- Optional `diagnostics` feature (disabled by default) for on-demand
+  `progress::<Scope>()` summaries with per-leaf loading errors and
+  separate last-good snapshot availability, including unrequested modules.
 - Stable Bevy 0.20 support through `bevy-0-20`, including typed resources,
   readiness, deferred startup, custom asset sources and translation hot reload.
 - Cloneable `LocalizedText` bindings and native `FromTemplate` integration for

@@ -17,6 +17,8 @@ mod lazy;
 #[cfg(feature = "manifest")]
 mod loader;
 mod preparation;
+#[cfg(feature = "diagnostics")]
+mod progress;
 #[cfg(feature = "manifest")]
 mod scheduling;
 mod spans;

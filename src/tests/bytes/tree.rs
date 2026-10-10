@@ -11,6 +11,7 @@ use std::sync::{
 };
 
 mod automatic;
+mod composition;
 mod switching;
 
 #[derive(Resource, Clone)]
@@ -702,4 +703,104 @@ fn physical_demand_changes_synchronize_target_without_changing_scope_ownership()
 		"es"
 	);
 	assert!(!app.world().contains_resource::<Panel>());
+}
+
+#[test]
+#[cfg(feature = "diagnostics")]
+fn progress_counts_complete_schema_during_partial_group_loading_and_locale_changes() {
+	let (mut app, source) = controlled();
+	app.world_mut()
+		.resource_mut::<Localization<Root, Lazy>>()
+		.load::<Hud>();
+	pump(&mut app, |_| source.count() == 1);
+	let state = app.world().resource::<Localization<Root, Lazy>>();
+	let root = state.progress::<Root>();
+	assert_eq!(root.total, 3);
+	assert_eq!(root.loading, 1);
+	assert_eq!(root.unloaded, 2);
+	assert_eq!(root.available, 0);
+	let group = state.progress::<Presentation>();
+	assert_eq!(group.total, 2);
+	assert_eq!(group.loading, 1);
+	assert_eq!(group.unloaded, 1);
+	assert_eq!(source.count(), 1, "inspection must not start sibling loads");
+	app.world_mut()
+		.resource_mut::<Localization<Root, Lazy>>()
+		.load::<Presentation>();
+	pump(&mut app, |_| source.count() == 2);
+	source.release::<Panel>("en", 0);
+	pump(&mut app, |world| world.contains_resource::<Panel>());
+	let state = app.world().resource::<Localization<Root, Lazy>>();
+	let group = state.progress::<Presentation>();
+	assert_eq!(group.total, 2);
+	assert_eq!(group.ready, 1);
+	assert_eq!(group.loading, 1);
+	assert_eq!(group.available, 1);
+	assert_eq!(group.failed + group.unloaded, 0);
+	assert_eq!(group.modules[0].path, Hud::module_paths()[0]);
+	assert_eq!(group.modules[0].status, ModuleStatus::Loading);
+	assert!(!group.modules[0].usable);
+	assert_eq!(group.modules[1].path, Panel::module_paths()[0]);
+	assert_eq!(group.modules[1].status, ModuleStatus::Ready);
+	assert!(group.modules[1].usable);
+	assert_eq!(state.progress::<Root>().total, root.total);
+	source.release::<Hud>("en", 0);
+	pump(&mut app, |world| world.contains_resource::<Presentation>());
+	let state = app.world().resource::<Localization<Root, Lazy>>();
+	let group = state.progress::<Presentation>();
+	assert_eq!(group.ready, 2);
+	assert_eq!(group.available, 2);
+	assert_eq!(group.loading + group.failed + group.unloaded, 0);
+	assert_eq!(state.progress::<Root>().total, root.total);
+	#[cfg(feature = "bevy-0-16")]
+	app.world_mut()
+		.send_event(crate::ReloadCatalogs::<Root>::default());
+	#[cfg(not(feature = "bevy-0-16"))]
+	app.world_mut()
+		.write_message(crate::ReloadCatalogs::<Root>::default());
+	pump(&mut app, |_| source.count() == 4);
+	let group = app
+		.world()
+		.resource::<Localization<Root, Lazy>>()
+		.progress::<Presentation>();
+	assert_eq!(group.total, 2);
+	assert_eq!(group.loading, 2);
+	assert_eq!(group.available, 2);
+	assert_eq!(group.ready + group.failed + group.unloaded, 0);
+	assert!(group.modules.iter().all(|module| module.usable));
+	app.world_mut()
+		.resource_mut::<Localization<Root, Lazy>>()
+		.set_locale("es");
+	let state = app.world().resource::<Localization<Root, Lazy>>();
+	let root = state.progress::<Root>();
+	assert_eq!(root.locale, "en");
+	assert_eq!(root.total, 3);
+	assert_eq!(root.unloaded, 1);
+	assert_eq!(root.loading, 2);
+	assert_eq!(root.available, 2);
+	assert_eq!(state.prepared_locale(), Some("es"));
+	pump(&mut app, |_| source.count() == 6);
+	source.release::<Hud>("es", 0);
+	source.release::<Panel>("es", 0);
+	pump(&mut app, |world| {
+		world.resource::<Localization<Root, Lazy>>().locale() == "es"
+	});
+	let committed = app
+		.world()
+		.resource::<Localization<Root, Lazy>>()
+		.progress::<Root>();
+	assert_eq!(committed.locale, "es");
+	assert_eq!(committed.ready, 2);
+	assert_eq!(committed.available, 2);
+	assert_eq!(committed.unloaded, 1);
+	assert_eq!(committed.loading + committed.failed, 0);
+	source.release::<Hud>("en", 1);
+	source.release::<Panel>("en", 1);
+	app.update();
+	assert_eq!(
+		app.world()
+			.resource::<Localization<Root, Lazy>>()
+			.progress::<Root>(),
+		committed
+	);
 }

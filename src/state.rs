@@ -1,4 +1,6 @@
 //! Selected locale and scope demand, independent of physical asset handles.
+#[cfg(feature = "diagnostics")]
+use crate::LoadingProgress;
 #[cfg(feature = "manifest")]
 use crate::assets::ModuleAsset;
 #[cfg(feature = "manifest")]
@@ -197,6 +199,15 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	/// Inspect the latest loading attempt across a scope's required leaves.
 	pub fn status<S: FluentScope<Catalog = C>>(&self) -> ModuleStatus {
 		self.store.status::<S>()
+	}
+
+	/// Inspect a scope's unique leaves, latest attempts and usable snapshots.
+	/// Includes unrequested leaves without starting I/O or changing logical demand.
+	/// Describes the active locale, excluding a privately prepared target. Inspect
+	/// target readiness with `prepared_locale` and `preparation_status`.
+	#[cfg(feature = "diagnostics")]
+	pub fn progress<S: FluentScope<Catalog = C>>(&self) -> LoadingProgress<C::Locale> {
+		self.store.progress::<S>()
 	}
 
 	pub(crate) fn desired(&self) -> Arc<BTreeSet<&'static str>> {

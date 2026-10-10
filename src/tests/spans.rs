@@ -3,7 +3,7 @@ use crate::bevy::prelude::*;
 use crate::{Lazy, Localization, LocalizationPlugin, LocalizedText};
 use std::{
 	sync::{
-		Arc,
+		Arc, Mutex,
 		atomic::{AtomicUsize, Ordering},
 	},
 	time::{Duration, Instant},
@@ -149,4 +149,82 @@ fn automatic_spans_and_manual_pins_retain_and_release_independently() {
 	app.world_mut().despawn(later);
 	app.update();
 	assert!(!app.world().contains_resource::<TestCatalog>());
+}
+
+#[test]
+fn failed_switch_keeps_active_span_and_diagnostics_until_explicit_retry() {
+	let target = Arc::new(Mutex::new(Err("unavailable".to_owned())));
+	let source = target.clone();
+	let plugin = LocalizationPlugin::<TestCatalog>::from_loader(move |locale, _| {
+		std::future::ready(if locale == "es" {
+			source.lock().unwrap().clone()
+		} else {
+			Ok(b"Japanese".to_vec())
+		})
+	});
+	let calls = Arc::new(AtomicUsize::new(0));
+	let observed = calls.clone();
+	let mut app = App::new();
+	app.add_plugins((MinimalPlugins, plugin));
+	let parent = app.world_mut().spawn(Text("parent".into())).id();
+	let span = app
+		.world_mut()
+		.spawn((
+			TextSpan::default(),
+			ChildOf(parent),
+			LocalizedText::<TestCatalog>::new(move |catalog| {
+				observed.fetch_add(1, Ordering::Relaxed);
+				catalog.0.clone()
+			}),
+		))
+		.id();
+	pump(&mut app, Some("Japanese"), &[span]);
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog>>()
+		.set_locale("es");
+	super::bytes::pump(&mut app, |world| {
+		matches!(
+			world
+				.resource::<Localization<TestCatalog>>()
+				.preparation_status(),
+			crate::PreparationStatus::Failed(_)
+		)
+	});
+	assert_eq!(app.world().get::<TextSpan>(span).unwrap().0, "Japanese");
+	assert_eq!(
+		app.world().resource::<Localization<TestCatalog>>().locale(),
+		"ja"
+	);
+	#[cfg(feature = "diagnostics")]
+	{
+		let progress = app
+			.world()
+			.resource::<Localization<TestCatalog>>()
+			.progress::<TestCatalog>();
+		assert_eq!(progress.locale, "ja");
+		assert_eq!(progress.ready, 1);
+		assert_eq!(progress.available, 1);
+		assert_eq!(progress.failed, 0);
+	}
+
+	let before = calls.load(Ordering::Relaxed);
+	for _ in 0..5 {
+		app.update();
+	}
+	assert_eq!(calls.load(Ordering::Relaxed), before);
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog>>()
+		.cancel_preparation();
+	assert_eq!(app.world().get::<TextSpan>(span).unwrap().0, "Japanese");
+	*target.lock().unwrap() = Ok(b"Spanish".to_vec());
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog>>()
+		.set_locale("es");
+	pump(&mut app, Some("Spanish"), &[span]);
+	assert_eq!(
+		app.world().resource::<Localization<TestCatalog>>().locale(),
+		"es"
+	);
+	assert_eq!(app.world().get::<Text>(parent).unwrap().0, "parent");
+	assert!(app.world().get::<Text>(span).is_none());
 }
