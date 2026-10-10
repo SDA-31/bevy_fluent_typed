@@ -15,6 +15,8 @@ use std::{
 	sync::Arc,
 };
 
+type RetryRequests = crate::progress::ObservedSet;
+
 pub(crate) struct RequestedModule<C: FluentCatalog> {
 	pub(crate) locale: C::Locale,
 	pub(crate) task: Option<Task<Result<crate::catalog::SharedScope, String>>>,
@@ -22,6 +24,12 @@ pub(crate) struct RequestedModule<C: FluentCatalog> {
 	pub(crate) handle: Option<Handle<ModuleAsset<C>>>,
 	#[cfg(feature = "manifest")]
 	pub(crate) accepted: Option<u64>,
+	#[cfg(feature = "manifest")]
+	pub(crate) preparation_request: Option<u64>,
+	#[cfg(feature = "manifest")]
+	pub(crate) preparation_handle: Option<Handle<crate::assets::PreparedModuleAsset<C>>>,
+	#[cfg(feature = "manifest")]
+	pub(crate) preparation_attempt: Option<Arc<crate::assets::AssetAttempt>>,
 	// Tracks our request before AssetServer's detached task changes load state.
 	pub(crate) pending: bool,
 }
@@ -35,6 +43,12 @@ impl<C: FluentCatalog> RequestedModule<C> {
 			handle: None,
 			#[cfg(feature = "manifest")]
 			accepted: None,
+			#[cfg(feature = "manifest")]
+			preparation_request: None,
+			#[cfg(feature = "manifest")]
+			preparation_handle: None,
+			#[cfg(feature = "manifest")]
+			preparation_attempt: None,
 			pending: false,
 		}
 	}
@@ -50,14 +64,19 @@ pub struct Localization<C: FluentCatalog, M: LoadingMode = Full> {
 	pub(crate) store: ModuleStore<C>,
 	pub(crate) requested: HashMap<TypeId, &'static [&'static str]>,
 	pub(crate) entries: BTreeMap<&'static str, RequestedModule<C>>,
-	pub(crate) retry: BTreeSet<&'static str>,
+	pub(crate) retry: RetryRequests,
 	pub(crate) published: HashMap<TypeId, u64>,
 	leases: LeaseRequests,
-	desired: Arc<BTreeSet<&'static str>>,
+	pub(crate) desired: Arc<BTreeSet<&'static str>>,
 	pub(crate) synchronized: u64,
 	pub(crate) requests_changed: bool,
 	pub(crate) pending: usize,
 	marker: PhantomData<fn() -> M>,
+	pub(crate) preparation: Option<Box<Self>>,
+	pub(crate) staged: bool,
+	pub(crate) commit_requested: bool,
+	#[cfg(feature = "manifest")]
+	pub(crate) handoff_pending: BTreeSet<&'static str>,
 }
 
 impl<C: FluentCatalog, M: LoadingMode> Default for Localization<C, M> {
@@ -92,7 +111,7 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			store: ModuleStore::new(locale),
 			requested,
 			entries: BTreeMap::new(),
-			retry: BTreeSet::new(),
+			retry: RetryRequests::new(),
 			published: HashMap::new(),
 			leases: LeaseRequests::default(),
 			desired: Arc::new(desired),
@@ -100,6 +119,11 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			requests_changed: true,
 			pending: 0,
 			marker: PhantomData,
+			preparation: None,
+			staged: false,
+			commit_requested: false,
+			#[cfg(feature = "manifest")]
+			handoff_pending: BTreeSet::new(),
 		}
 	}
 
@@ -119,6 +143,8 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			C::locales().contains(&locale),
 			"locale must belong to the provider"
 		);
+
+		self.cancel_preparation();
 
 		if self.locale() == locale {
 			return;
@@ -147,6 +173,50 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	/// Inspect the latest loading attempt across a scope's required leaves.
 	pub fn status<S: FluentScope<Catalog = C>>(&self) -> ModuleStatus {
 		self.store.status::<S>()
+	}
+
+	/// Inspect a scope's active-locale attempts without requesting or loading it.
+	/// Includes unrequested schema leaves. Native `LocalizationProgress` snapshots
+	/// instead count the current union of requested modules.
+	pub fn progress<S: FluentScope<Catalog = C>>(&self) -> crate::LoadingProgress<C::Locale> {
+		self.store.progress::<S>()
+	}
+
+	/// Inspect a scope in the current preparation without publishing target data.
+	/// Returns `None` without preparation. Preparing the active locale mirrors
+	/// active attempts; use `preparation_status` to decide whether commit is ready.
+	pub fn preparation_progress<S: FluentScope<Catalog = C>>(
+		&self,
+	) -> Option<crate::LoadingProgress<C::Locale>> {
+		self.preparation.as_deref().map(|target| {
+			if target.locale() == self.locale() {
+				self.store.progress::<S>()
+			} else {
+				target.store.progress::<S>()
+			}
+		})
+	}
+
+	/// Inspect active-locale module details without requesting or retaining a scope.
+	/// Available with `diagnostics`; collects its result only when called.
+	#[cfg(feature = "diagnostics")]
+	pub fn diagnostics<S: FluentScope<Catalog = C>>(&self) -> Vec<crate::ModuleDiagnostic> {
+		self.store.diagnostics::<S>()
+	}
+
+	/// Inspect target module details without publishing target data.
+	/// Available with `diagnostics`; returns `None` when no preparation exists.
+	#[cfg(feature = "diagnostics")]
+	pub fn preparation_diagnostics<S: FluentScope<Catalog = C>>(
+		&self,
+	) -> Option<Vec<crate::ModuleDiagnostic>> {
+		self.preparation.as_deref().map(|target| {
+			if target.locale() == self.locale() {
+				self.store.diagnostics::<S>()
+			} else {
+				target.store.diagnostics::<S>()
+			}
+		})
 	}
 
 	pub(crate) fn desired(&self) -> Arc<BTreeSet<&'static str>> {
@@ -200,6 +270,7 @@ impl<C: FluentCatalog> Localization<C, Lazy> {
 
 		self.requests_changed = true;
 		Arc::make_mut(&mut self.desired).extend(S::module_paths().iter().copied());
+		self.synchronize_preparation_requests();
 
 		lease
 	}
@@ -218,9 +289,23 @@ impl<C: FluentCatalog> Localization<C, Lazy> {
 			Arc::make_mut(&mut self.desired).extend(S::module_paths().iter().copied());
 		}
 
+		self.synchronize_preparation_requests();
+
 		for &path in S::module_paths() {
 			if matches!(self.store.states.get(path), Some(ModuleStatus::Failed(_))) {
 				self.retry.insert(path);
+			}
+		}
+
+		if let Some(preparation) = self.preparation.as_mut() {
+			for &path in S::module_paths() {
+				if matches!(
+					preparation.store.states.get(path),
+					Some(ModuleStatus::Failed(_))
+				) {
+					preparation.retry.insert(path);
+					self.commit_requested = false;
+				}
 			}
 		}
 	}
@@ -232,5 +317,7 @@ impl<C: FluentCatalog> Localization<C, Lazy> {
 			self.requests_changed = true;
 			self.rebuild_desired();
 		}
+
+		self.synchronize_preparation_requests();
 	}
 }

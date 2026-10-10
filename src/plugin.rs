@@ -11,7 +11,9 @@ use crate::{
 #[cfg(feature = "manifest")]
 use crate::{
 	Lazy, LocalizationManifest,
-	assets::{ModuleAsset, ModuleLoader},
+	assets::{
+		ModuleAsset, ModuleLoader, PreparationAttempts, PreparedModuleAsset, PreparedModuleLoader,
+	},
 	loading::{CatalogSource, reconcile, report_failures},
 };
 use std::{
@@ -29,10 +31,9 @@ pub enum LocalizationSystems {
 	Publish,
 	/// PostUpdate: refresh text after publication and before engine text layout.
 	Refresh,
+	/// Opt-in progress tracking after publication in PreUpdate and refresh in PostUpdate.
+	Progress,
 }
-
-#[derive(Resource)]
-struct Installed<C: FluentCatalog>(PhantomData<fn() -> C>);
 
 enum Source<C: FluentCatalog> {
 	#[cfg(feature = "manifest")]
@@ -147,7 +148,8 @@ impl<C: FluentCatalog> LocalizationPlugin<C, Full> {
 impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 	fn build(&self, app: &mut App) {
 		assert!(
-			!app.world().contains_resource::<Installed<C>>(),
+			!app.world()
+				.contains_resource::<crate::progress::Registration<C>>(),
 			"one localization plugin per root provider is allowed"
 		);
 		let startup = match &self.source {
@@ -165,9 +167,9 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 			));
 		}
 
-		app.insert_resource(Installed::<C>(PhantomData))
-			.init_resource::<Localization<C, M>>();
+		app.init_resource::<Localization<C, M>>();
 		compatibility::register_notifications::<C>(app);
+		crate::progress::register::<C, M>(app);
 
 		for scope in C::scopes() {
 			CatalogReadiness::register::<C, M>(app.world_mut(), &scope);
@@ -188,6 +190,7 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 					(
 						reload_catalogs::<C, M>,
 						bytes::reconcile::<C, M>,
+						crate::preparation::commit::<C, M>,
 						resources::synchronize::<C, M>,
 					)
 						.chain()
@@ -210,7 +213,9 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 					None
 				};
 
+				let attempts = PreparationAttempts::<C>::default();
 				app.insert_resource(CatalogSource::<C> {
+					attempts: attempts.clone(),
 					manifest: manifest.clone(),
 					modules: C::modules()
 						.into_iter()
@@ -220,7 +225,12 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 					marker: PhantomData,
 				})
 				.init_asset::<ModuleAsset<C>>()
-				.register_asset_loader(ModuleLoader::<C>::new(manifest));
+				.init_asset::<PreparedModuleAsset<C>>()
+				.register_asset_loader(ModuleLoader::<C>::new(manifest))
+				.register_asset_loader(PreparedModuleLoader {
+					loader: ModuleLoader::<C>::new(manifest),
+					attempts,
+				});
 
 				app.add_systems(
 					PreUpdate,
@@ -228,6 +238,7 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 						reload_catalogs::<C, M>,
 						report_failures::<C, M>,
 						reconcile::<C, M>,
+						crate::preparation::commit::<C, M>,
 						resources::synchronize::<C, M>,
 					)
 						.chain()

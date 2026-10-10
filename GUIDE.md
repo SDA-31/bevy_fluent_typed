@@ -13,6 +13,8 @@ generated types and Bevy 0.19.
 - [Headless application](#headless-application)
 - [Load and release a screen](#load-and-release-a-screen)
 - [Read resources](#read-resources-and-handle-readiness)
+- [Loading progress](#observe-loading-progress)
+- [Optional module details](#optional-module-details)
 - [Navigate from a parent](#navigate-from-the-root-or-a-parent)
 - [Bind text](#bind-text-without-keeping-an-old-translation)
 - [Change language and reload](#change-language-and-reload-files)
@@ -104,7 +106,7 @@ that load, then the plugin publishes its typed resource. Both Full and Lazy use
 Bevy's asynchronous loading; Lazy lets the application choose which scopes to
 request and retain. No additional parsing is deferred until accessor use.
 
-Use the same 0.2.2 facade in both normal and build dependencies for this recipe.
+Use the same 0.3.0 facade in both normal and build dependencies for this recipe.
 Then embed only the HUD by declaring its source next to `translations!`:
 
 ```rust,ignore
@@ -266,6 +268,127 @@ Use `status::<Scope>()` to distinguish `Unloaded`, `Loading`, `Ready` and
 wait. An invalid same-language reload preserves the last good value, so its
 consumers can run while the latest attempt has status `Failed`. Repeating
 `load::<Scope>()` retries failed leaves.
+
+### Observe loading progress
+
+One root progress plugin provides native views for the entire registered tree:
+
+```rust,ignore
+use bevy_fluent_typed::LocalizationProgressPlugin;
+
+app.add_plugins(LocalizationProgressPlugin::<texts::Translations>::new());
+```
+
+This includes `LocalizationProgress<texts::presentation::Hud>` automatically;
+no separate HUD registration is needed. To observe only a group's subtree instead,
+use `LocalizationProgressPlugin::<texts::Presentation>::new()`. It includes
+that group and its registered descendants, excluding ancestors and siblings.
+A leaf plugin observes only that leaf. Consumer plugins may register overlapping
+subtrees in separate calls; repeats are idempotent and share one provider dispatcher.
+
+During App setup, either order relative to the owning `LocalizationPlugin` works.
+Full/Lazy is inferred from that base plugin; no Cargo progress feature is required.
+Selected scopes get native resources before `Startup` once the base plugin is
+installed. Registration snapshots any active/prepared state already present
+during setup; compose these plugins before the App is finished. Read a typed view
+from an existing UI system, or gate a dedicated observer on visible changes:
+
+```rust,ignore
+use bevy::ecs::schedule::common_conditions::resource_changed;
+use bevy_fluent_typed::LocalizationProgress;
+
+fn loading_ui(progress: Res<LocalizationProgress<texts::presentation::Hud>>) {
+    let active = progress.active();
+    println!("{}: {}/{} ready", active.locale, active.ready, active.total);
+
+    if let Some(target) = progress.preparation() {
+        println!("target {}: {}/{} ready", target.locale, target.ready, target.total);
+    }
+}
+
+app.add_systems(
+    PostUpdate,
+    loading_ui
+        .run_if(resource_changed::<LocalizationProgress<texts::presentation::Hud>>)
+        .after(bevy_fluent_typed::LocalizationSystems::Progress),
+);
+```
+
+Without a progress plugin, there is no native progress resource, no recurring
+tracker and no tracking identity or revision updates. Ordinary loading and
+`status` continue normally. The progress plugin creates neither logging nor a loading UI;
+presentation belongs to the application. `active()` covers ordinary initial loading,
+`set_locale` and same-language reloads. `preparation()` is present during explicit
+`prepare_locale` until cancellation or commit. Preparing the active locale mirrors
+its active data without additional I/O.
+
+The root view counts the current demand union: Full counts the whole root; Lazy
+counts the distinct leaves required by explicit requests and leases. Group and
+leaf views count their fixed, deduplicated schema paths, including unrequested
+leaves. Overlapping owners do not inflate the total. Progress plugins and resource
+reads create no loading requests or leases and do not retain parsed catalogs.
+Each `LoadingProgress<Locale>` contains `locale`, `total`, `ready`,
+`loading`, `failed`, `unloaded` and `available`. The four attempt counts sum to
+`total`; `available` separately counts usable last-good snapshots, including
+during a loading or failed reload. These are module counts, not downloaded bytes
+or a percentage of elapsed work.
+
+`active()` and `preparation()` counters describe the observed scope, but
+`preparation_status()` is provider-wide because locale commit applies to the
+whole provider's demand. A ready HUD does not mean other requested leaves are
+ready; conversely, an unrequested observed scope can remain unloaded while the
+provider reports `PreparationStatus::Ready`. Check that provider-wide status
+before asking the live controller to `commit_locale`. Scoped `ready == total` is
+insufficient; retries or asset-handle retirement can also prevent a commit.
+Publication remains an explicit application decision; reading
+a ready snapshot does not commit it. Manual preparation failures appear through
+`PreparationStatus::Failed` without emitting precommit `Rejected` notifications.
+Active translations remain usable throughout preparation.
+
+The tracker runs after PreUpdate publication and after PostUpdate text refresh,
+in `LocalizationSystems::Progress`. Read fresh snapshots in `Update`, or order a
+PostUpdate observer after that progress boundary as shown above. Use
+`resource_changed` to update a loading UI only when visible progress changes;
+settled frames preserve its change tick. Several transitions between observations
+may coalesce: this is the latest snapshot, not a history of messages. Use
+`CatalogUpdateReader` when you need accepted/rejected load notifications.
+
+For passive counts of another scope, `localization.progress::<Scope>()` and
+`ModuleStore::progress::<Scope>()` include all unique schema leaves of that scope,
+including unrequested leaves. `localization.preparation_progress::<Scope>()`
+returns target counts when preparation exists. These on-demand queries create
+no demand, enable no recurring tracking and require no optional feature.
+
+See the [generated progress example](examples/codegen/src/bin/progress.rs) for a bounded headless runner,
+explicit prepare/commit and a change-gated observer.
+
+### Optional module details
+
+Enable the default-off `diagnostics` feature only when you need individual
+module paths, attempt errors or snapshot availability:
+
+```toml
+bevy_fluent_typed = { version = "0.3.0", features = ["codegen", "diagnostics"] }
+```
+
+Keep the build dependency unchanged. During explicit inspection:
+
+```rust,ignore
+let modules = localization.diagnostics::<texts::presentation::Hud>();
+let target_modules = localization.preparation_diagnostics::<texts::presentation::Hud>();
+```
+
+`diagnostics::<Scope>()` is also available on `ModuleStore`. Each call collects
+sorted `ModuleDiagnostic` values with `path`, `status` and `usable`, including
+unrequested schema leaves; target inspection returns `None` without preparation.
+The queries neither request nor retain parsed catalogs. Detailed lists and their
+error copies are collected only when requested, never by the registered progress
+publisher, even with the feature enabled. Counter scans borrow attempt states.
+Typed `PreparationStatus::Failed` still retains the first target failure for commit
+readiness. The `diagnostics` feature does not activate native tracking; use
+`LocalizationProgressPlugin<Scope>` when a native view is needed. Counters and typed
+preparation readiness require no optional feature. Details add no dependencies
+and start no logging.
 
 ## Navigate from the root or a parent
 
@@ -469,7 +592,7 @@ For Bevy 0.19, the minimal dependency is:
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.2.2", default-features = false, features = ["bevy-0-19"] }
+bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["bevy-0-19"] }
 ```
 
 There is no build-dependency, `build.rs`, `translations!`, TOML manifest or
@@ -485,6 +608,19 @@ implementations. Add `manifest` if that provider needs the existing manifest/fil
 constructors. `manifest` is enabled by default and by `codegen`; it uses the
 generator package's small runtime manifest API, without enabling generation.
 See the [feature table](docs/build.md#features) for host/target separation.
+
+For advanced handwritten providers with groups, declare the immediate parent
+in each child descriptor:
+
+```rust,ignore
+ScopeRegistration::new::<Hud>().with_parent::<Presentation>()
+```
+
+The parent must share the child's `FluentScope::Catalog`. Descriptors without a
+parent are direct children of the catalog root; root observation includes every
+registered descriptor, including existing providers without parent metadata.
+Generated Bevy providers emit these relationships automatically from their accessor
+hierarchy. The one-file handwritten example needs no parent boilerplate.
 
 ## Headless application
 
@@ -556,7 +692,7 @@ asset configuration and event loop, as in the quickstart.
 
 ## Migration from registry 0.1.3
 
-Follow the [migration guide to 0.2.2](docs/migration-0.2.md) for dependency updates, before/after
+Follow the [migration guide to 0.3](docs/migration-0.2.md) for dependency updates, before/after
 initialization, readiness handling, optional Lazy adoption and handwritten providers.
 The shortest upgrade keeps Full mode and existing typed message calls.
 

@@ -30,6 +30,14 @@ retained buffers stay alive until the source is dropped; `from_loader` retrieves
 bytes per requested leaf when source memory must be released after parsing.
 Both paths support Full/Lazy and the same native resources/readiness helpers.
 
+A root `LocalizationProgressPlugin<Texts>` observes this provider without adding
+loading demand. This one-file example needs no parent metadata. Advanced providers
+with groups can declare child membership with
+`ScopeRegistration::new::<Hud>().with_parent::<Presentation>()`; the parent and
+child share the same catalog type. Descriptors without a parent are direct root
+children, and root observation includes all registered descriptors. Generated
+Bevy providers supply this hierarchy automatically.
+
 See [the advanced guide](../../GUIDE.md#without-code-generation) for feature
 selection and the responsibilities of a handwritten provider. To add file or
 embedded manifest contracts, enable `manifest`; that opts back into the generator

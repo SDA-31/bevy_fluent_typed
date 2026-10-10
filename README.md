@@ -241,6 +241,7 @@ transports, fonts and shaping remain application responsibilities.
 
 - [Loading guide](GUIDE.md): Full, Lazy, hybrid, typed resources, deferred text,
   language switching, hot reload and migration.
+- [Loading progress](GUIDE.md#observe-loading-progress): optional progress subtrees and module details.
 - [BSN scenes](docs/bsn.md): typed text bindings in Bevy 0.19 and 0.20 scenes.
 - [Custom asset sources](docs/asset-sources.md): archives, network-backed readers
   and named Bevy sources.

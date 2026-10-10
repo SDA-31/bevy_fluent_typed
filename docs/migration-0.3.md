@@ -4,6 +4,45 @@ Runtime 0.3.0 supports stable Bevy 0.20 and requires Rust 1.97.1 or newer.
 The generator stays at 0.2.2. Localization constructors, Full/Lazy requests,
 native resources, readiness helpers and embedded manifest declarations are unchanged.
 
+## Native loading progress
+
+Add one root progress plugin for the native views your loading UI needs:
+
+```rust,ignore
+use bevy_fluent_typed::LocalizationProgressPlugin;
+
+app.add_plugins(LocalizationProgressPlugin::<texts::Translations>::new());
+```
+
+The root recursively includes every registered scope, including the HUD view
+used below. A group plugin is an alternative that observes only its subtree;
+a leaf plugin selects only that leaf. Generated hierarchy metadata is automatic.
+During App setup, either order relative to the base localization plugin works.
+The owning provider supplies Full/Lazy; overlapping and repeated registration is
+idempotent and shares one dispatcher per provider. Native `LocalizationProgress<Scope>` resources are
+initialized before `Startup` once the base plugin is installed. No Cargo feature
+is needed. Without progress plugins, their resources and recurring trackers are
+absent; ordinary loading and status remain available. Progress never requests
+translations or retains parsed catalogs.
+
+Read `Res<LocalizationProgress<texts::presentation::Hud>>` in Update, or after
+`LocalizationSystems::Progress` in PostUpdate. `resource_changed` gates observers
+on visible changes. Root snapshots count current demand; group/leaf snapshots
+count fixed unique schema paths, including unrequested leaves. Their active and
+target counts are scoped, but `preparation_status()` describes provider-wide
+commit readiness. A ready scope cannot establish global readiness; an unused
+scope may remain unloaded while the provider is ready. Retries and asset-handle
+handoff can also delay commit. Publication still requires the application's
+`commit_locale` call. See [loading progress](../GUIDE.md#observe-loading-progress).
+
+Per-scope `progress::<Scope>()` queries remain passive and include unrequested
+schema leaves. They do not enable recurring tracking. `LoadingProgress` contains
+counters only. Optional `diagnostics` enables explicit `diagnostics::<Scope>()`
+and `preparation_diagnostics::<Scope>()` queries for individual module paths,
+errors and availability; it is disabled by default and does not activate native
+tracking. The registered publisher never collects those detail vectors, even
+when the feature is enabled. See [module details](../GUIDE.md#optional-module-details).
+
 ## Use Bevy 0.20
 
 Update both facade dependencies and the application's Bevy dependency:

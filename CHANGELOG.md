@@ -12,6 +12,22 @@ remains `fluent_typed_codegen` 0.2.2.
 
 ### Added
 
+- Opt-in `LocalizationProgressPlugin<Scope>` recursively observes a scope and
+  its registered descendants with typed native resources, root demand counts or
+  fixed group/leaf schema counts, active/prepared snapshots and provider-wide
+  preparation readiness. Root selection includes every registered scope;
+  overlapping selections share one provider dispatcher. Generated hierarchy
+  metadata is automatic; handwritten providers can declare typed immediate parents.
+  Observe after `LocalizationSystems::Progress`;
+  no Cargo progress feature or loading request is introduced. Includes a
+  [generated-provider example](examples/codegen/src/bin/progress.rs).
+- Default-off `diagnostics` for explicit per-module detail queries; it does not
+  activate native tracking. Progress counting collects no detail vectors or
+  per-module error copies; passive per-scope queries require no registration.
+
+- Explicit locale preparation and validated commit at the publication boundary,
+  keeping active resources available while target translations load. Supports
+  Full/Lazy demand, cancellation, byte sources and private typed Bevy assets.
 - Independent `ModuleLease<Scope>` ownership in Lazy mode through
   `localization.hold::<Scope>()`. Dropping a token releases only its owner's
   request at publication; other leases and explicit requests remain active.

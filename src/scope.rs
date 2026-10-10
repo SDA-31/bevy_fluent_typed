@@ -12,7 +12,7 @@ use crate::catalog::SharedScope;
 use crate::{FluentCatalog, FluentScope, ModuleError, ModuleStatus, bindings};
 use std::{
 	any::TypeId,
-	collections::{BTreeMap, HashMap},
+	collections::{BTreeMap, BTreeSet, HashMap},
 	sync::Arc,
 };
 
@@ -31,6 +31,7 @@ pub struct ModuleStore<C: FluentCatalog> {
 	pub(crate) scopes: Arc<[ScopeRegistration<C>]>,
 	pub(crate) scope_indices: HashMap<TypeId, usize>,
 	pub(crate) revision: u64,
+	pub(crate) progress_version: crate::progress::StoreVersion,
 }
 
 impl<C: FluentCatalog> ModuleStore<C> {
@@ -51,6 +52,7 @@ impl<C: FluentCatalog> ModuleStore<C> {
 				.map(|module| (module.path, module.scope))
 				.collect(),
 			revision: 0,
+			progress_version: crate::progress::StoreVersion::default(),
 			scopes,
 			scope_indices,
 		}
@@ -115,7 +117,37 @@ impl<C: FluentCatalog> ModuleStore<C> {
 		result
 	}
 
+	/// Inspect a scope's unique leaves without requesting them or starting I/O.
+	/// Unrequested paths are counted as unloaded, and last-good availability is
+	/// separate from the latest attempt. This query deduplicates schema paths;
+	/// native snapshots are available through `LocalizationProgress`.
+	pub fn progress<S: FluentScope<Catalog = C>>(&self) -> crate::LoadingProgress<C::Locale> {
+		let paths: BTreeSet<_> = S::module_paths().iter().copied().collect();
+		crate::progress::inspect(self, paths.iter().copied())
+	}
+
+	/// Inspect sorted per-module statuses and usable snapshots without loading them.
+	/// Available with `diagnostics`. The result and failure details are copied only
+	/// when explicitly requested; native progress snapshots contain counters only.
+	#[cfg(feature = "diagnostics")]
+	pub fn diagnostics<S: FluentScope<Catalog = C>>(&self) -> Vec<crate::ModuleDiagnostic> {
+		let paths: BTreeSet<_> = S::module_paths().iter().copied().collect();
+		crate::progress::inspect_modules(self, paths.iter().copied())
+	}
+
+	pub(crate) fn set_status(&mut self, path: &'static str, status: ModuleStatus) {
+		if self.progress_version.enabled() && self.states.get(path) != Some(&status) {
+			self.progress_version.changed();
+		}
+
+		self.states.insert(path, status);
+	}
+
 	pub(crate) fn insert_leaf(&mut self, path: &'static str, value: SharedScope) {
+		if self.progress_version.enabled() && !self.values.contains_key(&self.leaves[path]) {
+			self.progress_version.changed();
+		}
+
 		self.revision += 1;
 		self.values.insert(
 			self.leaves[path],
@@ -125,7 +157,7 @@ impl<C: FluentCatalog> ModuleStore<C> {
 				revision: self.revision,
 			},
 		);
-		self.states.insert(path, ModuleStatus::Ready);
+		self.set_status(path, ModuleStatus::Ready);
 	}
 
 	pub(crate) fn signature(&self, paths: &[&'static str]) -> Option<Vec<(&'static str, u64)>> {
@@ -151,6 +183,8 @@ impl<C: FluentCatalog> ModuleStore<C> {
 )]
 pub struct ScopeRegistration<C: FluentCatalog> {
 	pub(crate) id: TypeId,
+	pub(crate) parent: Option<TypeId>,
+	pub(crate) progress: fn() -> crate::progress::Subscription<C>,
 	pub(crate) parameter: TypeId,
 	pub(crate) paths: &'static [&'static str],
 	pub(crate) assemble: fn(&ModuleStore<C>) -> Option<SharedScope>,
@@ -167,6 +201,8 @@ impl<C: FluentCatalog> ScopeRegistration<C> {
 	pub fn new<S: FluentScope<Catalog = C>>() -> Self {
 		Self {
 			id: TypeId::of::<S>(),
+			parent: None,
+			progress: crate::progress::Subscription::new::<S>,
 			parameter: TypeId::of::<Res<'static, S>>(),
 			paths: S::module_paths(),
 			assemble: |store| S::assemble(store).map(|scope| Arc::new(scope) as SharedScope),
@@ -188,5 +224,14 @@ impl<C: FluentCatalog> ScopeRegistration<C> {
 			ready_exists: |resources| resources.get::<S>().is_ok(),
 			bindings: bindings::register::<S>,
 		}
+	}
+
+	/// Declare a scope's immediate parent for recursive progress observation.
+	///
+	/// Generated providers emit this automatically. Handwritten descriptors without
+	/// a parent are treated as direct children of the catalog root.
+	pub fn with_parent<P: FluentScope<Catalog = C>>(mut self) -> Self {
+		self.parent = Some(TypeId::of::<P>());
+		self
 	}
 }

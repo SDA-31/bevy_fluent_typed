@@ -77,7 +77,9 @@ jobs:
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
           cargo clippy --locked --all-targets --features codegen,watch --config "$generator_config" -- -D warnings
+          cargo clippy --locked --all-targets --features codegen,watch,diagnostics --config "$generator_config" -- -D warnings
           cargo clippy --locked --all-targets --no-default-features --features bevy-0-19,codegen,watch --config "$generator_config" -- -D warnings
+          cargo clippy --locked --all-targets --no-default-features --features bevy-0-19,codegen,watch,diagnostics --config "$generator_config" -- -D warnings
           cargo clippy --locked --all-targets --no-default-features --features build --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path examples/minimal/Cargo.toml --all-targets --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path tools/compatibility/Cargo.toml --all-targets -- -D warnings
@@ -92,11 +94,13 @@ jobs:
       - name: Check minimal runtime dependency isolation
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
-          cargo tree --locked --no-default-features --features bevy-0-20 --edges normal,build,no-proc-macro --prefix none --config "$generator_config" > "$CARGO_TARGET_DIR/minimal-dependencies.txt"
-          if grep -E '^(fluent_typed_codegen|bevy_fluent_codegen_bridge|toml_edit|prettyplease) v' "$CARGO_TARGET_DIR/minimal-dependencies.txt"; then
-            echo 'Generator or manifest dependencies leaked into the minimal runtime.' >&2
-            exit 1
-          fi
+          for features in bevy-0-20 bevy-0-20,diagnostics; do
+            cargo tree --locked --no-default-features --features "$features" --edges normal,build,no-proc-macro --prefix none --config "$generator_config" > "$CARGO_TARGET_DIR/minimal-dependencies.txt"
+            if grep -E '^(fluent_typed_codegen|bevy_fluent_codegen_bridge|toml_edit|prettyplease) v' "$CARGO_TARGET_DIR/minimal-dependencies.txt"; then
+              echo 'Generator or manifest dependencies leaked into the minimal runtime.' >&2
+              exit 1
+            fi
+          done
       - name: Test custom asset source integration on the default backend
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
@@ -106,7 +110,9 @@ jobs:
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
           cargo doc --locked --no-deps --features codegen,watch,build --config "$generator_config"
+          cargo doc --locked --no-deps --features codegen,watch,diagnostics,build --config "$generator_config"
           cargo doc --locked --no-deps --no-default-features --features bevy-0-19,codegen,watch,build --config "$generator_config"
+          cargo doc --locked --no-deps --no-default-features --features bevy-0-19,codegen,watch,diagnostics,build --config "$generator_config"
           cargo doc --locked --no-deps --no-default-features --features build --config "$generator_config"
       - name: Inspect library archives without uploading
         run: |

@@ -13,6 +13,7 @@ use std::{
 	time::{Duration, Instant},
 };
 
+mod progress;
 mod tree;
 
 fn pump(app: &mut App, ready: impl Fn(&World) -> bool) {

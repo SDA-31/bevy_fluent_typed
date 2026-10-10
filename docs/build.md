@@ -71,6 +71,17 @@ application runtime work, not part of this build phase.
 | `manifest` with a backend | Manifest constructors and the generator's runtime manifest API; no generation |
 | One backend alone, defaults disabled | Byte sources and handwritten providers; no generator package, TOML or bridge |
 | `watch` | Bevy asset-source file watching; does not watch custom byte loaders |
+| `diagnostics` with a backend | Explicit per-module detail queries only; disabled by default, no additional dependencies |
+
+Loading counters and passive per-scope `progress` queries are available with
+every runtime backend, including the minimal byte-source configuration. Native
+tracking is enabled with `LocalizationProgressPlugin<Scope>` through ordinary
+`app.add_plugins` during setup; no Cargo `progress` feature exists. Without a
+progress plugin, no native view or recurring tracker is installed. Scopes of one
+provider share a dispatcher. Selecting the root includes all registered views;
+a group includes its descendants, and a leaf selects itself. Generated providers
+supply hierarchy metadata automatically. The `diagnostics` feature only enables
+on-demand module details and does not activate tracking.
 
 `codegen` and `manifest` are independent of how you obtain runtime bytes.
 Generated providers currently include manifest helpers, so `codegen` enables

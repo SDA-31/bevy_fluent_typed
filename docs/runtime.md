@@ -273,6 +273,127 @@ wait. An invalid same-language reload preserves the last good value, so its
 consumers can run while the latest attempt has status `Failed`. Repeating
 `load::<Scope>()` retries failed leaves.
 
+### Observe loading progress
+
+One root progress plugin provides native views for the entire registered tree:
+
+```rust,ignore
+use bevy_fluent_typed::LocalizationProgressPlugin;
+
+app.add_plugins(LocalizationProgressPlugin::<texts::Translations>::new());
+```
+
+This includes `LocalizationProgress<texts::presentation::Hud>` automatically;
+no separate HUD registration is needed. To observe only a group's subtree instead,
+use `LocalizationProgressPlugin::<texts::Presentation>::new()`. It includes
+that group and its registered descendants, excluding ancestors and siblings.
+A leaf plugin observes only that leaf. Consumer plugins may register overlapping
+subtrees in separate calls; repeats are idempotent and share one provider dispatcher.
+
+During App setup, either order relative to the owning `LocalizationPlugin` works.
+Full/Lazy is inferred from that base plugin; no Cargo progress feature is required.
+Selected scopes get native resources before `Startup` once the base plugin is
+installed. Registration snapshots any active/prepared state already present
+during setup; compose these plugins before the App is finished. Read a typed view
+from an existing UI system, or gate a dedicated observer on visible changes:
+
+```rust,ignore
+use bevy::ecs::schedule::common_conditions::resource_changed;
+use bevy_fluent_typed::LocalizationProgress;
+
+fn loading_ui(progress: Res<LocalizationProgress<texts::presentation::Hud>>) {
+    let active = progress.active();
+    println!("{}: {}/{} ready", active.locale, active.ready, active.total);
+
+    if let Some(target) = progress.preparation() {
+        println!("target {}: {}/{} ready", target.locale, target.ready, target.total);
+    }
+}
+
+app.add_systems(
+    PostUpdate,
+    loading_ui
+        .run_if(resource_changed::<LocalizationProgress<texts::presentation::Hud>>)
+        .after(bevy_fluent_typed::LocalizationSystems::Progress),
+);
+```
+
+Without a progress plugin, there is no native progress resource, no recurring
+tracker and no tracking identity or revision updates. Ordinary loading and
+`status` continue normally. The progress plugin creates neither logging nor a loading UI;
+presentation belongs to the application. `active()` covers ordinary initial loading,
+`set_locale` and same-language reloads. `preparation()` is present during explicit
+`prepare_locale` until cancellation or commit. Preparing the active locale mirrors
+its active data without additional I/O.
+
+The root view counts the current demand union: Full counts the whole root; Lazy
+counts the distinct leaves required by explicit requests and leases. Group and
+leaf views count their fixed, deduplicated schema paths, including unrequested
+leaves. Overlapping owners do not inflate the total. Progress plugins and resource
+reads create no loading requests or leases and do not retain parsed catalogs.
+Each `LoadingProgress<Locale>` contains `locale`, `total`, `ready`,
+`loading`, `failed`, `unloaded` and `available`. The four attempt counts sum to
+`total`; `available` separately counts usable last-good snapshots, including
+during a loading or failed reload. These are module counts, not downloaded bytes
+or a percentage of elapsed work.
+
+`active()` and `preparation()` counters describe the observed scope, but
+`preparation_status()` is provider-wide because locale commit applies to the
+whole provider's demand. A ready HUD does not mean other requested leaves are
+ready; conversely, an unrequested observed scope can remain unloaded while the
+provider reports `PreparationStatus::Ready`. Check that provider-wide status
+before asking the live controller to `commit_locale`. Scoped `ready == total` is
+insufficient; retries or asset-handle retirement can also prevent a commit.
+Publication remains an explicit application decision; reading
+a ready snapshot does not commit it. Manual preparation failures appear through
+`PreparationStatus::Failed` without emitting precommit `Rejected` notifications.
+Active translations remain usable throughout preparation.
+
+The tracker runs after PreUpdate publication and after PostUpdate text refresh,
+in `LocalizationSystems::Progress`. Read fresh snapshots in `Update`, or order a
+PostUpdate observer after that progress boundary as shown above. Use
+`resource_changed` to update a loading UI only when visible progress changes;
+settled frames preserve its change tick. Several transitions between observations
+may coalesce: this is the latest snapshot, not a history of messages. Use
+`CatalogUpdateReader` when you need accepted/rejected load notifications.
+
+For passive counts of another scope, `localization.progress::<Scope>()` and
+`ModuleStore::progress::<Scope>()` include all unique schema leaves of that scope,
+including unrequested leaves. `localization.preparation_progress::<Scope>()`
+returns target counts when preparation exists. These on-demand queries create
+no demand, enable no recurring tracking and require no optional feature.
+
+See the [generated progress example](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/codegen/src/bin/progress.rs) for a bounded headless runner,
+explicit prepare/commit and a change-gated observer.
+
+### Optional module details
+
+Enable the default-off `diagnostics` feature only when you need individual
+module paths, attempt errors or snapshot availability:
+
+```toml
+bevy_fluent_typed = { version = "0.3.0", features = ["codegen", "diagnostics"] }
+```
+
+Keep the build dependency unchanged. During explicit inspection:
+
+```rust,ignore
+let modules = localization.diagnostics::<texts::presentation::Hud>();
+let target_modules = localization.preparation_diagnostics::<texts::presentation::Hud>();
+```
+
+`diagnostics::<Scope>()` is also available on `ModuleStore`. Each call collects
+sorted `ModuleDiagnostic` values with `path`, `status` and `usable`, including
+unrequested schema leaves; target inspection returns `None` without preparation.
+The queries neither request nor retain parsed catalogs. Detailed lists and their
+error copies are collected only when requested, never by the registered progress
+publisher, even with the feature enabled. Counter scans borrow attempt states.
+Typed `PreparationStatus::Failed` still retains the first target failure for commit
+readiness. The `diagnostics` feature does not activate native tracking; use
+`LocalizationProgressPlugin<Scope>` when a native view is needed. Counters and typed
+preparation readiness require no optional feature. Details add no dependencies
+and start no logging.
+
 ## Navigate from the root or a parent
 
 The controller's views work with a partially loaded tree:
@@ -365,6 +486,57 @@ Bindings update as their resources become ready. No old-language fallback is use
 For a different initial language, insert `AppLocalization::new(texts::Locale::Es)`
 before installing the plugin. Otherwise the manifest's default language is used.
 
+To keep the active language usable while acquiring a target, prepare it first:
+
+```rust,ignore
+use bevy_fluent_typed::PreparationStatus;
+
+localization.prepare_locale(texts::Locale::Es);
+// Poll in a later update; required Res<Scope> consumers keep using the active locale.
+if let PreparationStatus::Ready = localization.preparation_status() {
+    localization.commit_locale()?;
+}
+```
+
+`prepared_locale()` reports the target, including during acquisition. Preparation
+loads exactly the current requests in either Full or Lazy mode, using the plugin's
+existing source and checked parsers. Target leaves remain private: native resources,
+controller views and bound text continue using the active locale. `commit_locale()`
+returns `CommitLocaleError::NotPrepared`, `Pending` or `Failed(ModuleError)` until
+all requested target leaves passed their latest attempt; a retained earlier good
+snapshot cannot satisfy a failed retry. A successful call queues an atomic locale
+swap for the next PreUpdate `LocalizationSystems::Publish` boundary. `locale()`
+changes there, together with every available native scope; bindings refresh in
+PostUpdate. No target loading notifications appear in `CatalogUpdate` before
+commit; committed requested leaves emit `Loaded`.
+
+Repeating `prepare_locale` for the same target keeps its successful leaves and
+retries failures. A different target replaces it. Lazy `load`/`unload` requests
+also update target demand; changing demand or requesting a retry revokes a queued
+commit. Poll readiness and commit again. Publication rechecks readiness and revokes
+the commit if a newly observed target source failure makes it unavailable.
+`cancel_preparation()` drops target snapshots and tasks/handles. External I/O may
+finish later, but canceled attempts cannot satisfy a replacement preparation.
+`set_locale()` cancels preparation, including when selecting the active locale.
+Preparing the active locale is immediately ready, preserves snapshots and performs
+no extra I/O. An empty Lazy request set is also ready without loading any modules.
+
+Preparation retains active and target parsed leaves until cancellation or commit;
+there is no retained locale cache. Application-owned clones and the source's own
+buffers retain their usual lifetime. File sources use Bevy's normal AssetReader
+and AssetLoader with a private typed preparation asset and per-attempt identities.
+Repreparing or retrying the same file waits asynchronously for its previous
+preparation handle to retire. Before commit, target files also wait for obsolete
+normal catalog handles to retire so the handoff cannot reconnect a canceled
+reader. An uncancelable reader opening the source or another owner retaining
+such a handle may delay readiness. Cancellation returns immediately and active
+catalog consumers keep running throughout. Source metadata must allow Bevy to select the requested
+asset type; explicit `.meta` files selecting a different loader cause preparation
+to fail. Remove that loader override or configure Bevy's metadata policy for your
+source. Automatic watching and `ReloadCatalogs` continue to work after commit.
+This does not snapshot a changing archive or order overlapping external reloads;
+keep the source coherent while preparing, as described below.
+
 To retry all requested FTL files on Bevy 0.17–0.20:
 
 ```rust,ignore
@@ -400,8 +572,8 @@ follow at publication. Consumers that must observe the synchronized result in
 that frame should run in PostUpdate after `LocalizationSystems::Refresh`.
 
 Checked leaves publish independently. A bad same-language reload keeps that
-leaf's last good value; valid siblings can still change. There is no multi-file
-transaction. Successful reloads publish fresh snapshots even if text is identical;
+leaf's last good value; valid siblings can still change. Ordinary same-language reloads have no multi-file
+transaction; explicit locale preparation commits its requested target leaves together. Successful reloads publish fresh snapshots even if text is identical;
 idle frames and unchanged siblings preserve resource identity and change ticks.
 
 The plugin serializes its own reload requests per module and coalesces pending
@@ -491,6 +663,19 @@ implementations. Add `manifest` if that provider needs the existing manifest/fil
 constructors. `manifest` is enabled by default and by `codegen`; it uses the
 generator package's small runtime manifest API, without enabling generation.
 See the [feature table](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/build.md#features) for host/target separation.
+
+For advanced handwritten providers with groups, declare the immediate parent
+in each child descriptor:
+
+```rust,ignore
+ScopeRegistration::new::<Hud>().with_parent::<Presentation>()
+```
+
+The parent must share the child's `FluentScope::Catalog`. Descriptors without a
+parent are direct children of the catalog root; root observation includes every
+registered descriptor, including existing providers without parent metadata.
+Generated Bevy providers emit these relationships automatically from their accessor
+hierarchy. The one-file handwritten example needs no parent boilerplate.
 
 ## Headless application
 
