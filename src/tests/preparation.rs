@@ -316,6 +316,15 @@ fn filesystem_target_preparation_uses_normal_asset_loader_and_active_reload() {
 	static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 	struct Fixture(std::path::PathBuf);
 
+	impl Fixture {
+		fn replace(&self, relative: &str, bytes: impl AsRef<[u8]>) {
+			let destination = self.0.join(relative);
+			let temporary = destination.with_extension("pending");
+			fs::write(&temporary, bytes).unwrap();
+			fs::rename(temporary, destination).unwrap();
+		}
+	}
+
 	impl Drop for Fixture {
 		fn drop(&mut self) {
 			let _ = fs::remove_dir_all(&self.0);
@@ -391,7 +400,26 @@ fn filesystem_target_preparation_uses_normal_asset_loader_and_active_reload() {
 			.label()
 			.is_none()
 	);
-	fs::write(fixture.0.join("data/es/ui.ftl"), "updated").unwrap();
+	// Commit reconnects the normal asset namespace asynchronously. Wait for
+	// that read to publish before exercising a separate explicit reload.
+	let normal_read_settled = |world: &World| {
+		let state = world.resource::<Localization<TestCatalog>>();
+		let entry = &state.entries["ui.ftl"];
+		let asset = entry.handle.as_ref().and_then(|handle| {
+			world
+				.resource::<Assets<crate::assets::ModuleAsset<TestCatalog>>>()
+				.get(handle)
+		});
+
+		!entry.pending
+			&& state.retry.is_empty()
+			&& asset.is_some_and(|asset| entry.accepted == Some(asset.revision))
+	};
+	pump(&mut app, normal_read_settled);
+
+	// A source update must never expose the truncated intermediate file to
+	// an asynchronous reader; the fixture replaces complete byte snapshots.
+	fixture.replace("data/es/ui.ftl", "updated");
 	#[cfg(feature = "bevy-0-16")]
 	app.world_mut()
 		.send_event(crate::ReloadCatalogs::<TestCatalog>::default());
@@ -399,9 +427,9 @@ fn filesystem_target_preparation_uses_normal_asset_loader_and_active_reload() {
 	app.world_mut()
 		.write_message(crate::ReloadCatalogs::<TestCatalog>::default());
 	pump(&mut app, |world| {
-		world.resource::<TestCatalog>().0 == "updated"
+		world.resource::<TestCatalog>().0 == "updated" && normal_read_settled(world)
 	});
-	fs::write(fixture.0.join("data/es/ui.ftl"), [0xff]).unwrap();
+	fixture.replace("data/es/ui.ftl", [0xff]);
 	#[cfg(feature = "bevy-0-16")]
 	app.world_mut()
 		.send_event(crate::ReloadCatalogs::<TestCatalog>::default());
