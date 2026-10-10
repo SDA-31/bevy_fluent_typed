@@ -4,6 +4,7 @@ use localization_runtime::bevy::prelude::*;
 use localization_runtime::{
 	Full, Lazy, LoadingMode, Localization, LocalizationPlugin, LocalizedText, Message, ModuleStatus,
 };
+use std::time::{Duration, Instant};
 
 fn app() -> App {
 	let mut app = App::new();
@@ -48,7 +49,7 @@ fn lazy_plugin_loads_from_a_typed_leaf_only_embedded_manifest() {
 	app.world_mut()
 		.resource_mut::<Localization<Translations, Lazy>>()
 		.set_locale(Locale::Es);
-	app.update();
+	wait_for_locale(&mut app, Locale::Es);
 	assert_eq!(
 		app.world()
 			.resource::<texts::presentation::Hud>()
@@ -83,7 +84,7 @@ fn settled_full_empty_lazy_and_partial_lazy_controllers_remain_unchanged() {
 	full.add_plugins((
 		MinimalPlugins,
 		AssetPlugin::default(),
-		LocalizationPlugin::<Translations>::new(super::EMBEDDED),
+		LocalizationPlugin::<Translations, Full>::new(super::EMBEDDED),
 	));
 	full.finish();
 	full.cleanup();
@@ -158,7 +159,7 @@ fn overlapping_group_leaf_and_root_requests_release_only_their_own_demand() {
 		localization.set_locale(Locale::Es);
 	}
 
-	app.update();
+	wait_for_locale(&mut app, Locale::Es);
 	assert_eq!(app.world().resource::<Translations>().locale(), Locale::Es);
 	assert_eq!(app.world().get::<Text>(label).unwrap().0, "Panel de vuelo");
 	app.world_mut()
@@ -168,4 +169,24 @@ fn overlapping_group_leaf_and_root_requests_release_only_their_own_demand() {
 	assert!(!app.world().contains_resource::<Translations>());
 	assert!(!app.world().contains_resource::<texts::Presentation>());
 	assert!(!app.world().contains_resource::<texts::presentation::Hud>());
+}
+
+fn wait_for_locale(app: &mut App, locale: Locale) {
+	let deadline = Instant::now() + Duration::from_secs(10);
+
+	loop {
+		app.update();
+
+		if app
+			.world()
+			.resource::<Localization<Translations, Lazy>>()
+			.locale() == locale
+			&& app.world().contains_resource::<texts::presentation::Hud>()
+		{
+			return;
+		}
+
+		assert!(Instant::now() < deadline, "lazy locale switch timed out");
+		std::thread::sleep(Duration::from_millis(1));
+	}
 }

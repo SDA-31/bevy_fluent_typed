@@ -26,12 +26,13 @@ In an enclosing workspace, the package is `localization-example`; add
 ## Start here
 
 - [main.rs](src/main.rs): generated `texts`, plugin setup, a deferred
-  `LocalizedText` binding and language changes.
+  `LocalizedText<texts::Ui>` binding and language changes.
 - [typed_resources.rs](src/bin/typed_resources.rs): the shorter resource-focused
-  walkthrough. It shows `Translations → Presentation → Hud`, a direct
-  `Res<texts::presentation::Hud>` parameter and the same text entity after a
+  walkthrough. It shows `Res<texts::Translations>` with chained
+  `Translations → Presentation → Hud` borrows and the same text entity after a
   language switch. This binary explicitly embeds source bytes and parses the selected
-  language during an update.
+  language during an update. Its one-time root resource consumer supports the
+  chained navigation demonstration; the HUD binding retains only its own scope afterward.
 - [console.rs](src/console.rs): the default binary's terminal runner and load
   diagnostics. This is headless application plumbing, not a localization API.
 - [build.rs](build.rs): the explicit generation call; `translations!` only
@@ -39,7 +40,9 @@ In an enclosing workspace, the package is `localization-example`; add
 - [tests/](tests): contract, resource, watcher and formatting regressions. Start
   with [tests/README.md](tests/README.md) when looking for verification.
 
-The default binary waits for successful file loads, prints the bound
+Default Auto loads scopes owned by inserted bindings and localized resource
+systems; plain world inspection does not request modules. The default binary
+waits for successful file loads, prints the bound
 text, switches through every discovered language and exits. Watch mode keeps the
 English label alive: edit `assets/localizations/translations/en/ui.ftl` **inside
 this example**. Valid edits print to the terminal; invalid edits print a diagnostic

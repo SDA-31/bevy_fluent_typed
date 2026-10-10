@@ -14,7 +14,13 @@ pub(super) struct LoadStatus {
 	failed: bool,
 }
 
-pub(super) fn run_until_loaded(app: &mut App, label: Entity, watch: bool) -> Result<(), String> {
+pub(super) fn run_until_loaded(
+	app: &mut App,
+	label: Entity,
+	locale: Locale,
+	watch: bool,
+) -> Result<(), String> {
+	app.world_mut().resource_mut::<LoadStatus>().failed = false;
 	let deadline = Instant::now() + LOAD_TIMEOUT;
 	let mut previous = String::new();
 
@@ -37,8 +43,8 @@ pub(super) fn run_until_loaded(app: &mut App, label: Entity, watch: bool) -> Res
 			if app
 				.world()
 				.resource::<Localization<Translations>>()
-				.catalog()
-				.is_some()
+				.locale() == locale
+				&& app.world().contains_resource::<crate::texts::Ui>()
 			{
 				break;
 			}

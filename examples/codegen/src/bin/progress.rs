@@ -28,7 +28,7 @@ fn main() -> Result<(), String> {
 			file_path: env!("CARGO_MANIFEST_DIR").into(),
 			..default()
 		},
-		LocalizationPlugin::<texts::Translations>::new(texts::manifest()),
+		LocalizationPlugin::<texts::Translations, bevy_fluent_typed::Full>::new(texts::manifest()),
 	))
 	.add_plugins(LocalizationProgressPlugin::<texts::Translations>::new())
 	.init_resource::<ProgressUi>()
@@ -47,7 +47,7 @@ fn main() -> Result<(), String> {
 	);
 
 	app.world_mut()
-		.resource_mut::<Localization<texts::Translations>>()
+		.resource_mut::<Localization<texts::Translations, bevy_fluent_typed::Full>>()
 		.prepare_locale(texts::Locale::Es);
 	wait(&mut app, |progress| {
 		progress.preparation_status() == &PreparationStatus::Ready
@@ -57,7 +57,7 @@ fn main() -> Result<(), String> {
 		texts::Locale::En
 	);
 	app.world_mut()
-		.resource_mut::<Localization<texts::Translations>>()
+		.resource_mut::<Localization<texts::Translations, bevy_fluent_typed::Full>>()
 		.commit_locale()
 		.map_err(|error| error.to_string())?;
 	wait(&mut app, |progress| {

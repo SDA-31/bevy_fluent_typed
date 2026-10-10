@@ -105,27 +105,29 @@ fn record(mut updates: CatalogUpdateReader<texts::Translations>, mut seen: ResMu
 fn controlled_app(fail_target: bool) -> (App, Attempts) {
 	let attempts = Attempts::default();
 	let observed = attempts.clone();
-	let plugin = LocalizationPlugin::<texts::Translations>::from_loader(move |locale, path| {
-		assert_eq!(path, texts::ui::Greeting::PATH);
-		let gate = Arc::new(Gate::default());
-		observed.lock().unwrap().push((locale, gate.clone()));
+	let plugin = LocalizationPlugin::<texts::Translations, bevy_fluent_typed::Full>::from_loader(
+		move |locale, path| {
+			assert_eq!(path, texts::ui::Greeting::PATH);
+			let gate = Arc::new(Gate::default());
+			observed.lock().unwrap().push((locale, gate.clone()));
 
-		async move {
-			gate.wait().await;
+			async move {
+				gate.wait().await;
 
-			if fail_target && locale == texts::Locale::Es {
-				return Err("target unavailable".to_string());
+				if fail_target && locale == texts::Locale::Es {
+					return Err("target unavailable".to_string());
+				}
+
+				let bytes = match locale {
+					texts::Locale::En => b"hello = Hello!".as_slice(),
+					texts::Locale::Es => "hello = ¡Hola!".as_bytes(),
+					texts::Locale::Ru => "hello = Привет!".as_bytes(),
+				};
+
+				Ok(bytes.to_vec())
 			}
-
-			let bytes = match locale {
-				texts::Locale::En => b"hello = Hello!".as_slice(),
-				texts::Locale::Es => "hello = ¡Hola!".as_bytes(),
-				texts::Locale::Ru => "hello = Привет!".as_bytes(),
-			};
-
-			Ok(bytes.to_vec())
-		}
-	});
+		},
+	);
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, plugin))
 		.add_plugins(LocalizationProgressPlugin::<texts::Translations>::new())
@@ -227,7 +229,7 @@ fn generated_full_loading_and_explicit_commit_publish_native_progress_without_id
 	assert_idle(&mut app);
 	let before = app.world().resource::<Observations>().updates;
 	app.world_mut()
-		.resource_mut::<Localization<texts::Translations>>()
+		.resource_mut::<Localization<texts::Translations, bevy_fluent_typed::Full>>()
 		.prepare_locale(texts::Locale::Es);
 	pump(&mut app, |world| {
 		world
@@ -254,7 +256,7 @@ fn generated_full_loading_and_explicit_commit_publish_native_progress_without_id
 	);
 	assert_idle(&mut app);
 	app.world_mut()
-		.resource_mut::<Localization<texts::Translations>>()
+		.resource_mut::<Localization<texts::Translations, bevy_fluent_typed::Full>>()
 		.commit_locale()
 		.unwrap();
 	pump(&mut app, |world| {
@@ -280,7 +282,7 @@ fn failed_manual_preparation_is_visible_without_replacing_active_data_or_emittin
 	let (mut app, attempts) = controlled_app(true);
 	load_initial(&mut app, &attempts);
 	app.world_mut()
-		.resource_mut::<Localization<texts::Translations>>()
+		.resource_mut::<Localization<texts::Translations, bevy_fluent_typed::Full>>()
 		.prepare_locale(texts::Locale::Es);
 	pump(&mut app, |_| attempts.lock().unwrap().len() == 2);
 	release(&attempts, texts::Locale::Es);
@@ -304,7 +306,7 @@ fn failed_manual_preparation_is_visible_without_replacing_active_data_or_emittin
 	assert!(app.world().resource::<Observations>().rejections.is_empty());
 	let before = app.world().resource::<Observations>().updates;
 	app.world_mut()
-		.resource_mut::<Localization<texts::Translations>>()
+		.resource_mut::<Localization<texts::Translations, bevy_fluent_typed::Full>>()
 		.cancel_preparation();
 	pump(&mut app, |world| {
 		world.resource::<Progress>().preparation().is_none()

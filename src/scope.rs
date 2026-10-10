@@ -193,7 +193,8 @@ pub struct ScopeRegistration<C: FluentCatalog> {
 	pub(crate) exists: fn(&World) -> bool,
 	pub(crate) ready_access: fn(&mut FilteredResourcesBuilder),
 	pub(crate) ready_exists: fn(&FilteredResources) -> bool,
-	pub(crate) bindings: fn(&mut App),
+	pub(crate) bindings: fn(&mut App, bool),
+	pub(crate) consumer: fn(&mut World) -> Arc<crate::demand::Consumer>,
 }
 
 impl<C: FluentCatalog> ScopeRegistration<C> {
@@ -223,6 +224,7 @@ impl<C: FluentCatalog> ScopeRegistration<C> {
 			},
 			ready_exists: |resources| resources.get::<S>().is_ok(),
 			bindings: bindings::register::<S>,
+			consumer: crate::demand::acquire::<S>,
 		}
 	}
 

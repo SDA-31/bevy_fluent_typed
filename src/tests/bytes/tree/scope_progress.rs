@@ -202,7 +202,7 @@ fn ready_scope_counters_cannot_hide_another_requested_modules_preparation_failur
 	let mut app = App::new();
 	app.add_plugins((
 		MinimalPlugins,
-		LocalizationPlugin::<Root>::from_bytes([
+		LocalizationPlugin::<Root, crate::Full>::from_bytes([
 			("en", Hud::module_paths()[0], b"hud".as_slice()),
 			("en", Panel::module_paths()[0], b"panel".as_slice()),
 			("en", Other::module_paths()[0], b"other".as_slice()),
@@ -223,7 +223,7 @@ fn ready_scope_counters_cannot_hide_another_requested_modules_preparation_failur
 	);
 
 	app.world_mut()
-		.resource_mut::<Localization<Root>>()
+		.resource_mut::<Localization<Root, crate::Full>>()
 		.prepare_locale("es");
 	pump(&mut app, |world| {
 		let hud = world.resource::<LocalizationProgress<Hud>>();
@@ -241,13 +241,13 @@ fn ready_scope_counters_cannot_hide_another_requested_modules_preparation_failur
 	);
 	assert!(
 		app.world_mut()
-			.resource_mut::<Localization<Root>>()
+			.resource_mut::<Localization<Root, crate::Full>>()
 			.commit_locale()
 			.is_err()
 	);
 
 	app.world_mut()
-		.resource_mut::<Localization<Root>>()
+		.resource_mut::<Localization<Root, crate::Full>>()
 		.cancel_preparation();
 	app.update();
 	assert!(
@@ -258,7 +258,7 @@ fn ready_scope_counters_cannot_hide_another_requested_modules_preparation_failur
 	);
 
 	app.world_mut()
-		.resource_mut::<Localization<Root>>()
+		.resource_mut::<Localization<Root, crate::Full>>()
 		.prepare_locale("en");
 	app.update();
 	let hud = app.world().resource::<LocalizationProgress<Hud>>();
@@ -281,8 +281,12 @@ fn scope_subscriptions_bind_to_their_own_provider_and_loading_mode() {
 			b"hud".as_slice(),
 		)])
 		.unwrap(),
-		LocalizationPlugin::<TestCatalog>::from_bytes([("ja", "ui.ftl", b"ja".as_slice())])
-			.unwrap(),
+		LocalizationPlugin::<TestCatalog, crate::Full>::from_bytes([(
+			"ja",
+			"ui.ftl",
+			b"ja".as_slice(),
+		)])
+		.unwrap(),
 	));
 
 	app.finish();

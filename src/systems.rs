@@ -8,13 +8,14 @@ use crate::bevy::{
 	prelude::*,
 };
 use crate::compatibility::readiness::{Probe, Readiness};
+use crate::demand::Consumers;
 use crate::{FluentCatalog, LoadingMode, Localization, ScopeRegistration};
 use std::{
 	any::TypeId,
 	collections::HashMap,
 	marker::PhantomData,
 	sync::{
-		Arc,
+		Arc, OnceLock,
 		atomic::{AtomicBool, Ordering},
 	},
 };
@@ -34,6 +35,7 @@ impl CatalogReadiness {
 		world.resource_mut::<Self>().0.insert(
 			scope.parameter,
 			Arc::new(Probe {
+				consumer: M::AUTOMATIC.then_some(scope.consumer),
 				access: Box::new(move |builder| {
 					builder.add_read::<Localization<C, M>>();
 					access(builder);
@@ -58,7 +60,10 @@ impl CatalogReadiness {
 /// Functions keep native `Res<Scope>` parameters. Each function waits independently
 /// for its direct, required catalog parameters.
 /// Apply Bevy configuration (`chain`, `run_if`, `in_set`, etc.) to the returned value.
-/// No loading is requested: Lazy applications retain explicit `load` / `unload`.
+/// In default Auto, each direct required catalog is requested when Bevy initializes
+/// the system. Recurring systems retain demand while their state exists, including
+/// when `run_if` is false. Explicit Lazy still needs manual `load` / `unload`;
+/// plain `add_systems` and optional resource parameters do not create demand.
 ///
 /// Register in a recurring schedule such as `Update`. A skipped `Startup` or
 /// `OnEnter` system cannot retry; use [`LocalizationAppExt::add_localized_startup_systems`]
@@ -73,7 +78,8 @@ pub fn localized<M>(systems: impl IntoLocalizedSystems<M>) -> ScheduleConfigs<Sc
 
 /// Register native-resource consumers that wait without blocking the frame.
 pub trait LocalizationAppExt {
-	/// Add recurring functions with inferred catalog readiness gates.
+	/// Add recurring functions with inferred catalog ownership and readiness gates.
+	/// Auto owns required scopes for the system-state lifetime, even while skipped.
 	///
 	/// Accepts functions and tuples. Use [`localized`] with `add_systems` when
 	/// applying Bevy configuration. Built-in startup schedules are rejected because
@@ -90,6 +96,8 @@ pub trait LocalizationAppExt {
 	/// Completion is recorded only after the function body returns. This allows
 	/// deferred commands and preserves returned errors. An invoked function that
 	/// returns an error has still run once; normal Bevy error handling applies.
+	/// In Auto, demand is released after the body returns; bindings inserted by
+	/// deferred commands establish their own ownership before module release.
 	/// This is independent deferred initialization, not Startup ordering. The
 	/// function is wrapped: `before(original_function)` / `after(original_function)`
 	/// do not target that wrapper. Combine dependent steps into one function, or
@@ -141,6 +149,7 @@ pub struct TupleMarker;
 struct Tracked<F, M> {
 	function: F,
 	completed: Arc<AtomicBool>,
+	consumers: Arc<OnceLock<Consumers>>,
 	marker: PhantomData<fn() -> M>,
 }
 
@@ -156,6 +165,13 @@ where
 	fn run(&mut self, input: (), params: SystemParamItem<Self::Param>) -> Self::Out {
 		let result = self.function.run(input, params);
 		self.completed.store(true, Ordering::Relaxed);
+
+		if let Some(consumers) = self.consumers.get() {
+			for consumer in consumers.iter() {
+				consumer.release();
+			}
+		}
+
 		result
 	}
 }
@@ -169,10 +185,12 @@ where
 {
 	fn into_localized(self, once: bool) -> ScheduleConfigs<ScheduleSystem> {
 		let completed = Arc::new(AtomicBool::new(false));
+		let consumers = Arc::new(OnceLock::new());
 		let system = if once {
 			Tracked {
 				function: self,
 				completed: completed.clone(),
+				consumers: consumers.clone(),
 				marker: PhantomData,
 			}
 			.into_configs()
@@ -183,6 +201,10 @@ where
 		system.run_if(move |readiness: Readiness<F::Param>| {
 			if once && completed.load(Ordering::Relaxed) {
 				return false;
+			}
+
+			if once {
+				consumers.get_or_init(|| readiness.consumers.clone());
 			}
 
 			readiness.ready()

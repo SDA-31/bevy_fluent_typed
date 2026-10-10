@@ -195,8 +195,35 @@ fn exported_constant_and_catalog_alias_support_lazy_required_resources() {
 	app.world_mut()
 		.resource_mut::<Localization<Translations, Lazy>>()
 		.set_locale(Locale::Es);
+	let before = invocations.load(Ordering::Relaxed);
+	let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+
+	loop {
+		app.update();
+
+		if app
+			.world()
+			.resource::<Localization<Translations, Lazy>>()
+			.locale() == Locale::Es
+			&& app
+				.world()
+				.get_resource::<Interface>()
+				.is_some_and(|hud| hud.locale() == Locale::Es)
+		{
+			break;
+		}
+
+		assert!(
+			std::time::Instant::now() < deadline,
+			"alias locale switch timed out"
+		);
+		std::thread::sleep(std::time::Duration::from_millis(1));
+	}
+
+	// Observe a required-system invocation after the target publication
+	// against the published target before checking its continuing lifetime.
 	app.update();
-	assert_eq!(invocations.load(Ordering::Relaxed), 2);
+	assert!(invocations.load(Ordering::Relaxed) > before);
 	assert_eq!(
 		app.world().resource::<Interface>().msg_title(),
 		"Panel de vuelo"
@@ -205,15 +232,16 @@ fn exported_constant_and_catalog_alias_support_lazy_required_resources() {
 	app.world_mut()
 		.resource_mut::<Localization<Translations, Lazy>>()
 		.unload::<Interface>();
+	let before = invocations.load(Ordering::Relaxed);
 	app.update();
-	assert_eq!(invocations.load(Ordering::Relaxed), 2);
+	assert_eq!(invocations.load(Ordering::Relaxed), before);
 	assert!(!app.world().contains_resource::<Interface>());
 
 	app.world_mut()
 		.resource_mut::<Localization<Translations, Lazy>>()
 		.load::<Interface>();
 	app.update();
-	assert_eq!(invocations.load(Ordering::Relaxed), 3);
+	assert_eq!(invocations.load(Ordering::Relaxed), before + 1);
 	assert_eq!(
 		app.world().resource::<Interface>().msg_title(),
 		"Panel de vuelo"

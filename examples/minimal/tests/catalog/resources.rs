@@ -1,6 +1,7 @@
 use crate::{Locale, Translations, texts};
 use localization_runtime::bevy::{ecs as bevy_ecs, prelude::*};
 use localization_runtime::{FluentCatalog, Localization, LocalizationPlugin, LocalizationSystems};
+use std::time::{Duration, Instant};
 
 #[derive(Resource, Default)]
 struct Observations(Vec<(String, bool)>);
@@ -12,9 +13,11 @@ fn observe(hud: Res<texts::presentation::Hud>, mut observations: ResMut<Observat
 fn app() -> App {
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, AssetPlugin::default()))
-		.insert_resource(Localization::<Translations>::new(Locale::En))
+		.insert_resource(Localization::<Translations, localization_runtime::Full>::new(Locale::En))
 		.init_resource::<Observations>()
-		.add_plugins(LocalizationPlugin::<Translations>::new(super::EMBEDDED));
+		.add_plugins(
+			LocalizationPlugin::<Translations, localization_runtime::Full>::new(super::EMBEDDED),
+		);
 	app.finish();
 	app.cleanup();
 	app.update();
@@ -29,9 +32,9 @@ fn group_chain_and_direct_resources_share_data_after_update_and_after_switch() {
 	for &locale in Translations::locales() {
 		if locale != Locale::En {
 			app.world_mut()
-				.resource_mut::<Localization<Translations>>()
+				.resource_mut::<Localization<Translations, localization_runtime::Full>>()
 				.set_locale(locale);
-			app.update();
+			wait_for_locale(&mut app, locale);
 		}
 
 		let root: &Translations = app.world().resource();
@@ -52,30 +55,33 @@ fn group_chain_and_direct_resources_share_data_after_update_and_after_switch() {
 	assert!(!app.world().resource::<Observations>().0.last().unwrap().1);
 	let unchanged_locale = app
 		.world()
-		.resource::<Localization<Translations>>()
+		.resource::<Localization<Translations, localization_runtime::Full>>()
 		.locale();
 
 	app.world_mut()
-		.resource_mut::<Localization<Translations>>()
+		.resource_mut::<Localization<Translations, localization_runtime::Full>>()
 		.set_locale(unchanged_locale);
 	app.update();
 	assert!(!app.world().resource::<Observations>().0.last().unwrap().1);
 }
 
 #[test]
-fn an_update_language_change_is_published_before_post_update_consumers() {
-	fn switch(mut texts: ResMut<Localization<Translations>>) {
+fn an_update_language_change_keeps_consumers_coherent_until_publication() {
+	fn switch(mut texts: ResMut<Localization<Translations, localization_runtime::Full>>) {
 		texts.set_locale(Locale::Es);
 	}
 
 	let mut app = app();
 	app.add_systems(Update, switch)
 		.add_systems(PostUpdate, observe.after(LocalizationSystems::Refresh));
-	app.update();
-	assert_eq!(
-		app.world().resource::<Observations>().0[0].0,
-		"Panel de vuelo"
+	wait_for_locale(&mut app, Locale::Es);
+	let observations = &app.world().resource::<Observations>().0;
+	assert!(
+		observations
+			.iter()
+			.all(|(title, _)| { title == "Flight HUD" || title == "Panel de vuelo" })
 	);
+	assert_eq!(observations.last().unwrap().0, "Panel de vuelo");
 }
 
 #[test]
@@ -137,4 +143,26 @@ fn module_paths_are_order_independent_and_missing_extra_or_duplicate_inputs_are_
 			.to_string()
 			.contains("unexpected")
 	);
+}
+
+fn wait_for_locale(app: &mut App, locale: Locale) {
+	let deadline = Instant::now() + Duration::from_secs(10);
+
+	loop {
+		app.update();
+
+		if app
+			.world()
+			.get_resource::<Translations>()
+			.is_some_and(|catalog| catalog.locale() == locale)
+		{
+			return;
+		}
+
+		assert!(
+			Instant::now() < deadline,
+			"resource locale switch timed out"
+		);
+		std::thread::sleep(Duration::from_millis(1));
+	}
 }

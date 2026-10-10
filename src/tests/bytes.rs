@@ -16,7 +16,7 @@ use std::{
 mod progress;
 mod tree;
 
-fn pump(app: &mut App, ready: impl Fn(&World) -> bool) {
+pub(super) fn pump(app: &mut App, ready: impl Fn(&World) -> bool) {
 	let deadline = Instant::now() + Duration::from_secs(10);
 
 	loop {
@@ -93,12 +93,12 @@ fn bytes_publish_checked_resources_and_bindings_without_asset_plugin() {
 		matches!(
 			world
 				.resource::<Localization<TestCatalog>>()
-				.status::<TestCatalog>(),
-			ModuleStatus::Failed(_)
+				.preparation_status(),
+			crate::PreparationStatus::Failed(_)
 		)
 	});
-	assert!(!app.world().contains_resource::<TestCatalog>());
-	assert!(app.world().get::<Text>(label).unwrap().0.is_empty());
+	assert_eq!(app.world().resource::<TestCatalog>().0, "Japanese");
+	assert_eq!(app.world().get::<Text>(label).unwrap().0, "Japanese");
 }
 
 #[test]
@@ -190,11 +190,12 @@ fn lazy_loader_waits_for_demand_and_discards_old_locale_completion() {
 		.set_locale("es");
 	pump(&mut app, |_| requests.lock().unwrap().len() == 2);
 	requests.lock().unwrap()[0].1.release();
-	app.update();
-	assert!(!app.world().contains_resource::<TestCatalog>());
-	assert_eq!(runs.load(Ordering::Relaxed), 0);
-	requests.lock().unwrap()[1].1.release();
 	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
+	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
+	requests.lock().unwrap()[1].1.release();
+	pump(&mut app, |world| {
+		world.resource::<Localization<TestCatalog, Lazy>>().locale() == "es"
+	});
 	assert_eq!(app.world().resource::<TestCatalog>().0, "es");
 
 	for _ in 0..3 {

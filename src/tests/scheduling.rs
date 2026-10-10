@@ -1,4 +1,4 @@
-//! Plugin-level regression: Update changes reach both text pipelines this frame.
+//! Plugin regression: coherent publication and binding updates precede text detection.
 use super::TestCatalog;
 use crate::bevy::ecs::schedule::{NodeId, ScheduleGraph};
 use crate::bevy::ecs::system::System;
@@ -134,10 +134,10 @@ fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 		assert!(reachable(&ordering, nodes[refresh]).contains(&nodes[index]));
 	}
 
-	assert_eq!(
-		app.world().resource::<Seen>().0,
-		[("es".into(), "es".into())]
-	);
+	app.update();
+	let seen = &app.world().resource::<Seen>().0;
+	assert_eq!(seen.last().unwrap(), &("es".into(), "es".into()));
+	assert!(seen.iter().all(|(ui, world)| ui == world));
 	assert_eq!(app.world().get::<Name>(ui).unwrap().as_str(), "preserved");
 	app.update(); // Settle change detection before testing a binding-only change.
 
@@ -148,7 +148,7 @@ fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 		}));
 	app.update();
 	assert_eq!(
-		app.world().resource::<Seen>().0[2],
+		*app.world().resource::<Seen>().0.last().unwrap(),
 		("es!".into(), "es".into())
 	);
 }

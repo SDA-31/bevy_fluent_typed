@@ -96,8 +96,10 @@ fn native_resources_wait_and_optional_observers_do_not_request_loading() {
 #[test]
 fn full_mode_publishes_before_the_first_required_update() {
 	let mut app = app();
-	app.add_plugins(LocalizationPlugin::<TestCatalog>::new(manifest()))
-		.add_localized_systems(Update, required);
+	app.add_plugins(LocalizationPlugin::<TestCatalog, crate::Full>::new(
+		manifest(),
+	))
+	.add_localized_systems(Update, required);
 	app.update();
 	assert_eq!(app.world().resource::<Observations>().required, ["ja"]);
 }
@@ -105,7 +107,9 @@ fn full_mode_publishes_before_the_first_required_update() {
 #[test]
 fn same_schedule_resource_removal_delays_a_required_consumer() {
 	let mut app = app();
-	app.add_plugins(LocalizationPlugin::<TestCatalog>::new(manifest()));
+	app.add_plugins(LocalizationPlugin::<TestCatalog, crate::Full>::new(
+		manifest(),
+	));
 	app.update();
 	app.add_systems(
 		Update,
@@ -129,7 +133,9 @@ fn inferred_condition_does_not_conflict_with_unrelated_writes() {
 	use crate::compatibility::readiness::Readiness;
 
 	let mut app = app();
-	app.add_plugins(LocalizationPlugin::<TestCatalog>::new(manifest()));
+	app.add_plugins(LocalizationPlugin::<TestCatalog, crate::Full>::new(
+		manifest(),
+	));
 	let mut gate = IntoSystem::into_system(
 		|ready: Readiness<(Res<TestCatalog>, ResMut<Observations>)>| ready.ready(),
 	);
@@ -213,39 +219,48 @@ fn startup_tuple_members_wait_independently() {
 #[test]
 fn original_function_ordering_and_bevy_configuration_are_preserved() {
 	let mut app = app();
-	app.add_plugins(LocalizationPlugin::<TestCatalog>::new(manifest()))
-		.add_systems(Update, localized(required).run_if(|| true))
-		.add_systems(
-			Update,
-			(|mut observations: ResMut<Observations>| observations.required.push("before".into()))
-				.before(required),
-		)
-		.add_systems(
-			Update,
-			(|observations: Res<Observations>| assert_eq!(observations.required, ["before", "ja"]))
-				.after(required),
-		);
+	app.add_plugins(LocalizationPlugin::<TestCatalog, crate::Full>::new(
+		manifest(),
+	))
+	.add_systems(Update, localized(required).run_if(|| true))
+	.add_systems(
+		Update,
+		(|mut observations: ResMut<Observations>| observations.required.push("before".into()))
+			.before(required),
+	)
+	.add_systems(
+		Update,
+		(|observations: Res<Observations>| assert_eq!(observations.required, ["before", "ja"]))
+			.after(required),
+	);
 	app.update();
 }
 
 #[test]
-fn a_locale_change_within_update_cannot_expose_the_previous_snapshot() {
+fn a_locale_change_within_update_preserves_the_active_snapshot_until_publication() {
 	let mut app = app();
-	app.add_plugins(LocalizationPlugin::<TestCatalog>::new(manifest()));
+	app.add_plugins(LocalizationPlugin::<TestCatalog, crate::Full>::new(
+		manifest(),
+	));
 	app.update();
 	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
 	app.add_systems(
 		Update,
 		(
-			|mut localization: ResMut<Localization<TestCatalog>>| localization.set_locale("es"),
+			|mut localization: ResMut<Localization<TestCatalog, crate::Full>>| {
+				localization.set_locale("es")
+			},
 			localized(required),
 		)
 			.chain(),
 	);
 	app.update();
-	assert!(app.world().resource::<Observations>().required.is_empty());
+	assert_eq!(app.world().resource::<Observations>().required, ["ja"]);
 	app.update();
-	assert_eq!(app.world().resource::<Observations>().required, ["es"]);
+	assert_eq!(
+		app.world().resource::<Observations>().required,
+		["ja", "es"]
+	);
 }
 
 #[test]
@@ -258,8 +273,10 @@ fn recurring_helper_rejects_startup_instead_of_losing_the_system() {
 fn ordinary_missing_resources_are_not_silenced() {
 	let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
 		let mut app = app();
-		app.add_plugins(LocalizationPlugin::<TestCatalog>::new(manifest()))
-			.add_localized_systems(Update, |_: Res<TestCatalog>, _: Res<Unrelated>| {});
+		app.add_plugins(LocalizationPlugin::<TestCatalog, crate::Full>::new(
+			manifest(),
+		))
+		.add_localized_systems(Update, |_: Res<TestCatalog>, _: Res<Unrelated>| {});
 		app.update();
 	}));
 	assert!(result.is_err());
@@ -274,7 +291,9 @@ fn fallible_system_outputs_retain_normal_bevy_error_handling() {
 	for once in [false, true] {
 		let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
 			let mut app = app();
-			app.add_plugins(LocalizationPlugin::<TestCatalog>::new(manifest()));
+			app.add_plugins(LocalizationPlugin::<TestCatalog, crate::Full>::new(
+				manifest(),
+			));
 
 			if once {
 				app.add_localized_startup_systems(fail);
@@ -361,7 +380,7 @@ fn several_required_roots_gate_together_but_an_optional_root_does_not() {
 	let other =
 		LocalizationManifest::__embedded(("ja", "ja", ".", &[("ja", "other.ftl", b"other")]));
 	app.add_plugins((
-		LocalizationPlugin::<TestCatalog>::new(manifest()),
+		LocalizationPlugin::<TestCatalog, crate::Full>::new(manifest()),
 		LocalizationPlugin::<OtherCatalog>::new_lazy(other),
 	))
 	.add_localized_systems(

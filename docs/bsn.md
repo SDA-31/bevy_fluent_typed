@@ -55,11 +55,12 @@ The native `FromTemplate` implementation supplies Bevy's scene template;
 no `template(...)` callback or default localized message is needed. A scene
 that omits its message constructor returns an error rather than an empty binding.
 
-Scene construction needs no ready `Res<Interface>`. Full mode loads the module
-automatically. In Lazy mode, the screen owner still calls
-`localization.load::<Interface>()` and releases that request with
-`localization.unload::<Interface>()` when appropriate. Creating a scene or
-cloning a binding never requests translations.
+Scene construction needs no ready `Res<Interface>`. With default Auto, inserting
+the scene's `LocalizedText<Interface>` component requests and retains its scope.
+Removing the last binding releases its demand unless another consumer, manual
+pin or lease still needs the module. Constructing a scene or cloning a binding before
+insertion is passive. Explicit Full loads every module; explicit Lazy still uses
+application-owned `load`/`unload` calls.
 
 ## Reuse a message or binding
 
@@ -86,8 +87,25 @@ Clone it first when several entities need it. Bevy 0.20 also accepts a component
 variable directly, such as `Text binding`; on 0.19 use the typed constructor above.
 `LocalizedText::clone()` shares its formatter and owned arguments through `Arc`.
 Each label follows the current catalog independently, including language changes
-and translation reloads. Unloading its scope clears its text until that scope
+and translation reloads. In explicit Lazy, unloading its scope clears its text until that scope
 is ready again. Replace a binding when its captured arguments change.
+
+## Localize a text span
+
+Use the same binding on a `TextSpan` child of a `Text` or `Text2d` root:
+
+```rust,ignore
+TextSpan
+LocalizedText::<Interface>::new(|hud| hud.msg_hello("Ada"))
+```
+
+The binding changes only that span's content and does not insert a root `Text`
+on the span entity. The application owns its parent `Text`/`Text2d`, fonts,
+colors and hierarchy. In Auto, the inserted span binding requests and retains
+its scope until removed, exactly like a root text binding. Other consumers or
+manual pins can keep that scope alive. Spans keep their active-language content
+while a requested locale loads or fails validation. Keep each translated message complete;
+do not assemble a sentence from separately translated fragments in Rust.
 
 ## Bevy 0.19 dependencies
 
@@ -103,8 +121,8 @@ bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["
 ## World labels and scene setup
 
 Use `Text2d` in place of `Text` for a world label. Cameras, fonts, shaping and
-layout remain normal Bevy application setup. A binding with neither text
-component also receives a default UI `Text` during refresh.
+layout remain normal Bevy application setup. A binding without `Text`, `Text2d`
+or `TextSpan` also receives a default UI `Text` during refresh.
 
 These recipes use compiled Rust scenes. They do not add a `.bsn` file loader or
 serialize formatting closures. Translation reload keeps the generated schema

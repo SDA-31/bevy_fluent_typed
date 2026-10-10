@@ -2,7 +2,7 @@
 
 A headless application that creates Decimal and percentage formatters once per
 catalog locale, shares them through a Bevy resource, and injects them into
-deferred `LocalizedText` bindings. English documentation and source-language FTL;
+deferred `LocalizedText<texts::presentation::Hud>` bindings. English documentation and source-language FTL;
 English, Spanish, Russian and Arabic translations. No window, fonts or GPU needed.
 
 This example uses the existing `bevy_fluent_typed` API. ICU is an **application
@@ -47,7 +47,9 @@ symbol and spacing; the FTL adds only the surrounding translated label.
 `Arc` of the full locale map and their original numeric values, not a borrowed
 `Res`, a preformatted string, or one formatter for the old language. On language
 changes or accepted catalog reloads the runtime rerenders using the current
-catalog. The closure selects the matching formatter by `catalog.locale()`.
+catalog. Default Auto requests and retains the HUD while its bound entities
+exist; it does not require manual loading calls. The closure selects the matching
+formatter by `catalog.locale()`.
 For Arabic the application explicitly selects `ar-EG-u-nu-arab`; the catalog
 language remains `ar`. Real applications can configure their own regional and
 numbering-system preferences without deriving currency or units from a language.
