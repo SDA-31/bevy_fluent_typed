@@ -72,6 +72,16 @@ remains `fluent_typed_codegen` 0.2.2.
 - Compatibility checks and examples target stable Bevy 0.20. Bevy 0.16.1,
   0.17, 0.18 and 0.19 remain supported with the new compiler minimum.
 
+### Fixed
+
+- Explicit reloads wait for the normal watcher read started after a locale
+  commit, preventing an older read from replacing a fresh translation.
+- Releasing the last automatic consumer drops its target demand before queued
+  acquisition failures are reported, avoiding rejection notifications for
+  modules no longer requested.
+- Native progress publication checks provider-wide preparation readiness once
+  per changed publication instead of repeating a full scan for every scope.
+
 ### Removed
 
 - Prerelease-only dependency setup; the final RC.1 and RC.2 snapshots remain

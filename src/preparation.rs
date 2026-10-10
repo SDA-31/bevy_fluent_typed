@@ -269,6 +269,10 @@ pub(crate) fn commit<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
 					// Return to the normal asset namespace for watching. Abandoned
 					// preparation assets cannot affect these active handles.
 					entry.handle = Some(server.load(address));
+					// Serialize explicit reloads behind this read as well, while
+					// keeping the committed snapshot available to consumers.
+					entry.pending = true;
+					preparation.pending += 1;
 					entry.preparation_handle = None;
 					entry.preparation_request = None;
 					entry.preparation_attempt = None;

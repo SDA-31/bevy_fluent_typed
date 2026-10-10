@@ -18,6 +18,7 @@ pub(super) struct Snapshot<C: FluentCatalog> {
 fn snapshot<C: FluentCatalog, M: LoadingMode>(
 	state: &Localization<C, M>,
 	selected: Option<&BTreeSet<&'static str>>,
+	status: &PreparationStatus,
 ) -> Snapshot<C> {
 	let paths = selected.unwrap_or(&state.desired);
 	let preparation = state.preparation.as_deref().map(|target| {
@@ -33,7 +34,7 @@ fn snapshot<C: FluentCatalog, M: LoadingMode>(
 	Snapshot {
 		active: inspect(&state.store, paths.iter().copied()),
 		preparation,
-		status: state.preparation_status(),
+		status: status.clone(),
 		stamp: Stamp::new(&Version::new(state)),
 	}
 }
@@ -41,6 +42,8 @@ fn snapshot<C: FluentCatalog, M: LoadingMode>(
 pub(crate) fn synchronize<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
 	enable::<C, M>(world);
 	world.resource_scope(|world, requests: Mut<Requests<C>>| {
+		let mut status = None;
+
 		for subscription in requests.subscriptions.values() {
 			let state = world.resource::<Localization<C, M>>();
 
@@ -48,7 +51,10 @@ pub(crate) fn synchronize<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
 				continue;
 			}
 
-			let next = snapshot(state, subscription.paths.as_ref());
+			// Readiness belongs to the provider, not each observed scope. Only
+			// scan it once when a view actually needs a new snapshot.
+			let status = status.get_or_insert_with(|| state.preparation_status());
+			let next = snapshot(state, subscription.paths.as_ref(), status);
 			(subscription.publish)(world, next);
 		}
 	});
