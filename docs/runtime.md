@@ -356,7 +356,7 @@ Register that system with `app.add_localized_systems(Update, inspect_complete)`.
 ## Bind text without keeping an old translation
 
 A `LocalizedText<Scope>` component stores a closure. The plugin renders it using
-the current resource and updates the existing `Text` or `Text2d` component when
+the current resource and updates the existing `Text`, `Text2d` or `TextSpan` component when
 the language, module or binding changes:
 
 ```rust,ignore

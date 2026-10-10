@@ -90,6 +90,19 @@ Each label follows the current catalog independently, including language changes
 and translation reloads. In explicit Lazy, unloading its scope clears its text until that scope
 is ready again. Replace a binding when its captured arguments change.
 
+## Localize a text span
+
+Use the same binding on a `TextSpan` child of a `Text` or `Text2d` root:
+
+```rust,ignore
+TextSpan
+LocalizedText::<Interface>::new(|hud| hud.msg_hello("Ada"))
+```
+
+The binding changes only that span's content. Fonts, colors and the surrounding
+text hierarchy stay application-owned. Keep each translated message complete;
+do not assemble a sentence from separately translated fragments in Rust.
+
 ## Bevy 0.19 dependencies
 
 Select the matching backend on the normal dependency; leave the build dependency

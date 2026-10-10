@@ -273,3 +273,36 @@ fn scene_without_a_message_formatter_returns_an_error() {
 			.contains("LocalizedText requires a formatting closure or Message")
 	);
 }
+
+#[test]
+fn native_scene_span_updates_without_inserting_a_root_text() {
+	let (mut app, _) = test_app();
+	let parent = app.world_mut().spawn(Text::default()).id();
+	let span = app
+		.world_mut()
+		.spawn_scene(bsn! {
+			TextSpan
+			LocalizedText::<Interface>::new(|hud| hud.msg_hello("Ada"))
+		})
+		.unwrap()
+		.id();
+	app.world_mut().entity_mut(parent).add_child(span);
+	pump(&mut app, |world| {
+		world
+			.get::<TextSpan>(span)
+			.is_some_and(|text| text.0.starts_with("Hello"))
+	});
+	app.world_mut()
+		.resource_mut::<Localization<texts::Translations>>()
+		.set_locale(texts::Locale::Es);
+	pump(&mut app, |world| {
+		world
+			.get::<TextSpan>(span)
+			.is_some_and(|text| text.0.starts_with("Hola"))
+	});
+	assert!(app.world().get::<Text>(span).is_none());
+	assert!(app.world().get::<Text2d>(span).is_none());
+	app.world_mut().despawn(span);
+	app.update();
+	assert!(!app.world().contains_resource::<Interface>());
+}

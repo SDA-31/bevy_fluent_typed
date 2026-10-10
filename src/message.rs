@@ -54,7 +54,7 @@ impl<C: FluentScope> fmt::Debug for Message<C> {
 
 #[derive(Component)]
 #[component(on_add = crate::bindings::added::<C>, on_remove = crate::bindings::removed::<C>)]
-/// Bind an existing Bevy `Text` or `Text2d` to a leaf, group or root message.
+/// Bind an existing Bevy `Text`, `Text2d` or `TextSpan` to a typed message.
 ///
 /// The plugin changes text in place when the catalog or binding changes. It does
 /// not spawn/despawn the entity. In default Auto, inserting the component requests

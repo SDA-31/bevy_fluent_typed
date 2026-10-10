@@ -19,6 +19,7 @@ mod loader;
 mod preparation;
 #[cfg(feature = "manifest")]
 mod scheduling;
+mod spans;
 mod switching;
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 mod template;
