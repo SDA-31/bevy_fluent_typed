@@ -48,7 +48,7 @@ fn controlled<M: LoadingMode>() -> (App, Source, Arc<AtomicUsize>) {
 	});
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, plugin))
-		.add_plugins(LocalizationProgressPlugin::<TestCatalog>::default());
+		.add_plugins(LocalizationProgressPlugin::<TestCatalog>::new());
 	let calls = Arc::new(AtomicUsize::new(0));
 	let observer = calls.clone();
 	app.add_systems(

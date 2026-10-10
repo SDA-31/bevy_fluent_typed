@@ -890,7 +890,7 @@ fn unloading_during_retry_retirement_releases_unrequested_target_snapshots() {
 #[test]
 fn target_handoff_waits_for_an_obsolete_normal_reader_and_preserves_fresh_commit() {
 	let (mut app, gate, files) = asynchronous_configured();
-	app.add_plugins(LocalizationProgressPlugin::<TestCatalog>::default());
+	app.add_plugins(LocalizationProgressPlugin::<TestCatalog>::new());
 	app.finish();
 	app.cleanup();
 	gate.pass_new_reads.store(true, Ordering::SeqCst);

@@ -11,7 +11,7 @@ Add one root progress plugin for the native views your loading UI needs:
 ```rust,ignore
 use bevy_fluent_typed::LocalizationProgressPlugin;
 
-app.add_plugins(LocalizationProgressPlugin::<texts::Translations>::default());
+app.add_plugins(LocalizationProgressPlugin::<texts::Translations>::new());
 ```
 
 The root recursively includes every registered scope, including the HUD view

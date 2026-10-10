@@ -17,9 +17,16 @@ use std::marker::PhantomData;
 /// paths, including unrequested files. Preparation readiness remains provider-wide.
 pub struct LocalizationProgressPlugin<S: FluentScope>(PhantomData<fn() -> S>);
 
+impl<S: FluentScope> LocalizationProgressPlugin<S> {
+	/// Observe `S` and its registered descendants, without additional options.
+	pub const fn new() -> Self {
+		Self(PhantomData)
+	}
+}
+
 impl<S: FluentScope> Default for LocalizationProgressPlugin<S> {
 	fn default() -> Self {
-		Self(PhantomData)
+		Self::new()
 	}
 }
 

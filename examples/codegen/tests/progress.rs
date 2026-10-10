@@ -25,7 +25,7 @@ fn generated_group_recurses_to_its_leaf_without_observing_the_root_or_loading() 
 	let mut app = App::new();
 	app.add_plugins((
 		MinimalPlugins,
-		LocalizationProgressPlugin::<texts::Ui>::default(),
+		LocalizationProgressPlugin::<texts::Ui>::new(),
 		LocalizationPlugin::<texts::Translations, bevy_fluent_typed::Lazy>::from_bytes([(
 			texts::Locale::En,
 			Interface::PATH,
@@ -128,7 +128,7 @@ fn controlled_app(fail_target: bool) -> (App, Attempts) {
 	});
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, plugin))
-		.add_plugins(LocalizationProgressPlugin::<texts::Translations>::default())
+		.add_plugins(LocalizationProgressPlugin::<texts::Translations>::new())
 		.init_resource::<Observations>()
 		.add_systems(
 			Startup,

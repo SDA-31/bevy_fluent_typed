@@ -30,7 +30,7 @@ fn main() -> Result<(), String> {
 		},
 		LocalizationPlugin::<texts::Translations>::new(texts::manifest()),
 	))
-	.add_plugins(LocalizationProgressPlugin::<texts::Translations>::default())
+	.add_plugins(LocalizationProgressPlugin::<texts::Translations>::new())
 	.init_resource::<ProgressUi>()
 	.add_systems(
 		PostUpdate,

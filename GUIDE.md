@@ -276,12 +276,12 @@ One root progress plugin provides native views for the entire registered tree:
 ```rust,ignore
 use bevy_fluent_typed::LocalizationProgressPlugin;
 
-app.add_plugins(LocalizationProgressPlugin::<texts::Translations>::default());
+app.add_plugins(LocalizationProgressPlugin::<texts::Translations>::new());
 ```
 
 This includes `LocalizationProgress<texts::presentation::Hud>` automatically;
 no separate HUD registration is needed. To observe only a group's subtree instead,
-use `LocalizationProgressPlugin::<texts::Presentation>::default()`. It includes
+use `LocalizationProgressPlugin::<texts::Presentation>::new()`. It includes
 that group and its registered descendants, excluding ancestors and siblings.
 A leaf plugin observes only that leaf. Consumer plugins may register overlapping
 subtrees in separate calls; repeats are idempotent and share one provider dispatcher.

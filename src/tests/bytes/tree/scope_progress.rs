@@ -18,7 +18,7 @@ fn recursive_root_plugin_shares_schedules_and_does_not_load_unrequested_files() 
 	let observed = calls.clone();
 	let mut app = App::new();
 	app.add_plugins(MinimalPlugins)
-		.add_plugins(LocalizationProgressPlugin::<Root>::default());
+		.add_plugins(LocalizationProgressPlugin::<Root>::new());
 	assert!(!app.world().contains_resource::<LocalizationProgress<Hud>>());
 
 	app.add_plugins(LocalizationPlugin::<Root, Lazy>::from_loader(
@@ -46,8 +46,8 @@ fn recursive_root_plugin_shares_schedules_and_does_not_load_unrequested_files() 
 		.unwrap()
 		.last_changed();
 
-	app.add_plugins(LocalizationProgressPlugin::<Panel>::default());
-	app.add_plugins(LocalizationProgressPlugin::<Interface>::default());
+	app.add_plugins(LocalizationProgressPlugin::<Panel>::new());
+	app.add_plugins(LocalizationProgressPlugin::<Interface>::new());
 
 	assert_eq!(
 		app.world()
@@ -210,8 +210,8 @@ fn ready_scope_counters_cannot_hide_another_requested_modules_preparation_failur
 			("es", Panel::module_paths()[0], b"panel".as_slice()),
 		])
 		.unwrap(),
-		LocalizationProgressPlugin::<Hud>::default(),
-		LocalizationProgressPlugin::<Presentation>::default(),
+		LocalizationProgressPlugin::<Hud>::new(),
+		LocalizationProgressPlugin::<Presentation>::new(),
 	));
 
 	app.finish();
@@ -273,8 +273,8 @@ fn scope_subscriptions_bind_to_their_own_provider_and_loading_mode() {
 	let mut app = App::new();
 	app.add_plugins((
 		MinimalPlugins,
-		LocalizationProgressPlugin::<Hud>::default(),
-		LocalizationProgressPlugin::<TestCatalog>::default(),
+		LocalizationProgressPlugin::<Hud>::new(),
+		LocalizationProgressPlugin::<TestCatalog>::new(),
 		LocalizationPlugin::<Root, Lazy>::from_bytes([(
 			"en",
 			Hud::module_paths()[0],
@@ -347,7 +347,7 @@ fn scope_subscriptions_bind_to_their_own_provider_and_loading_mode() {
 #[test]
 fn group_recursion_excludes_ancestors_and_siblings_even_with_identical_leaf_sets() {
 	let (mut app, source) = configured();
-	app.add_plugins(LocalizationProgressPlugin::<Singleton>::default());
+	app.add_plugins(LocalizationProgressPlugin::<Singleton>::new());
 	assert!(
 		app.world()
 			.contains_resource::<LocalizationProgress<Singleton>>()
@@ -375,7 +375,7 @@ fn group_recursion_excludes_ancestors_and_siblings_even_with_identical_leaf_sets
 		.unwrap()
 		.last_changed();
 
-	app.add_plugins(LocalizationProgressPlugin::<Presentation>::default());
+	app.add_plugins(LocalizationProgressPlugin::<Presentation>::new());
 	assert!(
 		app.world()
 			.contains_resource::<LocalizationProgress<Panel>>()

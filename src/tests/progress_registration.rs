@@ -80,7 +80,7 @@ fn loading_and_passive_queries_do_not_enable_recurring_progress() {
 fn request_before_plugin_infers_lazy_mode_and_repeated_request_preserves_the_resource() {
 	let mut app = App::new();
 	app.add_plugins(MinimalPlugins)
-		.add_plugins(LocalizationProgressPlugin::<TestCatalog>::default());
+		.add_plugins(LocalizationProgressPlugin::<TestCatalog>::new());
 	assert!(!app.world().contains_resource::<Progress>());
 	app.add_plugins(
 		LocalizationPlugin::<TestCatalog, Lazy>::from_bytes([("ja", "ui.ftl", b"ja".as_slice())])
@@ -98,7 +98,7 @@ fn request_before_plugin_infers_lazy_mode_and_repeated_request_preserves_the_res
 		.get_resource_ref::<Progress>()
 		.unwrap()
 		.last_changed();
-	app.add_plugins(LocalizationProgressPlugin::<TestCatalog>::default());
+	app.add_plugins(LocalizationProgressPlugin::<TestCatalog>::new());
 	assert_eq!(
 		app.world()
 			.get_resource_ref::<Progress>()
@@ -168,7 +168,7 @@ fn plugin_snapshots_preloaded_active_and_prepared_data_and_idle_publication_keep
 			.progress_version
 			.enabled()
 	);
-	app.add_plugins(LocalizationProgressPlugin::<TestCatalog>::default());
+	app.add_plugins(LocalizationProgressPlugin::<TestCatalog>::new());
 	let progress = app.world().resource::<Progress>();
 	assert_eq!(progress.active().locale, "ja");
 	assert_eq!(progress.active().ready, 1);

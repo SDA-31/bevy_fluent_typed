@@ -10,7 +10,7 @@ type Progress = LocalizationProgress<Root>;
 
 fn tracked() -> (App, super::Source) {
 	let (mut app, source) = configured();
-	app.add_plugins(LocalizationProgressPlugin::<Root>::default());
+	app.add_plugins(LocalizationProgressPlugin::<Root>::new());
 	app.finish();
 	app.cleanup();
 	(app, source)
@@ -109,7 +109,7 @@ fn changed_failure_details_do_not_tick_unchanged_loading_counts() {
 			std::future::ready(Err::<Vec<u8>, String>("offline".into()))
 		}),
 	))
-	.add_plugins(LocalizationProgressPlugin::<Root>::default());
+	.add_plugins(LocalizationProgressPlugin::<Root>::new());
 	app.finish();
 	app.cleanup();
 	app.world_mut()
