@@ -13,6 +13,8 @@ use std::{
 	time::{Duration, Instant},
 };
 
+#[cfg(feature = "diagnostics")]
+mod progress;
 mod tree;
 
 fn pump(app: &mut App, ready: impl Fn(&World) -> bool) {

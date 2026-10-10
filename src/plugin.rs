@@ -170,6 +170,8 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 		app.insert_resource(Installed::<C>(PhantomData))
 			.init_resource::<Localization<C, M>>();
 		compatibility::register_notifications::<C>(app);
+		#[cfg(feature = "diagnostics")]
+		crate::progress::install::<C, M>(app.world_mut());
 
 		for scope in C::scopes() {
 			CatalogReadiness::register::<C, M>(app.world_mut(), &scope);
@@ -192,13 +194,20 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 						bytes::reconcile::<C, M>,
 						crate::preparation::commit::<C, M>,
 						resources::synchronize::<C, M>,
+						#[cfg(feature = "diagnostics")]
+						crate::progress::synchronize::<C, M>,
 					)
 						.chain()
 						.in_set(LocalizationSystems::Publish),
 				)
 				.add_systems(
 					PostUpdate,
-					(bytes::reconcile::<C, M>, resources::synchronize::<C, M>)
+					(
+						bytes::reconcile::<C, M>,
+						resources::synchronize::<C, M>,
+						#[cfg(feature = "diagnostics")]
+						crate::progress::synchronize::<C, M>,
+					)
 						.chain()
 						.before(LocalizationSystems::Refresh),
 				);
@@ -240,13 +249,20 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 						reconcile::<C, M>,
 						crate::preparation::commit::<C, M>,
 						resources::synchronize::<C, M>,
+						#[cfg(feature = "diagnostics")]
+						crate::progress::synchronize::<C, M>,
 					)
 						.chain()
 						.in_set(LocalizationSystems::Publish),
 				)
 				.add_systems(
 					PostUpdate,
-					(reconcile::<C, M>, resources::synchronize::<C, M>)
+					(
+						reconcile::<C, M>,
+						resources::synchronize::<C, M>,
+						#[cfg(feature = "diagnostics")]
+						crate::progress::synchronize::<C, M>,
+					)
 						.chain()
 						.before(LocalizationSystems::Refresh),
 				);

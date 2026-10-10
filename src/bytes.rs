@@ -115,10 +115,7 @@ fn reconcile_state<C: FluentCatalog, M: LoadingMode>(
 
 		if initial || retry {
 			localization.retry.remove(path);
-			localization
-				.store
-				.states
-				.insert(path, ModuleStatus::Loading);
+			localization.store.set_status(path, ModuleStatus::Loading);
 			let mut entry = RequestedModule::new(locale);
 			entry.task = Some(IoTaskPool::get().spawn((source.loader.0)(locale, module)));
 			entry.pending = true;

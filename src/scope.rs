@@ -10,6 +10,8 @@ use crate::bevy::ecs::world::{FilteredResources, FilteredResourcesBuilder};
 use crate::bevy::prelude::*;
 use crate::catalog::SharedScope;
 use crate::{FluentCatalog, FluentScope, ModuleError, ModuleStatus, bindings};
+#[cfg(feature = "diagnostics")]
+use std::collections::BTreeSet;
 use std::{
 	any::TypeId,
 	collections::{BTreeMap, HashMap},
@@ -31,6 +33,8 @@ pub struct ModuleStore<C: FluentCatalog> {
 	pub(crate) scopes: Arc<[ScopeRegistration<C>]>,
 	pub(crate) scope_indices: HashMap<TypeId, usize>,
 	pub(crate) revision: u64,
+	#[cfg(feature = "diagnostics")]
+	pub(crate) progress_version: crate::progress::StoreVersion,
 }
 
 impl<C: FluentCatalog> ModuleStore<C> {
@@ -51,6 +55,8 @@ impl<C: FluentCatalog> ModuleStore<C> {
 				.map(|module| (module.path, module.scope))
 				.collect(),
 			revision: 0,
+			#[cfg(feature = "diagnostics")]
+			progress_version: crate::progress::StoreVersion::default(),
 			scopes,
 			scope_indices,
 		}
@@ -115,7 +121,31 @@ impl<C: FluentCatalog> ModuleStore<C> {
 		result
 	}
 
+	/// Inspect a scope's unique leaves without requesting them or starting I/O.
+	/// Unrequested paths are counted as unloaded, and last-good availability is
+	/// separate from the latest attempt. The returned diagnostics are allocated
+	/// on demand; native snapshots are available through `LocalizationProgress`.
+	#[cfg(feature = "diagnostics")]
+	pub fn progress<S: FluentScope<Catalog = C>>(&self) -> crate::LoadingProgress<C::Locale> {
+		let paths: BTreeSet<_> = S::module_paths().iter().copied().collect();
+		crate::progress::inspect(self, paths.iter().copied())
+	}
+
+	pub(crate) fn set_status(&mut self, path: &'static str, status: ModuleStatus) {
+		#[cfg(feature = "diagnostics")]
+		if self.states.get(path) != Some(&status) {
+			self.progress_version.changed();
+		}
+
+		self.states.insert(path, status);
+	}
+
 	pub(crate) fn insert_leaf(&mut self, path: &'static str, value: SharedScope) {
+		#[cfg(feature = "diagnostics")]
+		if !self.values.contains_key(&self.leaves[path]) {
+			self.progress_version.changed();
+		}
+
 		self.revision += 1;
 		self.values.insert(
 			self.leaves[path],
@@ -125,7 +155,7 @@ impl<C: FluentCatalog> ModuleStore<C> {
 				revision: self.revision,
 			},
 		);
-		self.states.insert(path, ModuleStatus::Ready);
+		self.set_status(path, ModuleStatus::Ready);
 	}
 
 	pub(crate) fn signature(&self, paths: &[&'static str]) -> Option<Vec<(&'static str, u64)>> {

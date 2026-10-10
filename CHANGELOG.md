@@ -12,6 +12,11 @@ remains `fluent_typed_codegen` 0.2.2.
 
 ### Added
 
+- Default-off `diagnostics` with native `LocalizationProgress<C>` snapshots of
+  active and prepared demand, preparation readiness and change-gated Bevy
+  observation. Passive per-scope queries remain available for schema inspection.
+  Includes a [generated-provider example](examples/codegen/src/bin/diagnostics.rs).
+
 - Explicit locale preparation and validated commit at the publication boundary,
   keeping active resources available while target translations load. Supports
   Full/Lazy demand, cancellation, byte sources and private typed Bevy assets.

@@ -158,10 +158,7 @@ fn reconcile_state<C: FluentCatalog, M: LoadingMode>(
 		}
 
 		if initial || retry {
-			localization
-				.store
-				.states
-				.insert(path, ModuleStatus::Loading);
+			localization.store.set_status(path, ModuleStatus::Loading);
 
 			if let Some(error) = &source.error {
 				localization
@@ -338,6 +335,8 @@ pub(crate) fn release_unrequested<C: FluentCatalog, M: LoadingMode>(
 
 		localization.retry.remove(path);
 		localization.store.states.remove(path);
+		#[cfg(feature = "diagnostics")]
+		localization.store.progress_version.changed();
 
 		if let Some(id) = localization.store.leaves.get(path).copied() {
 			localization.store.values.remove(&id);
@@ -370,8 +369,7 @@ pub(crate) fn publish<C: FluentCatalog, M: LoadingMode>(
 		Err(error) => {
 			localization
 				.store
-				.states
-				.insert(path, ModuleStatus::Failed(error.clone()));
+				.set_status(path, ModuleStatus::Failed(error.clone()));
 
 			if localization.staged {
 				return;

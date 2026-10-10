@@ -929,6 +929,37 @@ fn target_handoff_waits_for_an_obsolete_normal_reader_and_preserves_fresh_commit
 		Err(crate::CommitLocaleError::Pending)
 	);
 	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
+	#[cfg(feature = "diagnostics")]
+	{
+		let progress = app
+			.world()
+			.resource::<crate::LocalizationProgress<TestCatalog>>();
+		let target = progress.preparation().unwrap();
+		assert_eq!(target.ready, target.total);
+		assert_eq!(target.total, 1);
+		assert_eq!(
+			progress.preparation_status(),
+			&crate::PreparationStatus::Preparing
+		);
+		let tick = app
+			.world()
+			.get_resource_ref::<crate::LocalizationProgress<TestCatalog>>()
+			.unwrap()
+			.last_changed();
+
+		for _ in 0..10 {
+			app.update();
+		}
+
+		assert_eq!(
+			app.world()
+				.get_resource_ref::<crate::LocalizationProgress<TestCatalog>>()
+				.unwrap()
+				.last_changed(),
+			tick
+		);
+	}
+
 	gate.release();
 	pump(&mut app, |world| {
 		world

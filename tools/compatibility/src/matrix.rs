@@ -64,7 +64,12 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 		fixture.path.join("verified-metadata.json"),
 		serde_json::to_vec_pretty(&graph)?,
 	)?;
-	let runtime = dependency_tree(&fixture, "bevy_fluent_typed", &format!("{backend},watch"))?;
+	let mut runtime = dependency_tree(&fixture, "bevy_fluent_typed", &format!("{backend},watch"))?;
+	runtime.extend(dependency_tree(
+		&fixture,
+		"bevy_fluent_typed",
+		&format!("{backend},watch,diagnostics"),
+	)?);
 	let host = dependency_tree(&fixture, "bevy_fluent_typed", "build")?;
 
 	if host
@@ -148,24 +153,22 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 		);
 	}
 
-	fixture.success(&[
-		"test",
-		"--locked",
-		"-p",
-		"bevy_fluent_typed",
-		"--no-default-features",
-		"--features",
-		&format!("{backend},watch"),
-	])?;
-	fixture.success(&[
-		"test",
-		"--locked",
-		"-p",
-		"bevy_fluent_typed",
-		"--no-default-features",
-		"--features",
-		&format!("{backend},manifest,watch"),
-	])?;
+	for features in [
+		format!("{backend},watch"),
+		format!("{backend},manifest,watch"),
+		format!("{backend},watch,diagnostics"),
+		format!("{backend},manifest,watch,diagnostics"),
+	] {
+		fixture.success(&[
+			"test",
+			"--locked",
+			"-p",
+			"bevy_fluent_typed",
+			"--no-default-features",
+			"--features",
+			&features,
+		])?;
+	}
 	let example = ["--locked", "-p", "localization-example"];
 	fixture.success(&[&["test"][..], &example].concat())?;
 
@@ -174,6 +177,14 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 	}
 
 	fixture.success(&["test", "--locked", "-p", "localization-codegen-example"])?;
+	fixture.success(&[
+		"run",
+		"--locked",
+		"-p",
+		"localization-codegen-example",
+		"--bin",
+		"diagnostics",
+	])?;
 	fixture.success(&["test", "--locked", "-p", "localization-icu-example"])?;
 	fixture.success(&["run", "--locked", "-p", "localization-icu-example"])?;
 

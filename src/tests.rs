@@ -17,6 +17,8 @@ mod leases;
 #[cfg(feature = "manifest")]
 mod loader;
 mod preparation;
+#[cfg(feature = "diagnostics")]
+mod progress;
 #[cfg(feature = "manifest")]
 mod scheduling;
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]

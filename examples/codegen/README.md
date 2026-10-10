@@ -9,12 +9,12 @@ configure the [local generator override](../../docs/build.md#work-on-local-check
 For a new application using this API, follow the [root quickstart](../../README.md#setup).
 
 ```sh
-cargo run --manifest-path examples/codegen/Cargo.toml
+cargo run --manifest-path examples/codegen/Cargo.toml --bin localization-codegen-example
 cargo test --manifest-path examples/codegen/Cargo.toml
 ```
 
 Run these from the runtime repository. In an enclosing workspace you can also use
-`cargo run -p localization-codegen-example`. For Bevy 0.16/0.17/0.18/0.19,
+`cargo run -p localization-codegen-example --bin localization-codegen-example`. For Bevy 0.16/0.17/0.18/0.19,
 disable defaults and add the matching `bevy-0-16` / `bevy-0-17` / `bevy-0-18` /
 `bevy-0-19` to the **normal dependency** features in Cargo.toml.
 Leave the build-dependency unchanged.
@@ -59,3 +59,28 @@ are retained for repeat loads. This example uses `Full` and keeps the selected
 language ready. For on-demand reading and unloading, follow the
 [Lazy guide](../../GUIDE.md#fully-lazy-complete-mainrs) using Bevy's asset system;
 custom storage belongs in an [asset source](../../docs/asset-sources.md).
+
+## Observe native loading progress
+
+This example's normal dependency also enables optional `diagnostics`; its build
+dependency remains build-only. Run the separate file-backed demonstration:
+
+```sh
+cargo run --manifest-path examples/codegen/Cargo.toml --bin diagnostics
+```
+
+[diagnostics.rs](src/bin/diagnostics.rs) reads the plugin-inserted
+`LocalizationProgress<Translations>` through native `Res` and gates its observer
+with `resource_changed`. It loads the English catalog in default Full mode,
+prepares Spanish while English remains usable, explicitly commits when preparation
+is ready, and verifies that idle frames do not update the observer. Module counts
+are development diagnostics; progress is the latest snapshot, not a notification
+history or byte-download percentage.
+
+The generated manifest keeps its `assets/localizations/localization.toml` origin;
+this runner sets AssetPlugin's source root to the example's package directory.
+[tests/diagnostics.rs](tests/diagnostics.rs) uses controlled asynchronous byte
+loads to verify pending/ready snapshots, manual commit, target failure/cancellation
+and quiet change detection with the same generated provider. The library feature
+is disabled by default; see the [diagnostics guide](../../GUIDE.md#optional-loading-diagnostics)
+for using it in your application.

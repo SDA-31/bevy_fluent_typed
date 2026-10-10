@@ -4,6 +4,20 @@ Runtime 0.3.0 supports stable Bevy 0.20 and requires Rust 1.97.1 or newer.
 The generator stays at 0.2.2. Localization constructors, Full/Lazy requests,
 native resources, readiness helpers and embedded manifest declarations are unchanged.
 
+## Optional native progress
+
+Enable the default-off `diagnostics` feature on the normal dependency to read
+`Res<LocalizationProgress<texts::Translations>>`. The plugin inserts this latest
+snapshot resource; `resource_changed` gates observers without manual resource
+initialization. `active()` reports current demand and `preparation()` reports an
+explicit target. Use its `preparation_status()` for commit readiness; ready leaf
+counts alone do not account for retries or asset-handle handoff. Publication still
+requires the application's `commit_locale` call.
+
+Per-scope `progress::<Scope>()` queries remain passive and include unrequested
+schema leaves. The feature adds no dependencies; existing loading and notification
+APIs remain available without it. See the [diagnostics recipe](../GUIDE.md#optional-loading-diagnostics).
+
 ## Use Bevy 0.20
 
 Update both facade dependencies and the application's Bevy dependency:

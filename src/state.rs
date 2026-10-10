@@ -15,6 +15,11 @@ use std::{
 	sync::Arc,
 };
 
+#[cfg(feature = "diagnostics")]
+type RetryRequests = crate::progress::ObservedSet;
+#[cfg(not(feature = "diagnostics"))]
+type RetryRequests = BTreeSet<&'static str>;
+
 pub(crate) struct RequestedModule<C: FluentCatalog> {
 	pub(crate) locale: C::Locale,
 	pub(crate) task: Option<Task<Result<crate::catalog::SharedScope, String>>>,
@@ -62,7 +67,7 @@ pub struct Localization<C: FluentCatalog, M: LoadingMode = Full> {
 	pub(crate) store: ModuleStore<C>,
 	pub(crate) requested: HashMap<TypeId, &'static [&'static str]>,
 	pub(crate) entries: BTreeMap<&'static str, RequestedModule<C>>,
-	pub(crate) retry: BTreeSet<&'static str>,
+	pub(crate) retry: RetryRequests,
 	pub(crate) published: HashMap<TypeId, u64>,
 	leases: LeaseRequests,
 	pub(crate) desired: Arc<BTreeSet<&'static str>>,
@@ -109,7 +114,7 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			store: ModuleStore::new(locale),
 			requested,
 			entries: BTreeMap::new(),
-			retry: BTreeSet::new(),
+			retry: RetryRequests::new(),
 			published: HashMap::new(),
 			leases: LeaseRequests::default(),
 			desired: Arc::new(desired),
@@ -171,6 +176,30 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	/// Inspect the latest loading attempt across a scope's required leaves.
 	pub fn status<S: FluentScope<Catalog = C>>(&self) -> ModuleStatus {
 		self.store.status::<S>()
+	}
+
+	/// Inspect a scope's active-locale attempts without requesting or loading it.
+	/// Includes unrequested schema leaves. Native `LocalizationProgress` snapshots
+	/// instead count the current union of requested modules.
+	#[cfg(feature = "diagnostics")]
+	pub fn progress<S: FluentScope<Catalog = C>>(&self) -> crate::LoadingProgress<C::Locale> {
+		self.store.progress::<S>()
+	}
+
+	/// Inspect a scope in the current preparation without publishing target data.
+	/// Returns `None` without preparation. Preparing the active locale mirrors
+	/// active attempts; use `preparation_status` to decide whether commit is ready.
+	#[cfg(feature = "diagnostics")]
+	pub fn preparation_progress<S: FluentScope<Catalog = C>>(
+		&self,
+	) -> Option<crate::LoadingProgress<C::Locale>> {
+		self.preparation.as_deref().map(|target| {
+			if target.locale() == self.locale() {
+				self.store.progress::<S>()
+			} else {
+				target.store.progress::<S>()
+			}
+		})
 	}
 
 	pub(crate) fn desired(&self) -> Arc<BTreeSet<&'static str>> {
