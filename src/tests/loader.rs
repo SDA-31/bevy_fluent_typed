@@ -301,6 +301,22 @@ fn named_source_address_index_distinguishes_locales_for_the_same_module() {
 				.catalog()
 				.is_some_and(|catalog| catalog.0 == expected)
 		});
+
+		// Publication reconnects a normal asset read for watching. Wait for its
+		// candidate to be accepted before treating subsequent frames as idle.
+		pump_until(&mut app, |world| {
+			let state = world.resource::<Localization<OpaqueProvider, crate::Full>>();
+			let entry = &state.entries["ui/title.ftl"];
+			let asset = entry.handle.as_ref().and_then(|handle| {
+				world
+					.resource::<Assets<crate::assets::ModuleAsset<OpaqueProvider>>>()
+					.get(handle)
+			});
+
+			!entry.pending
+				&& state.retry.is_empty()
+				&& asset.is_some_and(|asset| entry.accepted == Some(asset.revision))
+		});
 	}
 
 	// Let asset notifications settle. Tracking handles must not mark the
