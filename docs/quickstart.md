@@ -189,6 +189,8 @@ for a minimal runtime and a handwritten provider.
 ## Further reading
 
 - [Loading guide](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md): automatic module lifetime, manual modes and headless applications.
+- [BSN and text spans](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bsn.md): use the same binding on scene text and child spans.
+- [Optional diagnostics](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md#optional-loading-diagnostics): passive active-scope summaries, disabled by default.
 - [Migration to 0.3](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.3.md): Bevy 0.20, Rust minimum and older backends.
 - [Migration from 0.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) and [catalog path and embedding migration](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.2.md).
 - [Changelog](https://github.com/SDA-31/bevy_fluent_typed/blob/main/CHANGELOG.md).

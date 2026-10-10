@@ -1,4 +1,5 @@
-//! Mode-independent bindings read the currently published scope resource.
+//! Root and span bindings share scope ownership and read the published resource.
+//! Target locale preparation stays private; all text targets keep active values.
 use crate::bevy::{
 	ecs::{self as bevy_ecs, world::DeferredWorld},
 	prelude::*,

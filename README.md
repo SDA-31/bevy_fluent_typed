@@ -249,7 +249,8 @@ transports, fonts and shaping remain application responsibilities.
 
 - [Loading guide](GUIDE.md): automatic lifetime, manual modes, typed resources, deferred text,
   language switching, hot reload and migration.
-- [BSN scenes](docs/bsn.md): typed text bindings in Bevy 0.19 and 0.20 scenes.
+- [BSN scenes](docs/bsn.md): typed bindings and text spans in Bevy 0.19 and 0.20 scenes.
+- [Optional diagnostics](GUIDE.md#optional-loading-diagnostics): passive summaries of active scopes; disabled by default.
 - [Custom asset sources](docs/asset-sources.md): archives, network-backed readers
   and named Bevy sources.
 - [Number formatting](docs/formatting.md): application-owned ICU4X formatters.

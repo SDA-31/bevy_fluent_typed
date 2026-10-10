@@ -338,9 +338,9 @@ Use `localization.progress::<Scope>()` to inspect a loading screen or report a
 partial group's state. The returned `LoadingProgress<Locale>` contains the
 active locale, `total`, `ready`, `loading`, `failed`, `unloaded` and `available`
 leaf counts, plus sorted `modules` diagnostics with `path`, `status` and `usable`.
-The same query is available on `ModuleStore` through a handwritten provider's
-view. It neither requests modules nor starts I/O; diagnostics are built only
-when queried.
+The same passive query is available directly on `ModuleStore`. It neither
+requests nor retains modules and starts no I/O; diagnostics are built only when
+queried.
 
 During a language switch, these counts continue describing the active resources
 and displayed text. Inspect `prepared_locale()` and `preparation_status()` for
@@ -387,8 +387,8 @@ Register that system with `app.add_localized_systems(Update, inspect_complete)`.
 ## Bind text without keeping an old translation
 
 A `LocalizedText<Scope>` component stores a closure. The plugin renders it using
-the current resource and updates the existing `Text`, `Text2d` or `TextSpan` component when
-the language, module or binding changes:
+the current resource and updates the existing `Text`, `Text2d` or `TextSpan`
+component when the language, module or binding changes:
 
 ```rust,ignore
 use bevy_fluent_typed::LocalizedText;
@@ -409,7 +409,11 @@ refreshes when the resource becomes available. Bind to the smallest scope the
 message uses: a `LocalizedText<Translations>` would wait for the entire tree.
 
 Bindings can be cloned and used in native Bevy 0.19/0.20 scenes; see the
-[BSN recipe](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bsn.md) for the syntax of each backend.
+[BSN recipe](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bsn.md) for the syntax of each backend and child text spans.
+A span binding owns its scope just like a root binding in Auto. Its parent
+`Text`/`Text2d`, hierarchy and styles belong to the application; refreshing a
+span does not insert a root `Text`. All three targets keep their active-language
+content while a new locale loads or fails validation.
 
 For stored notices, use `Message<Scope>` and render only when its scope is ready.
 A stored message does not establish demand until inserted as a `LocalizedText`

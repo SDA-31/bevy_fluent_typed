@@ -67,6 +67,20 @@ same pending automatic target. `cancel_preparation` cancels either kind of switc
 Same-language file reloads still publish independently; coordinated language
 replacement does not provide a snapshot of a changing external source.
 
+## Use spans and optional diagnostics
+
+The same `LocalizedText<Scope>` binding now updates a `TextSpan` child of a UI
+or world-text root. It has the same automatic scope ownership and locale-switch
+behavior as `Text`/`Text2d`; it does not create a root text component. The
+application keeps ownership of hierarchy and style. See the [span recipe](bsn.md#localize-a-text-span).
+
+Loading summaries are optional: enable `diagnostics` on the normal dependency
+only if needed. `progress::<Scope>()` passively reports active-store attempts and
+availability, including unrequested leaves; it never requests or retains scopes.
+It excludes private target preparation. Use the existing `prepared_locale()` and
+`preparation_status()` for the target. `status` remains available without this
+default-off feature. See [diagnostics](../GUIDE.md#optional-loading-diagnostics).
+
 ## Use Bevy 0.20
 
 Update both facade dependencies and the application's Bevy dependency:

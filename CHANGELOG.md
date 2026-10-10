@@ -19,6 +19,8 @@ remains `fluent_typed_codegen` 0.2.2.
 - Optional `diagnostics` feature (disabled by default) for on-demand
   `progress::<Scope>()` summaries with per-leaf loading errors and
   separate last-good snapshot availability, including unrequested modules.
+  Summaries describe only the active store and do not request or retain scopes;
+  pending target readiness uses the existing preparation status API.
 - Stable Bevy 0.20 support through `bevy-0-20`, including typed resources,
   readiness, deferred startup, custom asset sources and translation hot reload.
 - Cloneable `LocalizedText` bindings and native `FromTemplate` integration for
@@ -29,7 +31,9 @@ remains `fluent_typed_codegen` 0.2.2.
 - A UI text default for standalone `LocalizedText` components: refresh inserts
   `Text::default()` only when no `Text`, `Text2d` or `TextSpan` is present.
 - `LocalizedText` bindings on `TextSpan` children of UI and world-text roots,
-  including native BSN constructors, locale changes and module unloading.
+  with the same automatic scope lifetime and locale switching as root bindings.
+  Span refresh does not create a root `Text`; hierarchy and styles remain
+  application-owned. Includes native BSN constructors and module release.
 
 ### Changed
 

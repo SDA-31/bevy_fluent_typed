@@ -76,6 +76,8 @@ jobs:
       - name: Clippy
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
+          cargo clippy --locked --all-targets --features codegen,watch --config "$generator_config" -- -D warnings
+          cargo clippy --locked --all-targets --no-default-features --features bevy-0-19,codegen,watch --config "$generator_config" -- -D warnings
           cargo clippy --locked --all-targets --features codegen,watch,diagnostics --config "$generator_config" -- -D warnings
           cargo clippy --locked --all-targets --no-default-features --features bevy-0-19,codegen,watch,diagnostics --config "$generator_config" -- -D warnings
           cargo clippy --locked --all-targets --no-default-features --features build --config "$generator_config" -- -D warnings
@@ -105,6 +107,8 @@ jobs:
       - name: Build runtime and build-facade documentation
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
+          cargo doc --locked --no-deps --features codegen,watch,build --config "$generator_config"
+          cargo doc --locked --no-deps --no-default-features --features bevy-0-19,codegen,watch,build --config "$generator_config"
           cargo doc --locked --no-deps --features codegen,watch,build,diagnostics --config "$generator_config"
           cargo doc --locked --no-deps --no-default-features --features bevy-0-19,codegen,watch,build,diagnostics --config "$generator_config"
           cargo doc --locked --no-deps --no-default-features --features build --config "$generator_config"

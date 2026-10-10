@@ -99,8 +99,12 @@ TextSpan
 LocalizedText::<Interface>::new(|hud| hud.msg_hello("Ada"))
 ```
 
-The binding changes only that span's content. Fonts, colors and the surrounding
-text hierarchy stay application-owned. Keep each translated message complete;
+The binding changes only that span's content and does not insert a root `Text`
+on the span entity. The application owns its parent `Text`/`Text2d`, fonts,
+colors and hierarchy. In Auto, the inserted span binding requests and retains
+its scope until removed, exactly like a root text binding. Other consumers or
+manual pins can keep that scope alive. Spans keep their active-language content
+while a requested locale loads or fails validation. Keep each translated message complete;
 do not assemble a sentence from separately translated fragments in Rust.
 
 ## Bevy 0.19 dependencies
@@ -117,8 +121,8 @@ bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["
 ## World labels and scene setup
 
 Use `Text2d` in place of `Text` for a world label. Cameras, fonts, shaping and
-layout remain normal Bevy application setup. A binding with neither text
-component also receives a default UI `Text` during refresh.
+layout remain normal Bevy application setup. A binding without `Text`, `Text2d`
+or `TextSpan` also receives a default UI `Text` during refresh.
 
 These recipes use compiled Rust scenes. They do not add a `.bsn` file loader or
 serialize formatting closures. Translation reload keeps the generated schema

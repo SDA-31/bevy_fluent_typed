@@ -60,7 +60,8 @@ impl<C: FluentCatalog> ModuleStore<C> {
 		}
 	}
 
-	/// Selected locale, including while its modules are still loading.
+	/// Locale of this store. Controller views keep the active locale until a
+	/// validated target switch is published; a pending target does not change it.
 	pub fn locale(&self) -> C::Locale {
 		self.locale
 	}
@@ -125,6 +126,9 @@ impl<C: FluentCatalog> ModuleStore<C> {
 	/// empty scope has zero counts. Snapshot availability is counted independently
 	/// from the latest attempt, so failed reloads may remain usable. Inspection
 	/// allocates diagnostics only when called; no background tracking is installed.
+	/// Requires the optional `diagnostics` feature and does not retain scopes.
+	/// On the active controller store, private prepared target leaves are excluded;
+	/// inspect `Localization::preparation_status` for target readiness.
 	#[cfg(feature = "diagnostics")]
 	pub fn progress<S: FluentScope<Catalog = C>>(&self) -> LoadingProgress<C::Locale> {
 		let paths: BTreeSet<_> = S::module_paths().iter().copied().collect();

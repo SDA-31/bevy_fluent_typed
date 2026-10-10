@@ -59,6 +59,10 @@ impl<C: FluentScope> fmt::Debug for Message<C> {
 /// The plugin changes text in place when the catalog or binding changes. It does
 /// not spawn/despawn the entity. In default Auto, inserting the component requests
 /// and retains its scope until removed; the last consumer releases demand.
+/// Root and span targets have the same ownership. A span binding does not
+/// create a root `Text`; its parent hierarchy and styles belong to the application.
+/// Language changes keep active text until the target locale validates and
+/// publishes, including when target acquisition fails.
 /// Explicit Lazy requires manual requests. An unavailable scope clears
 /// bound text until that scope becomes ready. Prefer the smallest scope the
 /// message needs, so unrelated modules do not delay it.
