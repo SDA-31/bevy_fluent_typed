@@ -1,0 +1,106 @@
+use super::{
+	configuration::StartupConfiguration,
+	startup::{self, Tracking},
+};
+use crate::bevy::{
+	app::{Main, MainScheduleOrder},
+	ecs::{
+		self as bevy_ecs,
+		schedule::{InternedScheduleLabel, ScheduleLabel},
+	},
+	prelude::*,
+};
+use std::collections::HashMap;
+
+#[derive(Resource, Default)]
+struct Coordinator {
+	explicit: Option<StartupConfiguration>,
+	started: bool,
+	startup: Vec<InternedScheduleLabel>,
+	phase: usize,
+	schedules: HashMap<InternedScheduleLabel, Tracking>,
+}
+
+pub(crate) fn register(app: &mut App, configuration: Option<StartupConfiguration>) {
+	let first = !app.world().contains_resource::<Coordinator>();
+	app.init_resource::<Coordinator>();
+	let mut coordinator = app.world_mut().resource_mut::<Coordinator>();
+	if let Some(configuration) = configuration {
+		assert!(
+			!coordinator.started,
+			"startup strategy cannot change after the application has started"
+		);
+		assert!(
+			coordinator
+				.explicit
+				.is_none_or(|previous| previous == configuration),
+			"localization plugins specify conflicting startup strategies"
+		);
+		coordinator.explicit = Some(configuration);
+	}
+	if first {
+		app.add_systems(Main, drive.before(Main::run_main));
+	}
+}
+
+fn drive(world: &mut World) {
+	world.resource_scope(|world, mut coordinator: Mut<Coordinator>| {
+		let policy = coordinator.explicit.unwrap_or_default();
+		if !coordinator.started {
+			coordinator.started = true;
+			coordinator.startup =
+				std::mem::take(&mut world.resource_mut::<MainScheduleOrder>().startup_labels);
+		}
+		let labels: Vec<_> = world
+			.resource::<Schedules>()
+			.iter()
+			.map(|(_, schedule)| schedule.label())
+			.filter(|label| *label != Main.intern())
+			.collect();
+		coordinator
+			.schedules
+			.retain(|label, _| labels.contains(label));
+		let recurring = world.resource::<MainScheduleOrder>().labels.clone();
+
+		while let Some(label) = coordinator.startup.get(coordinator.phase).copied() {
+			if labels.contains(&label) {
+				let tracking = coordinator.schedules.entry(label).or_default();
+				world.schedule_scope(label, |_, schedule| {
+					startup::prepare(schedule, tracking, !recurring.contains(&label), policy)
+				});
+			}
+			let _ = world.try_run_schedule(label);
+			let complete = recurring.contains(&label)
+				|| coordinator
+					.schedules
+					.get(&label)
+					.is_none_or(startup::finished);
+			if !complete {
+				break;
+			}
+			if !recurring.contains(&label)
+				&& let Some(tracking) = coordinator.schedules.remove(&label)
+			{
+				startup::release_completed(&tracking);
+				tracking.states.lock().unwrap().clear();
+			}
+			coordinator.phase += 1;
+		}
+		for label in labels {
+			if !recurring.contains(&label)
+				&& (coordinator.startup.contains(&label)
+					|| [PreStartup.intern(), Startup.intern(), PostStartup.intern()]
+						.contains(&label))
+			{
+				continue;
+			}
+			let tracking = coordinator.schedules.entry(label).or_default();
+			world.schedule_scope(label, |_, schedule| {
+				startup::prepare(schedule, tracking, false, policy)
+			});
+		}
+		for tracking in coordinator.schedules.values() {
+			startup::release_completed(tracking);
+		}
+	});
+}

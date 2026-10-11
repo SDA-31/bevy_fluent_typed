@@ -32,6 +32,8 @@ use crate::bevy::ecs::query::FilteredAccessSet as SystemAccess;
 use crate::bevy::ecs::system::SystemAccess;
 
 pub(crate) struct Probe {
+	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+	pub(crate) scope: std::any::TypeId,
 	pub(crate) access: Box<dyn Fn(&mut FilteredResourcesBuilder) + Send + Sync>,
 	pub(crate) ready: Box<dyn Fn(&FilteredResources) -> bool + Send + Sync>,
 	pub(crate) consumer: Option<fn(&mut World) -> Arc<Consumer>>,

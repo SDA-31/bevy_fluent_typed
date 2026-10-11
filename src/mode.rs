@@ -14,14 +14,18 @@ pub trait LoadingMode: sealed::Sealed + Send + Sync + 'static {
 	const AUTOMATIC: bool;
 }
 
-/// Default policy: load only scopes owned by inserted bindings and localized systems.
+/// Default policy: load only scopes owned by inserted bindings and resource consumers.
 ///
-/// Inserted `LocalizedText<S>` retains its scope until removed. Required direct
-/// `Res<S>` parameters registered with localization helpers retain it while their
-/// system state exists. One-time helpers release their demand after invocation.
+/// Inserted `LocalizedText<S>` retains its scope until removed. On Bevy 0.19/0.20,
+/// ordinary `Res<S>` systems retain it while their system state exists, including
+/// aliases and derived parameters. Deferred startup consumers release their
+/// demand after completion and deferred command application. Older backends use
+/// localization scheduling helpers; one-time helpers release after invocation.
 /// Optional `Localization::load`/`unload` calls add or remove idempotent manual
 /// pins without evicting automatic consumers or overlapping pins. Unattached
-/// messages, optional resources and world inspection are passive.
+/// messages and world inspection are passive. On Bevy 0.19/0.20,
+/// `Option<PassiveRes<S>>` is passive; ordinary `Option<Res<S>>` is conservatively
+/// a consumer because native requiredness is absent from scheduler metadata.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Lazy;
 

@@ -35,6 +35,8 @@ impl CatalogReadiness {
 		world.resource_mut::<Self>().0.insert(
 			scope.parameter,
 			Arc::new(Probe {
+				#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+				scope: id,
 				consumer: M::AUTOMATIC.then_some(scope.consumer),
 				access: Box::new(move |builder| {
 					builder.add_read::<Localization<C, M>>();
@@ -63,7 +65,9 @@ impl CatalogReadiness {
 /// In default Lazy, each direct required catalog is requested when Bevy initializes
 /// the system. Recurring systems retain demand while their state exists, including
 /// when `run_if` is false. Explicit Manual still needs manual `load` / `unload`;
-/// plain `add_systems` and optional resource parameters do not create demand.
+/// this helper's optional resource parameters do not create demand. On Bevy
+/// 0.19/0.20 ordinary `add_systems` already discovers native resource access;
+/// these helpers remain available for older backends and compatibility.
 ///
 /// Register in a recurring schedule such as `Update`. A skipped `Startup` or
 /// `OnEnter` system cannot retry; use [`LocalizationAppExt::add_localized_startup_systems`]
@@ -198,17 +202,19 @@ where
 			self.into_configs()
 		};
 
-		system.run_if(move |readiness: Readiness<F::Param>| {
-			if once && completed.load(Ordering::Relaxed) {
-				return false;
-			}
+		system
+			.run_if(move |readiness: Readiness<F::Param>| {
+				if once && completed.load(Ordering::Relaxed) {
+					return false;
+				}
 
-			if once {
-				consumers.get_or_init(|| readiness.consumers.clone());
-			}
+				if once {
+					consumers.get_or_init(|| readiness.consumers.clone());
+				}
 
-			readiness.ready()
-		})
+				readiness.ready()
+			})
+			.in_set(ExplicitReadiness)
 	}
 }
 
@@ -264,3 +270,6 @@ tuples!(@prefix []
 	(A, MA) (B, MB) (C, MC) (D, MD) (E, ME) (F, MF) (G, MG) (H, MH)
 	(I, MI) (J, MJ) (K, MK) (L, ML) (N, MN) (O, MO) (P, MP) (Q, MQ)
 );
+
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct ExplicitReadiness;

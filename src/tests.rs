@@ -17,12 +17,16 @@ mod lazy;
 mod leases;
 #[cfg(feature = "manifest")]
 mod loader;
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+mod native_resources;
 mod preparation;
 mod progress;
 mod progress_registration;
 #[cfg(feature = "manifest")]
 mod scheduling;
 mod spans;
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+mod startup;
 mod switching;
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 mod template;

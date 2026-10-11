@@ -71,6 +71,8 @@ mod loading;
 mod message;
 #[cfg(feature = "runtime")]
 mod mode;
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+mod passive;
 #[cfg(feature = "runtime")]
 mod plugin;
 #[cfg(feature = "runtime")]
@@ -79,6 +81,8 @@ mod preparation;
 mod progress;
 #[cfg(feature = "runtime")]
 mod resources;
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+mod scheduling;
 #[cfg(feature = "runtime")]
 mod scope;
 #[cfg(feature = "runtime")]
@@ -124,6 +128,8 @@ pub use leases::ModuleLease;
 pub use message::{CatalogUpdate, CatalogUpdateReader, LocalizedText, Message, ReloadCatalogs};
 #[cfg(feature = "runtime")]
 pub use mode::{Full, Lazy, LoadingMode, Manual};
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+pub use passive::PassiveRes;
 #[cfg(feature = "runtime")]
 pub use plugin::{LocalizationPlugin, LocalizationSystems};
 #[cfg(feature = "runtime")]
@@ -132,6 +138,8 @@ pub use preparation::{CommitLocaleError, PreparationStatus};
 pub use progress::ModuleDiagnostic;
 #[cfg(feature = "runtime")]
 pub use progress::{LoadingProgress, LocalizationProgress, LocalizationProgressPlugin};
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+pub use scheduling::StartupStrategy;
 #[cfg(feature = "runtime")]
 pub use scope::{ModuleStore, ScopeRegistration};
 #[cfg(feature = "runtime")]
