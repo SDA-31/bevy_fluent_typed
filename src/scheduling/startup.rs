@@ -1,9 +1,10 @@
 use super::{
 	configuration::{StartupConfiguration, StartupStrategy},
-	system::{self, DiscoveredSystem, Members, NodeState, TrackedCondition},
+	system::{self, DiscoveredSystem, Members, NodeState, Probes, TrackedCondition},
 };
 use crate::bevy::{
 	ecs::{
+		self as bevy_ecs,
 		schedule::{
 			ConditionWithAccess, FlattenedDependencies, InternedSystemSet, NodeId,
 			ScheduleBuildError, ScheduleBuildPass, ScheduleGraph, SystemKey, SystemSetKey,
@@ -18,17 +19,53 @@ use crate::bevy::{
 use indexmap::IndexSet;
 use std::{
 	collections::{HashMap, HashSet},
-	sync::{Arc, Mutex, atomic::Ordering},
+	sync::{
+		Arc, Mutex, Weak,
+		atomic::{AtomicUsize, Ordering},
+	},
 };
 
 pub(super) type States = Arc<Mutex<HashMap<SystemKey, Arc<NodeState>>>>;
+type Sets = Arc<Mutex<HashMap<SystemSetKey, SetConditions>>>;
 
 #[derive(Default)]
 pub(super) struct Tracking {
 	pub(super) states: States,
-	sets: HashMap<SystemSetKey, (usize, Members)>,
+	sets: Sets,
+	identity: Option<ScheduleIdentity>,
 	installed: bool,
 	signature: Option<(usize, usize, usize)>,
+}
+
+#[derive(Default)]
+pub(super) struct KnownSchedules(HashMap<ScheduleIdentity, SavedTracking>);
+
+struct SavedTracking {
+	states: Weak<Mutex<HashMap<SystemKey, Arc<NodeState>>>>,
+	sets: Weak<Mutex<HashMap<SystemSetKey, SetConditions>>>,
+	signature: Option<(usize, usize, usize)>,
+}
+
+#[derive(Default)]
+struct SetConditions {
+	seen: usize,
+	members: Members,
+	probes: Probes,
+}
+
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct ScheduleIdentity(usize);
+
+impl ScheduleIdentity {
+	fn new() -> Self {
+		static NEXT: AtomicUsize = AtomicUsize::new(0);
+		Self(
+			NEXT.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
+				value.checked_add(1)
+			})
+			.expect("localization schedule identity counter exhausted"),
+		)
+	}
 }
 
 fn descendants(graph: &ScheduleGraph, set: InternedSystemSet) -> HashSet<SystemKey> {
@@ -64,6 +101,7 @@ fn descendants_of(graph: &ScheduleGraph, set: SystemSetKey) -> HashSet<SystemKey
 pub(super) fn prepare(
 	schedule: &mut Schedule,
 	tracking: &mut Tracking,
+	known: &mut KnownSchedules,
 	startup: bool,
 	policy: StartupConfiguration,
 ) {
@@ -71,14 +109,54 @@ pub(super) fn prepare(
 		return;
 	}
 	let deferred = startup;
+	if tracking
+		.identity
+		.is_some_and(|identity| !schedule.graph().system_sets.contains(identity))
+	{
+		// A new schedule may reuse both the label and native SystemKeys. The private
+		// empty set identifies the graph without relying on allocation addresses.
+		// Existing wrappers keep owning any old schedule retained by the application.
+		*tracking = Tracking::default();
+	}
+
 	if !tracking.installed {
-		schedule.add_build_pass(Dependencies {
-			states: tracking.states.clone(),
-			processed: HashSet::new(),
-			startup: deferred,
-			barrier: deferred.then_some(policy.barrier).flatten(),
+		known
+			.0
+			.retain(|_, saved| saved.states.strong_count() > 0 && saved.sets.strong_count() > 0);
+		let saved = known.0.iter().find_map(|(identity, saved)| {
+			if !schedule.graph().system_sets.contains(*identity) {
+				return None;
+			}
+
+			Some((
+				*identity,
+				saved.states.upgrade()?,
+				saved.sets.upgrade()?,
+				saved.signature,
+			))
 		});
-		tracking.installed = true;
+		if let Some((identity, states, sets, signature)) = saved {
+			// The retained schedule's build pass owns this state. Restore it rather
+			// than installing another pass or wrapping already discovered systems.
+			*tracking = Tracking {
+				identity: Some(identity),
+				states,
+				sets,
+				signature,
+				installed: true,
+			};
+		} else {
+			let identity = ScheduleIdentity::new();
+			schedule.configure_sets(identity);
+			tracking.identity = Some(identity);
+			schedule.add_build_pass(Dependencies {
+				states: tracking.states.clone(),
+				sets: tracking.sets.clone(),
+				startup: deferred,
+				barrier: deferred.then_some(policy.barrier).flatten(),
+			});
+			tracking.installed = true;
+		}
 	}
 	let graph = schedule.graph_mut();
 	let signature = (
@@ -93,6 +171,14 @@ pub(super) fn prepare(
 		return;
 	}
 	tracking.signature = Some(signature);
+	known.0.insert(
+		tracking.identity.unwrap(),
+		SavedTracking {
+			states: Arc::downgrade(&tracking.states),
+			sets: Arc::downgrade(&tracking.sets),
+			signature: tracking.signature,
+		},
+	);
 	let existing: HashSet<_> = graph
 		.hierarchy()
 		.graph()
@@ -135,14 +221,24 @@ pub(super) fn prepare(
 				&mut condition.condition,
 				Box::new(IntoSystem::into_system(|| true)),
 			);
-			let wrapper =
-				TrackedCondition::new(original, Arc::new(Mutex::new(vec![state.clone()])), false);
+			let wrapper = TrackedCondition::new(
+				original,
+				Arc::new(Mutex::new(vec![state.clone()])),
+				false,
+				None,
+			);
 			condition.condition = Box::new(wrapper);
 		}
 		tracking.states.lock().unwrap().insert(*key, state);
 	}
 	{
 		let sets: Vec<_> = graph.system_sets.iter().map(|(key, _, _)| key).collect();
+		tracking
+			.sets
+			.lock()
+			.unwrap()
+			.retain(|key, _| sets.contains(key));
+
 		for set in sets {
 			let members = descendants_of(graph, set);
 			let states: Vec<_> = tracking
@@ -153,32 +249,36 @@ pub(super) fn prepare(
 				.filter(|(key, _)| members.contains(key))
 				.map(|(_, state)| state.clone())
 				.collect();
-			if states.is_empty() {
+			let mut records = tracking.sets.lock().unwrap();
+			if states.is_empty() && !records.contains_key(&set) {
 				continue;
 			}
-			let record = tracking
-				.sets
-				.entry(set)
-				.or_insert_with(|| (0, Arc::new(Mutex::new(Vec::new()))));
-			*record.1.lock().unwrap() = states;
-			let seen = record.0;
+
+			let record = records.entry(set).or_default();
+			*record.members.lock().unwrap() = states;
+			let seen = record.seen;
 			let conditions = graph.system_sets.get_conditions_mut(set).unwrap();
 			for condition in conditions.iter_mut().skip(seen) {
 				let original = std::mem::replace(
 					&mut condition.condition,
 					Box::new(IntoSystem::into_system(|| true)),
 				);
-				let wrapper = TrackedCondition::new(original, record.1.clone(), deferred);
+				let wrapper = TrackedCondition::new(
+					original,
+					record.members.clone(),
+					deferred,
+					Some(record.probes.clone()),
+				);
 				condition.condition = Box::new(wrapper);
 			}
-			record.0 = conditions.len();
+			record.seen = conditions.len();
 		}
 	}
 }
 
 struct Dependencies {
 	states: States,
-	processed: HashSet<SystemKey>,
+	sets: Sets,
 	startup: bool,
 	barrier: Option<InternedSystemSet>,
 }
@@ -209,6 +309,32 @@ impl ScheduleBuildPass for Dependencies {
 		graph: &mut ScheduleGraph,
 		dependencies: FlattenedDependencies<'_>,
 	) -> Result<(), ScheduleBuildError> {
+		let gate_owners: HashMap<_, _> = self
+			.states
+			.lock()
+			.unwrap()
+			.iter()
+			.map(|(key, state)| {
+				let mut held = state.gate_owners.lock().unwrap();
+				let owners = held.upgrade().unwrap_or_default();
+				*held = Arc::downgrade(&owners);
+				(*key, owners)
+			})
+			.collect();
+
+		// Set predicates initialize once. Their current descendants acquire the
+		// inherited reads on each graph rebuild, including members added later.
+		for record in self.sets.lock().unwrap().values() {
+			let probes = record.probes.lock().unwrap().clone();
+			for state in record.members.lock().unwrap().iter() {
+				let owners = state.gate_owners.lock().unwrap().upgrade().unwrap();
+				owners
+					.lock()
+					.unwrap()
+					.extend(state.capture_probes(world, probes.clone()));
+			}
+		}
+
 		let states = self.states.lock().unwrap();
 		for (key, state) in states.iter().filter(|(_, state)| state.startup) {
 			let mut pending: Vec<_> = dependencies
@@ -260,10 +386,6 @@ impl ScheduleBuildPass for Dependencies {
 			.flat_map(|(_, state)| state.probes.lock().unwrap().clone())
 			.collect();
 		for key in keys {
-			let fresh = self.processed.insert(key);
-			if !fresh && !barrier.contains(&key) {
-				continue;
-			}
 			let state = self.states.lock().unwrap()[&key].clone();
 
 			let probes = if barrier.contains(&key) {
@@ -274,16 +396,13 @@ impl ScheduleBuildPass for Dependencies {
 			if probes.is_empty() && !deferred {
 				continue;
 			}
-			let mut gate = ConditionWithAccess::new(system::gate(world, state, probes));
+			let owners = gate_owners[&key].clone();
+			let mut gate = ConditionWithAccess::new(system::gate(world, state, probes, owners));
 			gate.access = gate.initialize(world);
 			let conditions = graph.systems.get_conditions_mut(key).unwrap();
-			let own_gate = (!fresh)
-				.then(|| {
-					conditions
-						.iter()
-						.position(|condition| condition.system_type() == gate.system_type())
-				})
-				.flatten();
+			let own_gate = conditions
+				.iter()
+				.position(|condition| condition.system_type() == gate.system_type());
 			if let Some(index) = own_gate {
 				conditions[index] = gate;
 			} else {

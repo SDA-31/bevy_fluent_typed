@@ -1,6 +1,6 @@
 use super::{
 	configuration::StartupConfiguration,
-	startup::{self, Tracking},
+	startup::{self, KnownSchedules, Tracking},
 };
 use crate::bevy::{
 	app::{Main, MainScheduleOrder},
@@ -19,6 +19,7 @@ struct Coordinator {
 	startup: Vec<InternedScheduleLabel>,
 	phase: usize,
 	schedules: HashMap<InternedScheduleLabel, Tracking>,
+	known: KnownSchedules,
 }
 
 pub(crate) fn register(app: &mut App, configuration: Option<StartupConfiguration>) {
@@ -64,9 +65,18 @@ fn drive(world: &mut World) {
 
 		while let Some(label) = coordinator.startup.get(coordinator.phase).copied() {
 			if labels.contains(&label) {
-				let tracking = coordinator.schedules.entry(label).or_default();
+				let Coordinator {
+					schedules, known, ..
+				} = &mut *coordinator;
+				let tracking = schedules.entry(label).or_default();
 				world.schedule_scope(label, |_, schedule| {
-					startup::prepare(schedule, tracking, !recurring.contains(&label), policy)
+					startup::prepare(
+						schedule,
+						tracking,
+						known,
+						!recurring.contains(&label),
+						policy,
+					)
 				});
 			}
 			let _ = world.try_run_schedule(label);
@@ -94,9 +104,12 @@ fn drive(world: &mut World) {
 			{
 				continue;
 			}
-			let tracking = coordinator.schedules.entry(label).or_default();
+			let Coordinator {
+				schedules, known, ..
+			} = &mut *coordinator;
+			let tracking = schedules.entry(label).or_default();
 			world.schedule_scope(label, |_, schedule| {
-				startup::prepare(schedule, tracking, false, policy)
+				startup::prepare(schedule, tracking, known, false, policy)
 			});
 		}
 		for tracking in coordinator.schedules.values() {

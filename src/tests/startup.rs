@@ -191,6 +191,123 @@ fn required_catalog_in_a_set_condition_waits_before_evaluating() {
 }
 
 #[test]
+fn dependent_native_condition_waits_for_commands_from_a_catalog_consumer() {
+	let allow = Arc::new(Gate::default());
+	let mut app = app(delayed_plugin(allow.clone()));
+	app.add_systems(
+		Startup,
+		(hud, finish.run_if(resource_exists::<Initialized>)).chain(),
+	)
+	.add_systems(PostStartup, post);
+	app.update();
+	assert!(app.world().resource::<Steps>().0.is_empty());
+	allow.open();
+	pump(&mut app, |world| {
+		world.resource::<Steps>().0.contains(&"post")
+	});
+	assert_eq!(app.world().resource::<Steps>().0, ["hud", "finish", "post"]);
+}
+
+#[test]
+fn dependent_required_resource_condition_is_not_validated_before_its_predecessor() {
+	let allow = Arc::new(Gate::default());
+	let mut app = app(delayed_plugin(allow.clone()));
+	app.add_systems(
+		Startup,
+		(hud, finish.run_if(|_: Res<Initialized>| true)).chain(),
+	)
+	.add_systems(PostStartup, post);
+	app.update();
+	assert!(app.world().resource::<Steps>().0.is_empty());
+	allow.open();
+	pump(&mut app, |world| {
+		world.resource::<Steps>().0.contains(&"post")
+	});
+	assert_eq!(app.world().resource::<Steps>().0, ["hud", "finish", "post"]);
+}
+
+#[test]
+fn shared_native_condition_waits_for_external_predecessors() {
+	let allow = Arc::new(Gate::default());
+	let mut app = app(delayed_plugin(allow.clone()));
+	app.configure_sets(Startup, AppStartup.run_if(resource_exists::<Initialized>))
+		.add_systems(Startup, hud)
+		.add_systems(Startup, finish.in_set(AppStartup).after(hud))
+		.add_systems(PostStartup, post);
+	app.update();
+	assert!(app.world().resource::<Steps>().0.is_empty());
+	allow.open();
+	pump(&mut app, |world| {
+		world.resource::<Steps>().0.contains(&"post")
+	});
+	assert_eq!(app.world().resource::<Steps>().0, ["hud", "finish", "post"]);
+}
+
+#[test]
+fn shared_condition_does_not_wait_for_external_successors_of_its_first_member() {
+	use std::sync::atomic::{AtomicUsize, Ordering};
+	let allow = Arc::new(Gate::default());
+	let mut app = app(delayed_plugin(allow.clone()));
+	let evaluations = Arc::new(AtomicUsize::new(0));
+	let seen = evaluations.clone();
+	app.configure_sets(
+		Startup,
+		AppStartup.run_if(move || {
+			seen.fetch_add(1, Ordering::Relaxed);
+			true
+		}),
+	)
+	.add_systems(Startup, services.in_set(AppStartup))
+	.add_systems(Startup, hud.after(services))
+	.add_systems(Startup, finish.in_set(AppStartup).after(hud))
+	.add_systems(PostStartup, post);
+	app.update();
+	assert_eq!(app.world().resource::<Steps>().0, ["services"]);
+	allow.open();
+	pump(&mut app, |world| {
+		world.resource::<Steps>().0.contains(&"post")
+	});
+	assert_eq!(
+		app.world().resource::<Steps>().0,
+		["services", "hud", "finish", "post"]
+	);
+	assert_eq!(evaluations.load(Ordering::Relaxed), 1);
+}
+
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct OriginalStartup;
+
+#[test]
+fn late_startup_set_member_owns_condition_demand_after_original_is_removed() {
+	let allow = Arc::new(Gate::default());
+	let mut app = app(delayed_plugin(allow.clone()));
+	app.configure_sets(Startup, AppStartup.run_if(|_: Res<TestCatalog>| true))
+		.add_systems(Startup, services.in_set(AppStartup).in_set(OriginalStartup))
+		.add_systems(PostStartup, post);
+	app.update();
+	app.add_systems(Startup, selected_after_external.in_set(AppStartup));
+	app.update();
+	app.world_mut().schedule_scope(Startup, |world, schedule| {
+		schedule
+			.remove_systems_in_set(
+				OriginalStartup,
+				world,
+				crate::bevy::ecs::schedule::ScheduleCleanupPolicy::RemoveSystemsOnly,
+			)
+			.unwrap();
+	});
+	app.update();
+	assert!(app.world().resource::<Steps>().0.is_empty());
+	allow.open();
+	pump(&mut app, |world| {
+		world.resource::<Steps>().0.contains(&"post")
+	});
+	assert_eq!(app.world().resource::<Steps>().0, ["selected", "post"]);
+	app.update();
+	assert!(!app.world().contains_resource::<TestCatalog>());
+}
+
+#[test]
 fn manual_mode_waits_for_explicit_load_without_creating_automatic_demand() {
 	let plugin = LocalizationPlugin::<TestCatalog, crate::Manual>::from_bytes([(
 		"ja",

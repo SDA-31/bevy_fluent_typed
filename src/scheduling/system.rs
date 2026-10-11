@@ -38,6 +38,7 @@ pub(super) struct NodeState {
 	pub(super) predecessors: Mutex<Vec<Weak<NodeState>>>,
 	pub(super) retain_until: Mutex<Vec<Weak<NodeState>>>,
 	pub(super) probes: Mutex<Vec<Arc<Probe>>>,
+	pub(super) gate_owners: Mutex<Weak<Mutex<Vec<Arc<Consumer>>>>>,
 	owners: Mutex<Vec<Weak<Consumer>>>,
 }
 
@@ -49,6 +50,7 @@ impl NodeState {
 			predecessors: Mutex::new(Vec::new()),
 			retain_until: Mutex::new(Vec::new()),
 			probes: Mutex::new(Vec::new()),
+			gate_owners: Mutex::new(Weak::new()),
 			owners: Mutex::new(Vec::new()),
 		})
 	}
@@ -85,20 +87,35 @@ impl NodeState {
 	}
 
 	fn capture(&self, world: &mut World, native: &SystemAccess) -> Vec<Arc<Consumer>> {
+		self.capture_probes(world, access::probes(world, native))
+	}
+
+	pub(super) fn capture_probes(
+		&self,
+		world: &mut World,
+		probes: Vec<Arc<Probe>>,
+	) -> Vec<Arc<Consumer>> {
+		if self.done.load(Ordering::Acquire) {
+			return Vec::new();
+		}
+
 		let mut known = self.probes.lock().unwrap();
-		let probes: Vec<_> = access::probes(world, native)
-			.into_iter()
-			.filter(|probe| !known.iter().any(|existing| existing.scope == probe.scope))
-			.collect();
-		let owners: Vec<_> = probes
-			.iter()
-			.filter_map(|probe| probe.consumer.map(|acquire| acquire(world)))
-			.collect();
+		let mut owners = Vec::new();
+		for probe in probes {
+			if known.iter().any(|existing| existing.scope == probe.scope) {
+				continue;
+			}
+
+			if let Some(acquire) = probe.consumer {
+				owners.push(acquire(world));
+			}
+			known.push(probe);
+		}
+
 		self.owners
 			.lock()
 			.unwrap()
 			.extend(owners.iter().map(Arc::downgrade));
-		known.extend(probes);
 		owners
 	}
 }
@@ -139,6 +156,11 @@ macro_rules! delegate {
 
 		fn set_last_run(&mut self, tick: Tick) {
 			self.inner.set_last_run(tick);
+		}
+
+		#[cfg(feature = "hotpatching")]
+		fn refresh_hotpatch(&mut self) {
+			self.inner.refresh_hotpatch();
 		}
 	};
 }
@@ -208,10 +230,13 @@ impl System for DiscoveredSystem {
 }
 
 pub(super) type Members = Arc<Mutex<Vec<Arc<NodeState>>>>;
+pub(super) type Probes = Arc<Mutex<Vec<Arc<Probe>>>>;
+pub(super) type GateOwners = Arc<Mutex<Vec<Arc<Consumer>>>>;
 
 pub(super) struct TrackedCondition {
 	inner: BoxedCondition,
 	states: Members,
+	shared_probes: Option<Probes>,
 	cache_result: bool,
 	result: Option<bool>,
 	access: Option<(WorldId, SystemAccess)>,
@@ -220,10 +245,16 @@ pub(super) struct TrackedCondition {
 }
 
 impl TrackedCondition {
-	pub(super) fn new(inner: BoxedCondition, states: Members, cache_result: bool) -> Self {
+	pub(super) fn new(
+		inner: BoxedCondition,
+		states: Members,
+		cache_result: bool,
+		shared_probes: Option<Probes>,
+	) -> Self {
 		Self {
 			inner,
 			states,
+			shared_probes,
 			cache_result,
 			result: None,
 			access: None,
@@ -263,6 +294,24 @@ impl System for TrackedCondition {
 			}
 			return Ok(result);
 		}
+		// Bevy evaluates all predicates even when a preceding readiness gate is false.
+		// A shared set can start as soon as one member's external predecessors finish;
+		// requiring every member would deadlock A -> outside C -> B in the same set.
+		let eligible = states.iter().any(|state| {
+			!state.startup
+				|| (!state.done.load(Ordering::Acquire)
+					&& state.predecessors.lock().unwrap().iter().all(|previous| {
+						previous.upgrade().is_none_or(|previous| {
+							previous.done.load(Ordering::Acquire)
+								|| (self.shared_probes.is_some()
+									&& states.iter().any(|member| Arc::ptr_eq(member, &previous)))
+						})
+					}))
+		});
+		if !eligible {
+			return Ok(false);
+		}
+
 		if let Some(gate) = &mut self.catalog_gate {
 			// SAFETY: initialize extends the condition access with this read-only gate.
 			if !unsafe { gate.run_unsafe((), world) }? {
@@ -298,13 +347,17 @@ impl System for TrackedCondition {
 		access.ensure_metadata_access();
 		let probes = access::probes(world, &access);
 		if !probes.is_empty() {
-			let mut gate = readiness_gate(world, probes);
+			let mut gate = readiness_gate(world, probes.clone());
 			access.extend(gate.initialize(world));
 			self.catalog_gate = Some(gate);
 		}
-		let states = self.states.lock().unwrap();
-		for state in states.iter() {
-			self.owners.extend(state.capture(world, &access));
+		if let Some(shared) = &self.shared_probes {
+			shared.lock().unwrap().extend(probes);
+		} else {
+			for state in self.states.lock().unwrap().iter() {
+				self.owners
+					.extend(state.capture_probes(world, probes.clone()));
+			}
 		}
 		self.access = Some((world.id(), access.clone()));
 		access
@@ -318,6 +371,7 @@ pub(super) fn gate(
 	world: &mut World,
 	state: Arc<NodeState>,
 	probes: Vec<Arc<Probe>>,
+	owners: GateOwners,
 ) -> BoxedCondition {
 	let reads = probes.clone();
 	let builder =
@@ -330,6 +384,8 @@ pub(super) fn gate(
 		(builder,)
 			.build_state(world)
 			.build_system(move |resources: FilteredResources| {
+				// The gate, rather than global tracking, owns inherited set-condition demand.
+				let _held_owners = &owners;
 				!state.done.load(Ordering::Acquire)
 					&& (!state.startup || state.predecessors_done())
 					&& probes.iter().all(|probe| (probe.ready)(&resources))

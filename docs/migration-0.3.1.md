@@ -94,3 +94,9 @@ bevy_fluent_typed = { version = "0.3.1", default-features = false, features = ["
 To retain Bevy 0.19, disable normal-dependency defaults and enable `bevy-0-19`
 alongside `codegen`. Leave the build-only dependency unchanged. No second plugin
 or new generator dependency is needed.
+
+Applications using Bevy's optional Rust `hotpatching` feature on 0.19/0.20 must
+also enable `bevy_fluent_typed/hotpatching` on the normal dependency. This forwards
+the matching backend feature and preserves native system refresh through the
+localization wrappers. Leave the build-only dependency unchanged. The flag is
+disabled by default and is unrelated to reloading translation files.

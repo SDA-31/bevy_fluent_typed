@@ -311,6 +311,176 @@ fn consumers_in_public_localization_sets_are_not_exempt_from_discovery() {
 	assert_eq!(reads.load(Ordering::Relaxed), 1);
 }
 
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct OriginalConsumer;
+
+#[test]
+fn late_conditioned_set_members_keep_demand_after_original_members_are_removed() {
+	let (mut app, reads) = app();
+	app.init_resource::<Observed>()
+		.configure_sets(Update, Consumers.run_if(|_: Res<TestCatalog>| true))
+		.add_systems(
+			Update,
+			(|mut seen: ResMut<Observed>| seen.0.push("original".into()))
+				.in_set(Consumers)
+				.in_set(OriginalConsumer),
+		);
+	pump(&mut app, |world| !world.resource::<Observed>().0.is_empty());
+	let weak = Arc::downgrade(
+		&app.world()
+			.resource::<Localization<TestCatalog>>()
+			.store
+			.values[&std::any::TypeId::of::<TestCatalog>()]
+			.value,
+	);
+	app.add_systems(
+		Update,
+		(|mut seen: ResMut<Observed>| seen.0.push("late".into())).in_set(Consumers),
+	);
+	app.update();
+	app.world_mut().schedule_scope(Update, |world, schedule| {
+		schedule
+			.remove_systems_in_set(
+				OriginalConsumer,
+				world,
+				crate::bevy::ecs::schedule::ScheduleCleanupPolicy::RemoveSetAndSystems,
+			)
+			.unwrap();
+	});
+	for _ in 0..3 {
+		app.update();
+		assert_eq!(app.world().resource::<Observed>().0.last().unwrap(), "late");
+		assert!(app.world().contains_resource::<TestCatalog>());
+	}
+	assert_eq!(reads.load(Ordering::Relaxed), 1);
+	app.world_mut().schedule_scope(Update, |world, schedule| {
+		schedule
+			.remove_systems_in_set(
+				Consumers,
+				world,
+				crate::bevy::ecs::schedule::ScheduleCleanupPolicy::RemoveSetAndSystems,
+			)
+			.unwrap();
+	});
+	app.update();
+	assert!(!app.world().contains_resource::<TestCatalog>());
+	assert!(weak.upgrade().is_none());
+}
+
+#[test]
+fn replacing_update_with_reused_native_keys_discovers_the_new_consumers() {
+	let (mut app, reads) = app();
+	app.init_resource::<Observed>().add_systems(Update, consume);
+	pump(&mut app, |world| !world.resource::<Observed>().0.is_empty());
+	app.world_mut().resource_mut::<Observed>().0.clear();
+	let mut replacement = Schedule::new(Update);
+	replacement.add_systems(|scope: Res<TestCatalog>, mut seen: ResMut<Observed>| {
+		seen.0.push(format!("replacement {}", scope.0));
+	});
+	app.add_schedule(replacement);
+	pump(&mut app, |world| !world.resource::<Observed>().0.is_empty());
+	assert_eq!(app.world().resource::<Observed>().0[0], "replacement ja");
+	assert!(app.world().contains_resource::<TestCatalog>());
+	// Dropping the only old owner precedes normal initialization of the replacement
+	// in Update, so publication evicts the old catalog before the new demand exists.
+	assert_eq!(reads.load(Ordering::Relaxed), 2);
+}
+
+#[test]
+fn replaced_schedule_keeps_its_own_demand_until_the_retained_schedule_is_dropped() {
+	let (mut app, reads) = app();
+	app.init_resource::<Observed>().add_systems(Update, consume);
+	pump(&mut app, |world| !world.resource::<Observed>().0.is_empty());
+	let weak = Arc::downgrade(
+		&app.world()
+			.resource::<Localization<TestCatalog>>()
+			.store
+			.values[&std::any::TypeId::of::<TestCatalog>()]
+			.value,
+	);
+	let previous = app
+		.world_mut()
+		.resource_mut::<Schedules>()
+		.insert(Schedule::new(Update))
+		.unwrap();
+	app.update();
+	assert!(app.world().contains_resource::<TestCatalog>());
+	assert!(weak.upgrade().is_some());
+	drop(previous);
+	app.update();
+	assert!(!app.world().contains_resource::<TestCatalog>());
+	assert!(weak.upgrade().is_none());
+	assert_eq!(reads.load(Ordering::Relaxed), 1);
+}
+
+#[test]
+fn restoring_a_saved_schedule_preserves_its_conditions_and_late_member_discovery() {
+	let (mut app, reads) = app();
+	app.init_resource::<Observed>()
+		.configure_sets(Update, Consumers.run_if(|_: Res<TestCatalog>| true))
+		.add_systems(
+			Update,
+			(|mut seen: ResMut<Observed>| seen.0.push("original".into()))
+				.in_set(Consumers)
+				.in_set(OriginalConsumer),
+		);
+	pump(&mut app, |world| !world.resource::<Observed>().0.is_empty());
+	let original = app
+		.world_mut()
+		.resource_mut::<Schedules>()
+		.insert(Schedule::new(Update))
+		.unwrap();
+	app.update();
+	app.world_mut().resource_mut::<Schedules>().insert(original);
+	app.world_mut().resource_mut::<Observed>().0.clear();
+	app.update();
+	assert_eq!(app.world().resource::<Observed>().0, ["original"]);
+	app.add_systems(
+		Update,
+		(|mut seen: ResMut<Observed>| seen.0.push("late".into())).in_set(Consumers),
+	);
+	app.update();
+	app.world_mut().schedule_scope(Update, |world, schedule| {
+		schedule
+			.remove_systems_in_set(
+				OriginalConsumer,
+				world,
+				crate::bevy::ecs::schedule::ScheduleCleanupPolicy::RemoveSetAndSystems,
+			)
+			.unwrap();
+	});
+	app.update();
+	assert_eq!(app.world().resource::<Observed>().0.last().unwrap(), "late");
+	assert!(app.world().contains_resource::<TestCatalog>());
+	assert_eq!(reads.load(Ordering::Relaxed), 1);
+}
+
+#[test]
+fn removing_a_public_set_preserves_discovery_and_retention_of_surviving_consumers() {
+	let (mut app, reads) = app();
+	app.init_resource::<Observed>()
+		.add_systems(Update, consume)
+		.add_systems(Update, (|_: Res<TestCatalog>| {}).in_set(Consumers));
+	pump(&mut app, |world| !world.resource::<Observed>().0.is_empty());
+	app.world_mut().schedule_scope(Update, |world, schedule| {
+		schedule
+			.remove_systems_in_set(
+				Consumers,
+				world,
+				crate::bevy::ecs::schedule::ScheduleCleanupPolicy::RemoveSetAndSystems,
+			)
+			.unwrap();
+	});
+	app.world_mut().resource_mut::<Observed>().0.clear();
+	app.update();
+	assert_eq!(app.world().resource::<Observed>().0, ["ja"]);
+	assert_eq!(reads.load(Ordering::Relaxed), 1);
+	app.add_systems(Update, (|_: Res<TestCatalog>| {}).in_set(OriginalConsumer));
+	app.update();
+	assert!(app.world().contains_resource::<TestCatalog>());
+	assert_eq!(reads.load(Ordering::Relaxed), 1);
+}
+
 #[test]
 #[should_panic(expected = "localization systems cannot move between Worlds")]
 fn moving_an_initialized_schedule_to_another_world_is_rejected() {
