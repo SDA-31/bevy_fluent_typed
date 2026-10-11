@@ -64,7 +64,12 @@ The generator path is explicit; no sibling checkout convention is assumed.
 Supply a generator checkout matching the runtime's generated API, including
 constant manifests; the package version alone does not identify development
 revisions. See the [local checkout setup](../../docs/build.md#work-on-local-checkouts).
-The matrix also verifies native-resource readiness and deferred setup.
+The matrix verifies ordinary native-resource discovery and Deferred startup on
+0.19/0.20. Public resource examples use native `add_systems`; copied 0.16–0.18
+fixtures adapt the four resource registrations to the existing localization helpers.
+The adapter validates each expected registration and import before writing the
+copy; original examples and host/build feature isolation are unchanged. Older
+backends retain independent Update-based one-time initialization.
 The 0.16 backend starts at 0.16.1. The earlier 0.16.0 `bevy_color` package is
 yanked and cannot be selected by a fresh exact-release fixture.
 The 0.16.1 family pins `bevy_color` to 0.16.2 because that is the published

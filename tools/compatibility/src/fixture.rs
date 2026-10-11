@@ -71,6 +71,39 @@ impl<'a> Fixture<'a> {
 			)?;
 		}
 
+		if !bsn {
+			// Public examples use native discovery on 0.19/0.20. Keep older
+			// backends exercising the equivalent legacy registration in copies only.
+			for (file, dependency, native, legacy) in [
+				(
+					"examples/minimal/src/bin/typed_resources.rs",
+					"bevy_fluent_typed",
+					".add_systems(Startup, show_hud)",
+					".add_localized_startup_systems(show_hud)",
+				),
+				(
+					"examples/asset_source/src/main.rs",
+					"bevy_fluent_typed",
+					".add_systems(Startup, show_title)",
+					".add_localized_startup_systems(show_title)",
+				),
+				(
+					"examples/codegen/tests/bytes.rs",
+					"bevy_fluent_typed",
+					".add_systems(Update, move |",
+					".add_localized_systems(Update, move |",
+				),
+				(
+					"examples/minimal/tests/catalog/macros.rs",
+					"localization_runtime",
+					".add_systems(Update, move |",
+					".add_localized_systems(Update, move |",
+				),
+			] {
+				adapt_registration(&path.join(file), dependency, native, legacy)?;
+			}
+		}
+
 		if bsn {
 			let manifest = path.join("examples/bsn/Cargo.toml");
 			let original = fs::read_to_string(&manifest)?;
@@ -166,6 +199,27 @@ impl<'a> Fixture<'a> {
 
 		Ok(())
 	}
+}
+
+fn adapt_registration(path: &Path, dependency: &str, native: &str, legacy: &str) -> Result<()> {
+	let source = fs::read_to_string(path)?;
+
+	if source.matches(native).count() != 1 {
+		return Err(format!("native registration changed in {}", path.display()).into());
+	}
+
+	// Import in the same scope as the adapted method, including test-local uses.
+	let registration = source.find(native).expect("checked registration");
+	let import = source[..registration]
+		.rfind(&format!("use {dependency}::{{"))
+		.ok_or_else(|| format!("runtime import changed in {}", path.display()))?;
+	let mut adapted = source.replace(native, legacy);
+	adapted.insert_str(
+		import + format!("use {dependency}::{{").len(),
+		"LocalizationAppExt, ",
+	);
+	fs::write(path, adapted)?;
+	Ok(())
 }
 
 fn copy(source: &Path, destination: &Path) -> Result<()> {

@@ -17,7 +17,10 @@ Run these from the runtime repository. In an enclosing workspace you can also us
 `cargo run -p localization-codegen-example --bin localization-codegen-example`. For Bevy 0.16/0.17/0.18/0.19,
 disable defaults and add the matching `bevy-0-16` / `bevy-0-17` / `bevy-0-18` /
 `bevy-0-19` to the **normal dependency** features in Cargo.toml.
-Leave the build-dependency unchanged.
+Leave the build-dependency unchanged. The required-resource byte validation test
+uses native registration on 0.19/0.20; older backends need the
+[compatibility helpers](../../GUIDE.md#older-bevy-backends), which the maintainer
+runner applies only in copied fixtures.
 
 The complete setup is [Cargo.toml](Cargo.toml), the explicit generation call in
 [build.rs](build.rs), [src/main.rs](src/main.rs), and

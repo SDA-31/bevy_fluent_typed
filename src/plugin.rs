@@ -75,6 +75,8 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 	/// Select startup execution for this application. Unconfigured roots inherit
 	/// the application's choice, or `Deferred` when no root chooses explicitly.
 	/// Contradictory explicit settings across roots are rejected.
+	/// Available on Bevy 0.19/0.20. For `Barrier`, use
+	/// [`Self::with_startup_barrier`] to provide the selected set.
 	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 	pub fn with_startup_strategy(mut self, strategy: crate::StartupStrategy) -> Self {
 		self.startup = Some(crate::scheduling::StartupConfiguration::new(strategy));
@@ -82,7 +84,9 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 	}
 
 	/// Wait for all catalog requirements of a selected startup set together.
-	/// Startup systems outside this set can execute while its catalogs load.
+	/// Startup systems outside this set can execute while its catalogs load,
+	/// subject to declared ordering. Available on Bevy 0.19/0.20; loading mode
+	/// is unchanged, so Manual still needs explicit requests.
 	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 	pub fn with_startup_barrier(mut self, set: impl SystemSet) -> Self {
 		self.startup = Some(crate::scheduling::StartupConfiguration::barrier(

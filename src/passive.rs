@@ -15,7 +15,8 @@ use std::{any::TypeId, collections::HashMap, marker::PhantomData, ops::Deref};
 
 /// Borrow an available catalog without requesting or retaining its module.
 ///
-/// Use `Option<PassiveRes<Scope>>` to receive `None` immediately when unavailable.
+/// Available on Bevy 0.19/0.20. Use `Option<PassiveRes<Scope>>` to receive `None`
+/// immediately when unavailable.
 /// Like native `Res`, the borrow lasts only for the current system invocation.
 /// A plain `Option<Res<Scope>>` has the same scheduler metadata as required `Res`
 /// and is conservatively treated as a consumer by automatic discovery.

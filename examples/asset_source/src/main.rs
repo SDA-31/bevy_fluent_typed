@@ -4,9 +4,7 @@ use bevy_fluent_typed::bevy::{
 	asset::io::{AssetSourceBuilder, memory::MemoryAssetReader},
 	prelude::*,
 };
-use bevy_fluent_typed::{
-	CatalogUpdate, CatalogUpdateReader, LocalizationAppExt, LocalizationPlugin,
-};
+use bevy_fluent_typed::{CatalogUpdate, CatalogUpdateReader, LocalizationPlugin};
 use std::time::Duration;
 
 bevy_fluent_typed::translations!(mod texts);
@@ -37,7 +35,7 @@ fn main() -> AppExit {
 				.expect("example source contract"),
 			),
 		))
-		.add_localized_startup_systems(show_title)
+		.add_systems(Startup, show_title)
 		.add_systems(Update, report_failure)
 		.run()
 }

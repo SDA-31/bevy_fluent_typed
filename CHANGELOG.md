@@ -5,6 +5,36 @@ Notable changes to the runtime (and its former companion bridge) are recorded he
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html);
 before 1.0, a minor release can introduce incompatible API changes.
 
+## [0.3.1] - 2026-10-11
+
+See the [migration from 0.3.0](docs/migration-0.3.1.md). The generator remains
+`fluent_typed_codegen` 0.2.2.
+
+### Added
+
+- Automatic catalog demand and readiness for ordinary native `Res<Scope>`
+  registrations on Bevy 0.19/0.20, including aliases, derived/nested parameters,
+  `ParamSet` and catalog reads in run conditions. Recurring consumers retain
+  scopes while their system state exists, even when an application condition is false.
+- `StartupStrategy` and builders on `LocalizationPlugin` for Deferred, Native
+  and selected-set Barrier startup. Multiple roots share one application policy.
+- `PassiveRes<Scope>` on Bevy 0.19/0.20 for optional observers that must run
+  without requesting or retaining absent catalogs.
+
+### Changed
+
+- **Behavior change:** startup defaults to Deferred on Bevy 0.19/0.20.
+  Independent steps execute once while catalog consumers and their declared
+  dependents wait; later startup phases follow completion. Frame schedules keep
+  running, so systems using ordinary resources from unfinished startup need
+  application readiness guards. Select Native to retain ordinary one-shot startup.
+- **Behavior change:** plain `Option<Res<Scope>>` in automatically discovered
+  systems is treated as a catalog consumer because Bevy does not distinguish its
+  scheduler metadata from required `Res`. Use `Option<PassiveRes<Scope>>` for
+  passive observation. Existing localization helpers retain their optional behavior.
+- Quickstarts and generated resource examples use native `add_systems` on
+  Bevy 0.19/0.20. Bevy 0.16–0.18 keep their existing registration helpers.
+
 ## [0.3.0] - 2026-10-09
 
 See the [migration from 0.2.2](docs/migration-0.3.md). The generator dependency
@@ -235,6 +265,7 @@ This documentation release changes no public runtime API or behavior.
 Bridge 0.1.3 changes only dependency minimums and documentation.
 Earlier releases predate this changelog; their source is retained in Git tags.
 
+[0.3.1]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.2.1...v0.2.2
 [0.2.1]: https://docs.rs/crate/bevy_fluent_typed/0.2.1

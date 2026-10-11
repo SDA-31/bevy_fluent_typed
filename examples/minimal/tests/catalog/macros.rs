@@ -150,7 +150,7 @@ mod encapsulated {
 fn exported_constant_and_catalog_alias_support_manual_required_resources() {
 	use encapsulated::{HUD, Interface, Locale, Translations};
 	use localization_runtime::bevy::prelude::*;
-	use localization_runtime::{Localization, LocalizationAppExt, LocalizationPlugin, Manual};
+	use localization_runtime::{Localization, LocalizationPlugin, Manual};
 	use std::sync::{
 		Arc,
 		atomic::{AtomicUsize, Ordering},
@@ -172,7 +172,7 @@ fn exported_constant_and_catalog_alias_support_manual_required_resources() {
 		AssetPlugin::default(),
 		LocalizationPlugin::<Translations, Manual>::new(HUD),
 	))
-	.add_localized_systems(Update, move |_: Res<Interface>| {
+	.add_systems(Update, move |_: Res<Interface>| {
 		observed.fetch_add(1, Ordering::Relaxed);
 	});
 	app.finish();

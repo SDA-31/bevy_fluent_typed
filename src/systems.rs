@@ -69,9 +69,11 @@ impl CatalogReadiness {
 /// 0.19/0.20 ordinary `add_systems` already discovers native resource access;
 /// these helpers remain available for older backends and compatibility.
 ///
-/// Register in a recurring schedule such as `Update`. A skipped `Startup` or
-/// `OnEnter` system cannot retry; use [`LocalizationAppExt::add_localized_startup_systems`]
-/// for one-time initialization after readiness. Custom derived `SystemParam`s and
+/// Register this helper in a recurring schedule such as `Update`. For ordinary
+/// `Startup` on Bevy 0.19/0.20, prefer native `add_systems` with Deferred startup.
+/// On older backends, [`LocalizationAppExt::add_localized_startup_systems`] provides
+/// independent one-time initialization in Update. `OnEnter` and custom one-shot
+/// schedules do not retry skipped consumers. Custom derived `SystemParam`s and
 /// nested parameter tuples are not inspected; use a direct `Res` parameter for
 /// each required catalog. Ordinary missing resources keep Bevy's validation behavior.
 /// Install localization plugins before the schedule is first initialized or run,
@@ -80,15 +82,19 @@ pub fn localized<M>(systems: impl IntoLocalizedSystems<M>) -> ScheduleConfigs<Sc
 	systems.into_localized(false)
 }
 
-/// Register native-resource consumers that wait without blocking the frame.
+/// Explicit resource-readiness registration for older backends and existing code.
+///
+/// On Bevy 0.19/0.20, ordinary `App::add_systems` already discovers registered
+/// catalog reads. Its default Deferred startup preserves native startup ordering;
+/// this extension's one-time helper instead keeps its independent Update semantics.
 pub trait LocalizationAppExt {
 	/// Add recurring functions with inferred catalog ownership and readiness gates.
 	/// Lazy owns required scopes for the system-state lifetime, even while skipped.
 	///
 	/// Accepts functions and tuples. Use [`localized`] with `add_systems` when
-	/// applying Bevy configuration. Built-in startup schedules are rejected because
-	/// they cannot retry a skipped system; custom one-shot schedules have the same
-	/// limitation and must not be used here.
+	/// applying Bevy configuration. This recurring helper rejects built-in startup
+	/// schedules. On Bevy 0.19/0.20 use ordinary `add_systems` for Deferred startup;
+	/// custom one-shot schedules do not retry waiting consumers.
 	fn add_localized_systems<M>(
 		&mut self,
 		schedule: impl ScheduleLabel,

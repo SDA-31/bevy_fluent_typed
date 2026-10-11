@@ -70,6 +70,7 @@ application runtime work, not part of this build phase.
 | `build` alone, defaults disabled | Explicit generation in build.rs; generator build dependencies, no Bevy |
 | `manifest` with a backend | Manifest constructors and the generator's runtime manifest API; no generation |
 | One backend alone, defaults disabled | Byte sources and handwritten providers; no generator package, TOML or bridge |
+| `hotpatching` on the normal dependency | Forwards Bevy Rust-code hotpatching and enables compatible system delegation on Bevy 0.19/0.20 |
 | `watch` | Bevy asset-source file watching; does not watch custom byte loaders |
 | `diagnostics` with a backend | Explicit per-module detail queries only; disabled by default, no additional dependencies |
 

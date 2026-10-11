@@ -35,9 +35,9 @@ This is Bevy's ordinary `source://path` syntax; `translations` is a name chosen 
 the application, not a built-in protocol or archive format. Only the requested FTL modules are read through that source. `parse` already
 supplied the TOML contract; the plugin does not fetch or watch the TOML.
 
-In default Lazy, `add_localized_startup_systems(show_title)` requests the HUD
-and waits until the reader has loaded
-the HUD resource, then prints its typed message and exits. A separate
+In default Lazy on Bevy 0.19/0.20, `add_systems(Startup, show_title)` requests
+the HUD. Default Deferred startup waits for its resource, then prints the typed
+message once and exits. A separate
 `report_failure` system handles rejected loads while the resource is unavailable. The headless schedule runner replaces
 a window's event loop; no manual polling or test bookkeeping is needed in main.
 
@@ -58,7 +58,9 @@ self-contained. Generated `MODULES`
 contains metadata, not source bytes. A real pack provides its own FTL.
 Older Bevy backends have the same localization contract, but Bevy 0.16/0.17 use
 `AssetSourceBuilder::default().with_reader(...)`; Bevy 0.16 uses events instead of
-messages.
+messages. Required-resource systems use the
+[compatibility helpers](../../GUIDE.md#older-bevy-backends) on 0.16–0.18; native
+discovery and Deferred startup are available on 0.19/0.20.
 
 ## Verification
 

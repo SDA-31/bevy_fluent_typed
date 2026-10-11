@@ -7,10 +7,10 @@ and enable scenes on the application's Bevy dependency:
 ```toml
 [dependencies]
 bevy = { version = "0.20", features = ["bevy_scene"] }
-bevy_fluent_typed = { version = "0.3.0", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.3.1", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.3.1", default-features = false, features = ["build"] }
 ```
 
 The localization library adds no scene dependency or separate scene feature.
@@ -115,7 +115,7 @@ as shown above. The scene constructors stay the same:
 ```toml
 [dependencies]
 bevy = { version = "0.19", features = ["bevy_scene"] }
-bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["bevy-0-19", "codegen"] }
+bevy_fluent_typed = { version = "0.3.1", default-features = false, features = ["bevy-0-19", "codegen"] }
 ```
 
 ## World labels and scene setup

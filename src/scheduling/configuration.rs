@@ -1,6 +1,9 @@
 use crate::bevy::ecs::schedule::InternedSystemSet;
 
-/// How native startup systems wait for their localization catalogs.
+/// How native startup systems wait for their localization catalogs on Bevy 0.19/0.20.
+///
+/// Selected on the existing `LocalizationPlugin`; unconfigured roots share the
+/// App's explicit policy, or Deferred when no root makes an explicit choice.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum StartupStrategy {
 	/// Preserve Bevy's ordinary one-shot startup and missing-resource validation.
@@ -9,6 +12,7 @@ pub enum StartupStrategy {
 	#[default]
 	Deferred,
 	/// Wait for every catalog needed by the set selected with `with_startup_barrier`.
+	/// Use that builder rather than passing this variant to `with_startup_strategy`.
 	Barrier,
 }
 

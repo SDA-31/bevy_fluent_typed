@@ -36,7 +36,9 @@ Archive support requires an appropriate reader; a source name is not a built-in
 format selector. Explicit ReloadCatalogs works without watching and only rereads
 demanded FTL. Keep a coherent source revision while loading several files:
 schema validation cannot recognize mixed but otherwise valid prose revisions.
-There is no whole-language transaction or implicit embedded rollback.
+Same-language reloads publish leaves independently; locale switches publish the
+currently desired target leaves together after validation. This does not provide
+a source revision snapshot or implicit embedded rollback.
 
 The [memory-source example](https://github.com/SDA-31/bevy_fluent_typed/tree/main/examples/asset_source)
 provides virtual files and tests missing data, rejected edits and recovery.
