@@ -20,8 +20,6 @@ See the [migration from 0.3.0](docs/migration-0.3.1.md). The generator remains
   and selected-set Barrier startup. Multiple roots share one application policy.
 - `PassiveRes<Scope>` on Bevy 0.19/0.20 for optional observers that must run
   without requesting or retaining absent catalogs.
-- Optional `hotpatching` feature for Bevy 0.19/0.20 applications that enable
-  Bevy's Rust hotpatching; native system refresh passes through localization wrappers.
 
 ### Changed
 

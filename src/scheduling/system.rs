@@ -160,11 +160,6 @@ macro_rules! delegate {
 		fn set_last_run(&mut self, tick: Tick) {
 			self.inner.set_last_run(tick);
 		}
-
-		#[cfg(feature = "hotpatching")]
-		fn refresh_hotpatch(&mut self) {
-			self.inner.refresh_hotpatch();
-		}
 	};
 }
 
