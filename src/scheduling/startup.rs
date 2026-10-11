@@ -61,7 +61,7 @@ impl ScheduleIdentity {
 	fn new() -> Self {
 		static NEXT: AtomicUsize = AtomicUsize::new(0);
 		Self(
-			NEXT.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
+			NEXT.try_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
 				value.checked_add(1)
 			})
 			.expect("localization schedule identity counter exhausted"),
