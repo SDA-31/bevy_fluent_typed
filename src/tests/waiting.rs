@@ -156,7 +156,9 @@ fn deferred_setup_waits_runs_once_and_applies_commands() {
 		.set_locale("es");
 	app.update();
 	pump(&mut app, |world| {
-		world.resource::<Localization<TestCatalog, Manual>>().locale() == "es"
+		world
+			.resource::<Localization<TestCatalog, Manual>>()
+			.locale() == "es"
 	});
 	assert_eq!(app.world().resource::<Observations>().setups, 1);
 }
