@@ -1,5 +1,8 @@
 use super::{TestCatalog, bytes::pump};
-use crate::bevy::{ecs as bevy_ecs, prelude::*};
+use crate::bevy::{
+	ecs::{self as bevy_ecs, schedule::SingleThreadedExecutor},
+	prelude::*,
+};
 use crate::{LocalizationPlugin, LocalizedText, StartupStrategy};
 use std::sync::{Arc, Mutex};
 
@@ -81,6 +84,101 @@ fn deferred_startup_runs_each_step_once_preserves_dependencies_and_poststartup()
 	assert_eq!(
 		app.world().resource::<Steps>().0,
 		["services", "hud", "finish", "post"]
+	);
+}
+
+fn complete_setup(mut steps: ResMut<Steps>) {
+	steps.0.push("finish");
+}
+
+#[test]
+fn explicit_apply_deferred_completes_startup_without_catalog_reads() {
+	let mut app = app(LocalizationPlugin::<TestCatalog>::from_loader(|_, _| {
+		std::future::pending::<Result<Vec<u8>, String>>()
+	}));
+	app.add_systems(Startup, (services, ApplyDeferred, complete_setup).chain())
+		.add_systems(PostStartup, post);
+
+	for _ in 0..3 {
+		app.update();
+	}
+
+	assert_eq!(
+		app.world().resource::<Steps>().0,
+		["services", "finish", "post"]
+	);
+}
+
+#[test]
+fn explicit_apply_deferred_applies_commands_after_catalog_and_native_condition() {
+	let allow = Arc::new(Gate::default());
+	let mut app = app(delayed_plugin(allow.clone()));
+	app.add_systems(
+		Startup,
+		(hud, ApplyDeferred.run_if(|| true), finish).chain_ignore_deferred(),
+	)
+	.add_systems(PostStartup, post)
+	.edit_schedule(Startup, |schedule| {
+		schedule
+			.set_executor(SingleThreadedExecutor::new())
+			.set_apply_final_deferred(false);
+	});
+	app.update();
+	assert!(app.world().resource::<Steps>().0.is_empty());
+	assert!(!app.world().contains_resource::<Initialized>());
+
+	allow.open();
+	pump(&mut app, |world| {
+		world.resource::<Steps>().0.contains(&"post")
+	});
+	app.update();
+	assert_eq!(app.world().resource::<Steps>().0, ["hud", "finish", "post"]);
+}
+
+#[test]
+fn explicit_apply_deferred_waits_for_a_catalog_in_its_condition() {
+	let allow = Arc::new(Gate::default());
+	let mut app = app(delayed_plugin(allow.clone()));
+	app.add_systems(
+		Startup,
+		(
+			services,
+			ApplyDeferred.run_if(|_: Res<TestCatalog>| true),
+			complete_setup,
+		)
+			.chain_ignore_deferred(),
+	)
+	.add_systems(PostStartup, post);
+	app.update();
+	app.update();
+	assert_eq!(app.world().resource::<Steps>().0, ["services"]);
+
+	allow.open();
+	pump(&mut app, |world| {
+		world.resource::<Steps>().0.contains(&"post")
+	});
+	app.update();
+	assert_eq!(
+		app.world().resource::<Steps>().0,
+		["services", "finish", "post"]
+	);
+}
+
+#[test]
+fn skipped_apply_deferred_does_not_hold_startup_open() {
+	let mut app = app(LocalizationPlugin::<TestCatalog>::from_loader(|_, _| {
+		std::future::pending::<Result<Vec<u8>, String>>()
+	}));
+	app.add_systems(
+		Startup,
+		(services, ApplyDeferred.run_if(|| false), complete_setup).chain(),
+	)
+	.add_systems(PostStartup, post);
+	app.update();
+	app.update();
+	assert_eq!(
+		app.world().resource::<Steps>().0,
+		["services", "finish", "post"]
 	);
 }
 

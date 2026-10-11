@@ -34,6 +34,7 @@ use std::{
 
 pub(super) struct NodeState {
 	pub(super) startup: bool,
+	pub(super) complete_in_gate: bool,
 	pub(super) done: AtomicBool,
 	pub(super) predecessors: Mutex<Vec<Weak<NodeState>>>,
 	pub(super) retain_until: Mutex<Vec<Weak<NodeState>>>,
@@ -43,9 +44,10 @@ pub(super) struct NodeState {
 }
 
 impl NodeState {
-	pub(super) fn new(startup: bool) -> Arc<Self> {
+	pub(super) fn new(startup: bool, complete_in_gate: bool) -> Arc<Self> {
 		Arc::new(Self {
 			startup,
+			complete_in_gate,
 			done: AtomicBool::new(false),
 			predecessors: Mutex::new(Vec::new()),
 			retain_until: Mutex::new(Vec::new()),
@@ -386,9 +388,18 @@ pub(super) fn gate(
 			.build_system(move |resources: FilteredResources| {
 				// The gate, rather than global tracking, owns inherited set-condition demand.
 				let _held_owners = &owners;
-				!state.done.load(Ordering::Acquire)
+				let ready = !state.done.load(Ordering::Acquire)
 					&& (!state.startup || state.predecessors_done())
-					&& probes.iter().all(|probe| (probe.ready)(&resources))
+					&& probes.iter().all(|probe| (probe.ready)(&resources));
+
+				// Bevy executes ApplyDeferred itself, without calling the system body.
+				// Its final predicate records completion after native conditions ran;
+				// the executor still applies commands before releasing dependents.
+				if ready && state.complete_in_gate {
+					state.complete();
+				}
+
+				ready
 			}),
 	)
 }

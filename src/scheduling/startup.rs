@@ -6,7 +6,7 @@ use crate::bevy::{
 	ecs::{
 		self as bevy_ecs,
 		schedule::{
-			ConditionWithAccess, FlattenedDependencies, InternedSystemSet, NodeId,
+			ApplyDeferred, ConditionWithAccess, FlattenedDependencies, InternedSystemSet, NodeId,
 			ScheduleBuildError, ScheduleBuildPass, ScheduleGraph, SystemKey, SystemSetKey,
 			SystemWithAccess,
 			graph::{DiGraph, Direction},
@@ -18,6 +18,7 @@ use crate::bevy::{
 };
 use indexmap::IndexSet;
 use std::{
+	any::TypeId,
 	collections::{HashMap, HashSet},
 	sync::{
 		Arc, Mutex, Weak,
@@ -205,7 +206,9 @@ pub(super) fn prepare(
 		.filter(|key| !excluded.contains(key) && !tracking.states.lock().unwrap().contains_key(key))
 		.collect();
 	for key in &keys {
-		let state = NodeState::new(deferred);
+		let complete_in_gate = deferred
+			&& graph.systems.get(*key).unwrap().system_type() == TypeId::of::<ApplyDeferred>();
+		let state = NodeState::new(deferred, complete_in_gate);
 		let slot = graph.systems.get_mut(*key).unwrap();
 		let original = std::mem::replace(
 			slot,
@@ -397,6 +400,7 @@ impl ScheduleBuildPass for Dependencies {
 				continue;
 			}
 			let owners = gate_owners[&key].clone();
+			let complete_in_gate = state.complete_in_gate;
 			let mut gate = ConditionWithAccess::new(system::gate(world, state, probes, owners));
 			gate.access = gate.initialize(world);
 			let conditions = graph.systems.get_conditions_mut(key).unwrap();
@@ -405,6 +409,10 @@ impl ScheduleBuildPass for Dependencies {
 				.position(|condition| condition.system_type() == gate.system_type());
 			if let Some(index) = own_gate {
 				conditions[index] = gate;
+			} else if complete_in_gate {
+				// A synchronization point has no body callback. Its native conditions
+				// must evaluate before our final completion predicate changes done.
+				conditions.push(gate);
 			} else {
 				conditions.insert(0, gate);
 			}
