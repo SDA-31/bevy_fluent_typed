@@ -307,10 +307,12 @@ move the consumer to a recurring loading/ready phase. Broad `&World` inspection
 is passive and does not request every catalog.
 
 For an observer that must run while a catalog is absent, Bevy 0.19/0.20 provides
-`Option<PassiveRes<Scope>>`: it returns `None` without requesting, retaining or
+`Option<PassiveCatalog<Scope>>`: it returns `None` without requesting, retaining or
 waiting for a module. A plain `Option<Res<Scope>>` has the same scheduler metadata
 as required `Res` and is conservatively treated as a consumer. This distinction
 applies to automatic discovery, including run conditions.
+`PassiveCatalog` accepts only `FluentScope` types; after matching `Some(scope)`,
+its `Deref` exposes the catalog methods directly.
 
 ### Startup strategies
 
@@ -409,7 +411,7 @@ For application-owned loading through Full, pins or leases, native
 `resource_exists::<Scope>` remains available as a readiness condition. Native
 Startup, OnEnter and custom one-shot schedules do not retry skipped consumers.
 `LocalizedText` owns its scope automatically in Lazy on every backend. Startup
-strategies and `PassiveRes` remain exclusive to Bevy 0.19/0.20.
+strategies and `PassiveCatalog` remain exclusive to Bevy 0.19/0.20.
 
 `Localization::new(locale)` and `Default` create a controller, not a ready catalog.
 Use `status::<Scope>()` to distinguish `Unloaded`, `Loading`, `Ready` and

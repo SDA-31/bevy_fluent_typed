@@ -82,7 +82,7 @@ choices are rejected. Without a choice, the App uses Deferred.
 Bevy exposes identical scheduler read metadata for `Res<Scope>` and
 `Option<Res<Scope>>`; ordinary optional reads are therefore conservatively treated
 as consumers on Bevy 0.19/0.20. An observer that must run while absent can use
-`Option<PassiveRes<Scope>>`, which immediately receives `None` without requesting
+`Option<PassiveCatalog<Scope>>`, which immediately receives `None` without requesting
 or retaining the module. Broad World inspection stays passive. On Bevy 0.16–0.18,
 native `Option<Res<Scope>>` remains passive because there is no resource-read discovery.
 

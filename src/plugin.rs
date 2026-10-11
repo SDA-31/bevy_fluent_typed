@@ -45,7 +45,7 @@ enum Source<C: FluentCatalog> {
 /// Manifest sources require AssetPlugin; byte sources need only MinimalPlugins.
 /// Default Lazy loads scopes used by inserted text bindings. On Bevy 0.19/0.20,
 /// ordinary native `Res<Scope>` consumers are discovered before their schedule's
-/// first execution and wait for readiness. `Option<PassiveRes<Scope>>` observes
+/// first execution and wait for readiness. `Option<PassiveCatalog<Scope>>` observes
 /// without demand; plain `Option<Res<Scope>>` is conservatively a consumer because
 /// Bevy exposes the same access metadata for both native forms. On Bevy 0.16–0.18,
 /// direct resource systems use `LocalizationAppExt` or `localized` for readiness

@@ -3,7 +3,7 @@ use super::{OptionalCatalog, TestCatalog, bytes::pump, manifest};
 use crate::bevy::{ecs as bevy_ecs, prelude::*};
 use crate::{
 	FluentCatalog, FluentScope, Localization, LocalizationManifest, LocalizationPlugin, Manual,
-	Module, ModuleStore, PassiveRes, ScopeRegistration,
+	Module, ModuleStore, PassiveCatalog, ScopeRegistration,
 };
 
 #[derive(Resource, Default)]
@@ -353,7 +353,7 @@ fn several_required_roots_gate_together_but_an_optional_root_does_not() {
 				observations.required.push("both".into());
 			},
 			|_: Res<TestCatalog>,
-			 other: Option<PassiveRes<OtherCatalog>>,
+			 other: Option<PassiveCatalog<OtherCatalog>>,
 			 mut observations: ResMut<Observations>| {
 				observations.optional.push(other.map(|_| "other".into()));
 			},

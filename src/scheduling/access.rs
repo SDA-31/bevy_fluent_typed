@@ -1,7 +1,7 @@
 use super::readiness::{CatalogReadiness, Probe};
 use crate::bevy::prelude::World;
 use crate::compatibility::scheduling::{IS_RESOURCE, SystemAccess};
-use crate::passive::PassiveMarkers;
+use crate::passive::PassiveCatalogMarkers;
 use std::sync::Arc;
 
 pub(super) fn probes(world: &World, access: &SystemAccess) -> Vec<Arc<Probe>> {
@@ -10,7 +10,7 @@ pub(super) fn probes(world: &World, access: &SystemAccess) -> Vec<Arc<Probe>> {
 	let Some(registry) = world.get_resource::<CatalogReadiness>() else {
 		return Vec::new();
 	};
-	let markers = world.get_resource::<PassiveMarkers>();
+	let markers = world.get_resource::<PassiveCatalogMarkers>();
 	registry
 		.0
 		.values()

@@ -18,7 +18,7 @@ See the [migration from 0.3.0](docs/migration-0.3.1.md). The generator remains
   scopes while their system state exists, even when an application condition is false.
 - `StartupStrategy` and builders on `LocalizationPlugin` for Deferred, Native
   and selected-set Barrier startup. Multiple roots share one application policy.
-- `PassiveRes<Scope>` on Bevy 0.19/0.20 for optional observers that must run
+- `PassiveCatalog<Scope>` on Bevy 0.19/0.20 for optional observers that must run
   without requesting or retaining absent catalogs.
 
 ### Changed
@@ -30,7 +30,7 @@ See the [migration from 0.3.0](docs/migration-0.3.1.md). The generator remains
   application readiness guards. Select Native to retain ordinary one-shot startup.
 - **Behavior change:** plain `Option<Res<Scope>>` in automatically discovered
   systems is treated as a catalog consumer because Bevy does not distinguish its
-  scheduler metadata from required `Res`. Use `Option<PassiveRes<Scope>>` for
+  scheduler metadata from required `Res`. Use `Option<PassiveCatalog<Scope>>` for
   passive observation. Older native optional reads remain passive.
 - Quickstarts and generated resource examples use native `add_systems` on
   Bevy 0.19/0.20. Bevy 0.16–0.18 retain their existing explicit registration

@@ -25,7 +25,7 @@ pub trait LoadingMode: sealed::Sealed + Send + Sync + 'static {
 /// Optional `Localization::load`/`unload` calls add or remove idempotent manual
 /// pins without evicting automatic consumers or overlapping pins. Unattached
 /// messages and world inspection are passive. On Bevy 0.19/0.20,
-/// `Option<PassiveRes<S>>` is passive; ordinary `Option<Res<S>>` is conservatively
+/// `Option<PassiveCatalog<S>>` is passive; ordinary `Option<Res<S>>` is conservatively
 /// a consumer because native requiredness is absent from scheduler metadata.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Lazy;

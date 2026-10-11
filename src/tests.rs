@@ -42,7 +42,7 @@ mod waiting;
 struct TestCatalog(String);
 
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
-type OptionalCatalog<'w> = Option<crate::PassiveRes<'w, TestCatalog>>;
+type OptionalCatalog<'w> = Option<crate::PassiveCatalog<'w, TestCatalog>>;
 
 #[cfg(not(any(feature = "bevy-0-19", feature = "bevy-0-20")))]
 type OptionalCatalog<'w> = Option<Res<'w, TestCatalog>>;

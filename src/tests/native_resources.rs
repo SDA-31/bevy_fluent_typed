@@ -3,7 +3,7 @@ use crate::bevy::{
 	ecs::{self as bevy_ecs, system::SystemParam},
 	prelude::*,
 };
-use crate::{Localization, LocalizationPlugin, PassiveRes};
+use crate::{Localization, LocalizationPlugin, PassiveCatalog};
 use std::sync::{
 	Arc,
 	atomic::{AtomicUsize, Ordering},
@@ -60,10 +60,13 @@ fn optional_passive_reads_run_without_loading_or_retaining_catalog() {
 	let (mut app, reads) = app();
 	let runs = Arc::new(AtomicUsize::new(0));
 	let observed = runs.clone();
-	app.add_systems(Update, move |catalog: Option<PassiveRes<TestCatalog>>| {
-		assert!(catalog.is_none());
-		observed.fetch_add(1, Ordering::Relaxed);
-	});
+	app.add_systems(
+		Update,
+		move |catalog: Option<PassiveCatalog<TestCatalog>>| {
+			assert!(catalog.is_none());
+			observed.fetch_add(1, Ordering::Relaxed);
+		},
+	);
 	for _ in 0..3 {
 		app.update();
 	}
@@ -83,7 +86,7 @@ fn mixed_required_and_passive_parameters_still_own_the_required_scope() {
 	app.init_resource::<Observed>().add_systems(
 		Update,
 		|catalog: Res<TestCatalog>,
-		 passive: Option<PassiveRes<TestCatalog>>,
+		 passive: Option<PassiveCatalog<TestCatalog>>,
 		 mut seen: ResMut<Observed>| {
 			assert_eq!(passive.unwrap().0, catalog.0);
 			seen.0.push(catalog.0.clone());
@@ -162,7 +165,7 @@ fn passive_reads_allow_module_eviction_while_the_observer_stays_registered() {
 	let (mut app, reads) = app();
 	app.init_resource::<Observed>().add_systems(
 		Update,
-		|scope: Option<PassiveRes<TestCatalog>>, mut seen: ResMut<Observed>| {
+		|scope: Option<PassiveCatalog<TestCatalog>>, mut seen: ResMut<Observed>| {
 			seen.0
 				.push(scope.map(|scope| scope.0.clone()).unwrap_or_default());
 		},
@@ -182,12 +185,12 @@ fn passive_reads_allow_module_eviction_while_the_observer_stays_registered() {
 }
 
 #[test]
-#[should_panic(expected = "PassiveRes conflicts")]
+#[should_panic(expected = "PassiveCatalog conflicts")]
 fn passive_parameter_does_not_hide_native_mutable_resource_conflicts() {
 	let (mut app, _) = app();
 	app.add_systems(
 		Update,
-		|_: ResMut<TestCatalog>, _: Option<PassiveRes<TestCatalog>>| {},
+		|_: ResMut<TestCatalog>, _: Option<PassiveCatalog<TestCatalog>>| {},
 	);
 	app.update();
 }

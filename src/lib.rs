@@ -131,7 +131,7 @@ pub use message::{CatalogUpdate, CatalogUpdateReader, LocalizedText, Message, Re
 #[cfg(feature = "runtime")]
 pub use mode::{Full, Lazy, LoadingMode, Manual};
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
-pub use passive::PassiveRes;
+pub use passive::PassiveCatalog;
 #[cfg(feature = "runtime")]
 pub use plugin::{LocalizationPlugin, LocalizationSystems};
 #[cfg(feature = "runtime")]

@@ -1,4 +1,5 @@
 //! Explicitly passive native resource borrowing.
+use crate::FluentScope;
 use crate::bevy::{
 	ecs::{
 		self as bevy_ecs,
@@ -15,14 +16,27 @@ use std::{any::TypeId, collections::HashMap, marker::PhantomData, ops::Deref};
 
 /// Borrow an available catalog without requesting or retaining its module.
 ///
-/// Available on Bevy 0.19/0.20. Use `Option<PassiveRes<Scope>>` to receive `None`
+/// Available on Bevy 0.19/0.20. Use `Option<PassiveCatalog<Scope>>` to receive `None`
 /// immediately when unavailable.
 /// Like native `Res`, the borrow lasts only for the current system invocation.
 /// A plain `Option<Res<Scope>>` has the same scheduler metadata as required `Res`
 /// and is conservatively treated as a consumer by automatic discovery.
-pub struct PassiveRes<'w, T: Resource>(Res<'w, T>);
+/// Only localization scopes implementing [`FluentScope`] can be borrowed.
+/// After matching `Some(catalog)`, dereferencing exposes the scope's own methods.
+///
+/// Ordinary Bevy resources are not localization scopes:
+///
+/// ```compile_fail
+/// use bevy_fluent_typed::{PassiveCatalog, bevy::{ecs as bevy_ecs, prelude::*}};
+///
+/// #[derive(Resource, Clone)]
+/// struct Settings;
+///
+/// fn observe(_: Option<PassiveCatalog<Settings>>) {}
+/// ```
+pub struct PassiveCatalog<'w, T: FluentScope>(Res<'w, T>);
 
-impl<T: Resource> Deref for PassiveRes<'_, T> {
+impl<T: FluentScope> Deref for PassiveCatalog<'_, T> {
 	type Target = T;
 
 	fn deref(&self) -> &T {
@@ -30,7 +44,7 @@ impl<T: Resource> Deref for PassiveRes<'_, T> {
 	}
 }
 
-impl<'w, T: Resource> PassiveRes<'w, T> {
+impl<'w, T: FluentScope> PassiveCatalog<'w, T> {
 	/// Obtain the borrowed value with the world's lifetime.
 	pub fn into_inner(self) -> &'w T {
 		self.0.into_inner()
@@ -38,24 +52,24 @@ impl<'w, T: Resource> PassiveRes<'w, T> {
 }
 
 #[derive(Component)]
-pub(crate) struct PassiveMarker<T: Resource>(PhantomData<fn() -> T>);
+pub(crate) struct PassiveCatalogMarker<T: FluentScope>(PhantomData<fn() -> T>);
 
 #[derive(Resource, Default)]
-pub(crate) struct PassiveMarkers(pub(crate) HashMap<TypeId, ComponentId>);
+pub(crate) struct PassiveCatalogMarkers(pub(crate) HashMap<TypeId, ComponentId>);
 
 // SAFETY: The access retains native Res's resource filter and adds only a raw
 // read permission for a private marker. It does not add a phantom With filter
 // that could hide real conflicts. Native Res performs the checked fetch.
-unsafe impl<T: Resource> SystemParam for PassiveRes<'_, T> {
+unsafe impl<T: FluentScope> SystemParam for PassiveCatalog<'_, T> {
 	type State = (ComponentId, ComponentId);
-	type Item<'w, 's> = PassiveRes<'w, T>;
+	type Item<'w, 's> = PassiveCatalog<'w, T>;
 
 	fn init_state(world: &mut World) -> Self::State {
 		let resource = Res::<T>::init_state(world);
-		let marker = world.register_component::<PassiveMarker<T>>();
-		world.init_resource::<PassiveMarkers>();
+		let marker = world.register_component::<PassiveCatalogMarker<T>>();
+		world.init_resource::<PassiveCatalogMarkers>();
 		world
-			.resource_mut::<PassiveMarkers>()
+			.resource_mut::<PassiveCatalogMarkers>()
 			.0
 			.insert(TypeId::of::<T>(), marker);
 		(resource, marker)
@@ -74,13 +88,13 @@ unsafe impl<T: Resource> SystemParam for PassiveRes<'_, T> {
 		#[cfg(feature = "bevy-0-20")]
 		assert!(
 			access.try_add(filter).is_ok(),
-			"PassiveRes conflicts with a mutable resource parameter"
+			"PassiveCatalog conflicts with a mutable resource parameter"
 		);
 		#[cfg(feature = "bevy-0-19")]
 		{
 			assert!(
 				access.get_conflicts_single(&filter).is_empty(),
-				"PassiveRes conflicts with a mutable resource parameter"
+				"PassiveCatalog conflicts with a mutable resource parameter"
 			);
 			access.add(filter);
 		}
@@ -93,9 +107,9 @@ unsafe impl<T: Resource> SystemParam for PassiveRes<'_, T> {
 		tick: Tick,
 	) -> Result<Self::Item<'w, 's>, SystemParamValidationError> {
 		// SAFETY: Native Res receives its original state and the access recorded above.
-		unsafe { Res::<T>::get_param(&mut state.0, meta, world, tick) }.map(PassiveRes)
+		unsafe { Res::<T>::get_param(&mut state.0, meta, world, tick) }.map(PassiveCatalog)
 	}
 }
 
 // SAFETY: Delegated Res fetches are shared reads only.
-unsafe impl<T: Resource> ReadOnlySystemParam for PassiveRes<'_, T> {}
+unsafe impl<T: FluentScope> ReadOnlySystemParam for PassiveCatalog<'_, T> {}
