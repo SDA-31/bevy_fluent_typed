@@ -65,6 +65,8 @@ mod demand;
 mod generation;
 #[cfg(feature = "runtime")]
 mod leases;
+#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17", feature = "bevy-0-18"))]
+mod legacy_systems;
 #[cfg(feature = "runtime")]
 mod loading;
 #[cfg(feature = "runtime")]
@@ -122,6 +124,8 @@ pub use fluent_typed_codegen::{LocalizationManifest, ManifestError};
 pub use fluent_typed_codegen::{CatalogConfig, ConfigError, ConfigField, FieldError, PathError};
 #[cfg(feature = "runtime")]
 pub use leases::ModuleLease;
+#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17", feature = "bevy-0-18"))]
+pub use legacy_systems::{IntoLocalizedSystems, LocalizationAppExt, localized};
 #[cfg(feature = "runtime")]
 pub use message::{CatalogUpdate, CatalogUpdateReader, LocalizedText, Message, ReloadCatalogs};
 #[cfg(feature = "runtime")]

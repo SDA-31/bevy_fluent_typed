@@ -47,8 +47,10 @@ enum Source<C: FluentCatalog> {
 /// ordinary native `Res<Scope>` consumers are discovered before their schedule's
 /// first execution and wait for readiness. `Option<PassiveRes<Scope>>` observes
 /// without demand; plain `Option<Res<Scope>>` is conservatively a consumer because
-/// Bevy exposes the same access metadata for both native forms. Older direct
-/// resource systems need application-owned loading and native readiness conditions.
+/// Bevy exposes the same access metadata for both native forms. On Bevy 0.16–0.18,
+/// direct resource systems use `LocalizationAppExt` or `localized` for readiness
+/// and automatic Lazy demand. Native registrations need application-owned loading
+/// and native readiness conditions on those older backends.
 /// World inspection is passive.
 /// Optional Lazy manual pins retain additional scopes independently. Explicit Full requests
 /// every module; explicit Manual waits for `load` calls. Creating this value
@@ -221,6 +223,8 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 		crate::progress::register::<C, M>(app);
 
 		for scope in C::scopes() {
+			#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17", feature = "bevy-0-18"))]
+			crate::legacy_systems::CatalogReadiness::register::<C, M>(app.world_mut(), &scope);
 			#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 			crate::scheduling::CatalogReadiness::register::<C, M>(app.world_mut(), &scope);
 			(scope.bindings)(app, M::AUTOMATIC);

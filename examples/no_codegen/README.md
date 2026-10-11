@@ -31,7 +31,7 @@ bytes per requested leaf when source memory must be released after parsing.
 Both paths use default Lazy: inserted bindings request their scope, as do ordinary
 native resource consumers on Bevy 0.19/0.20. Explicit Full/Manual remain available.
 On Bevy 0.16–0.18, resource consumers use the
-[native readiness conditions and application-owned loading](../../GUIDE.md#older-bevy-backends). World inspection does
+[registration helpers](../../GUIDE.md#older-bevy-backends). World inspection does
 not establish demand.
 
 A root `LocalizationProgressPlugin<Texts>` observes this provider without adding

@@ -4,7 +4,7 @@ This guide covers generation paths and selective embedding. The current runtime
 0.3.1 defaults to Lazy; explicit Full/Manual loading remains available. See
 [automatic loading](migration-0.3.md#adopt-automatic-module-loading) for the default
 change and [resource registration](migration-0.3.1.md#register-required-catalog-consumers-normally)
-for native systems and older-backend readiness conditions.
+for native systems and older-backend registration helpers.
 
 ## Update both facade dependencies
 

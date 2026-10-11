@@ -32,7 +32,7 @@ leaves, or the whole `Translations` tree. Loading a scope requests all its leave
 
 | Need | Plugin/controller mode | Requests |
 | --- | --- | --- |
-| Load only modules used by text or resource systems | `Lazy` (default) | Bindings on every backend; native resource consumers on 0.19/0.20 |
+| Load only modules used by text or resource systems | `Lazy` (default) | Bindings on every backend; native resource readers on 0.19/0.20, helper-registered readers on 0.16–0.18 |
 | Keep the whole selected language ready, including direct world polling | `Full` | All modules automatically |
 | Manage loading explicitly, including hybrid lifetimes | `Manual` | Explicit `load` and `unload` |
 
@@ -56,9 +56,10 @@ commands.spawn((
 ```
 
 In `Lazy`, every inserted `LocalizedText<Scope>` requests and retains its scope.
-Removing the last binding releases that demand. Other bindings and native resource
-consumers on 0.19/0.20 using overlapping scopes keep their required leaves loaded. No explicit
-screen-entry or screen-exit loading calls are needed for bound text.
+Removing the last binding releases that demand. Other bindings, native resource
+consumers on 0.19/0.20 and helper-registered consumers on 0.16–0.18 keep
+overlapping scopes loaded. No explicit screen-entry or screen-exit loading calls
+are needed for bound text.
 
 On Bevy 0.19/0.20, register ordinary `Res<Scope>` consumers with
 `app.add_systems`. The plugin discovers their catalog reads when Bevy initializes
@@ -72,7 +73,7 @@ With default Deferred startup, each startup consumer releases temporary demand
 after it finishes and deferred commands apply. Inserted bindings take over their
 own demand before unneeded modules are released. A one-time read does not keep
 the catalog loaded afterward. [Older backends](#older-bevy-backends) use
-application-owned loading and native readiness conditions for direct readers.
+explicit registration helpers for automatic demand and readiness of direct readers.
 
 Standalone messages and `World::get_resource` inspection neither request nor
 retain a module. For an application that polls the complete language directly,
@@ -403,35 +404,39 @@ choice, the App uses Deferred; contradictory explicit choices are rejected.
 
 ### Older Bevy backends
 
-Bevy 0.16–0.18 do not discover catalog reads automatically. Provide loading and
-retention through Full, explicit `load`/`unload` or leases; inserted `LocalizedText`
-bindings also retain their scopes. Register direct readers with native readiness
-conditions:
+Bevy 0.16–0.18 provide `LocalizationAppExt`, `localized` and
+`IntoLocalizedSystems` exclusively for those backends. Their implementation and
+exports are not compiled on 0.19/0.20 or in build-only configurations.
 
 ```rust,ignore
-app.add_systems(
-    Update,
-    update_hud.run_if(resource_exists::<texts::presentation::Hud>),
-);
+use bevy_fluent_typed::{LocalizationAppExt, localized};
+
+app.add_localized_systems(Update, update_hud);
+app.add_systems(Update, localized(update_buttons).run_if(screen_is_open));
+app.add_localized_startup_systems(setup_hud);
 ```
 
-The condition does not request or retain a module. For one-time initialization
-that reads a catalog, use a recurring loading phase or native conditions:
+In Lazy, each helper-registered direct required `Res<Scope>` requests and retains
+its scope. A recurring consumer retains demand while its system state exists,
+even with a false application condition. Each tuple member waits independently.
+Plain `Option<Res<Scope>>` remains passive. Aliases of a direct required resource
+work; derived `SystemParam`s, nested tuples and `ParamSet` are not inspected.
+Expose each required catalog as a direct parameter when using these helpers.
+Install the localization plugin before initializing the schedule.
 
-```rust,ignore
-app.add_systems(
-    Update,
-    setup_hud.run_if(resource_exists::<texts::presentation::Hud>.and(run_once)),
-);
-```
+The one-time helper runs each function once in Update after its catalogs are
+ready. It does not defer native Startup phases or preserve ordering references
+to the original function. Combine dependent setup steps into one function or own
+their initialization state explicitly. Completion releases the helper's demand;
+inserted text bindings take over before unused modules are released.
+Manual still needs explicit requests; Full keeps the selected language loaded.
 
-`and` short-circuits, so `run_once` is evaluated only after the catalog exists.
-Separate `run_if` calls would not provide that guarantee. Later work still needs
-application-owned ordering or initialization state; this does not defer native
-startup phases. Ordinary Startup, OnEnter and custom one-shot schedules do not
-retry a skipped consumer. `LocalizedText` keeps automatic scope ownership on
-every backend. Startup strategies and `PassiveRes` are available only on
-Bevy 0.19/0.20.
+Ordinary `add_systems` does not gain resource discovery on these older backends.
+For application-owned loading through Full, pins or leases, native
+`resource_exists::<Scope>` remains available as a readiness condition. Native
+Startup, OnEnter and custom one-shot schedules do not retry skipped consumers.
+`LocalizedText` owns its scope automatically in Lazy on every backend. Startup
+strategies and `PassiveRes` remain exclusive to Bevy 0.19/0.20.
 
 `Localization::new(locale)` and `Default` create a controller, not a ready catalog.
 Use `status::<Scope>()` to distinguish `Unloaded`, `Loading`, `Ready` and
@@ -820,9 +825,10 @@ let plugin = LocalizationPlugin::<texts::Translations>::from_bytes([
 app.add_plugins(plugin);
 ```
 
-Inserted bindings on every backend and native `Res` consumers on Bevy 0.19/0.20 request only
-the modules they need; no explicit `load` call is needed. Supply Spanish buffers
-too if the application will switch to Spanish.
+Inserted bindings on every backend, native `Res` consumers on Bevy 0.19/0.20
+and helper-registered readers on 0.16–0.18 request only the modules they need;
+no explicit `load` call is needed. Supply Spanish buffers too if the application
+will switch to Spanish.
 
 `from_bytes` accepts `(locale, leaf path, bytes)` tuples, checks their keys
 immediately, and validates FTL when a module is parsed. A missing buffer becomes

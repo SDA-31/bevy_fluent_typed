@@ -20,7 +20,8 @@ pub trait LoadingMode: sealed::Sealed + Send + Sync + 'static {
 /// ordinary `Res<S>` systems retain it while their system state exists, including
 /// aliases and derived parameters. Deferred startup consumers release their
 /// demand after completion and deferred command application. On older backends,
-/// direct resource systems need application-owned loading and readiness conditions.
+/// direct resource systems use `LocalizationAppExt` or `localized` for automatic
+/// demand and readiness. Native optional reads remain passive on those backends.
 /// Optional `Localization::load`/`unload` calls add or remove idempotent manual
 /// pins without evicting automatic consumers or overlapping pins. Unattached
 /// messages and world inspection are passive. On Bevy 0.19/0.20,

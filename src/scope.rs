@@ -6,7 +6,6 @@
 		reason = "Private readiness hooks use the narrow resource view retained by Bevy 0.20."
 	)
 )]
-#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 use crate::bevy::ecs::world::{FilteredResources, FilteredResourcesBuilder};
 use crate::bevy::prelude::*;
 use crate::catalog::SharedScope;
@@ -186,17 +185,16 @@ pub struct ScopeRegistration<C: FluentCatalog> {
 	pub(crate) id: TypeId,
 	pub(crate) parent: Option<TypeId>,
 	pub(crate) progress: fn() -> crate::progress::Subscription<C>,
+	#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17", feature = "bevy-0-18"))]
+	pub(crate) parameter: TypeId,
 	pub(crate) paths: &'static [&'static str],
 	pub(crate) assemble: fn(&ModuleStore<C>) -> Option<SharedScope>,
 	pub(crate) publish: fn(&SharedScope, &mut World),
 	pub(crate) remove: fn(&mut World),
 	pub(crate) exists: fn(&World) -> bool,
-	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 	pub(crate) ready_access: fn(&mut FilteredResourcesBuilder),
-	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 	pub(crate) ready_exists: fn(&FilteredResources) -> bool,
 	pub(crate) bindings: fn(&mut App, bool),
-	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 	pub(crate) consumer: fn(&mut World) -> Arc<crate::demand::Consumer>,
 }
 
@@ -207,6 +205,8 @@ impl<C: FluentCatalog> ScopeRegistration<C> {
 			id: TypeId::of::<S>(),
 			parent: None,
 			progress: crate::progress::Subscription::new::<S>,
+			#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17", feature = "bevy-0-18"))]
+			parameter: TypeId::of::<Res<'static, S>>(),
 			paths: S::module_paths(),
 			assemble: |store| S::assemble(store).map(|scope| Arc::new(scope) as SharedScope),
 			publish: |scope, world| {
@@ -221,14 +221,11 @@ impl<C: FluentCatalog> ScopeRegistration<C> {
 				world.remove_resource::<S>();
 			},
 			exists: |world| world.contains_resource::<S>(),
-			#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 			ready_access: |builder| {
 				builder.add_read::<S>();
 			},
-			#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 			ready_exists: |resources| resources.get::<S>().is_ok(),
 			bindings: bindings::register::<S>,
-			#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 			consumer: crate::demand::acquire::<S>,
 		}
 	}

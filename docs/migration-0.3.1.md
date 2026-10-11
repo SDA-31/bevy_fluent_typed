@@ -3,7 +3,7 @@
 Runtime 0.3.1 keeps the loading modes, provider contract and generator 0.2.2.
 On Bevy 0.19/0.20, catalog consumers now use ordinary native system registration.
 Rust 1.97.1 remains the minimum. Bevy 0.16–0.18 remain supported, with
-application-owned loading and native readiness conditions for direct catalog readers.
+their existing registration helpers for direct catalog demand and readiness.
 
 ## Register required catalog consumers normally
 
@@ -33,13 +33,13 @@ loading policies. Install localization plugins before schedule initialization;
 already initialized systems retain their previous behavior. Custom schedules need
 an App update to discover them before their first manual run.
 
-`LocalizationAppExt`, `localized` and `IntoLocalizedSystems` are removed on every
-backend, including their independent Update-based startup helper. Replace their
-imports and registrations. On Bevy 0.16–0.18, request and retain scopes explicitly
-or select Full, and guard direct readers with ordinary Bevy readiness conditions.
-For one-time work after loading, use a recurring loading phase or
-`resource_exists::<Scope>.and(run_once)` in Update. This does not preserve native
-startup ordering. See the [older-backend recipe](../GUIDE.md#older-bevy-backends).
+`LocalizationAppExt`, `localized` and `IntoLocalizedSystems` are removed on
+Bevy 0.19/0.20, including their independent Update-based startup helper. Replace
+their imports and registrations on those backends. On Bevy 0.16–0.18 the helpers
+remain available: direct required `Res<Scope>` parameters request catalogs in Lazy
+and wait for readiness. `add_localized_startup_systems` runs once in Update; it
+does not preserve native startup phases or original function ordering. See the
+[older-backend recipe](../GUIDE.md#older-bevy-backends).
 `LocalizedText` still owns its scope automatically in Lazy on every backend.
 
 ## Account for deferred startup

@@ -176,8 +176,8 @@ Bevy 0.16 uses `EventWriter`/`send` instead of `MessageWriter`/`write`.
 
 Bevy 0.19 and 0.20 discover native resource consumers, provide startup strategies,
 and enforce immutable generated resources in ECS. Bevy 0.16–0.18 use
-[native readiness conditions](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md#older-bevy-backends)
-and application-owned loading for resource readiness. They retain native one-shot startup; their read-only catalog
+[registration helpers](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md#older-bevy-backends)
+for automatic demand and resource readiness. They retain native one-shot startup; their read-only catalog
 API does not have the ECS immutability guarantee. `watch` is an
 optional normal-dependency feature for filesystem change notifications.
 

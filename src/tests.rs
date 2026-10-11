@@ -15,6 +15,8 @@ mod documentation;
 #[cfg(feature = "manifest")]
 mod lazy;
 mod leases;
+#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17", feature = "bevy-0-18"))]
+mod legacy_systems;
 #[cfg(feature = "manifest")]
 mod loader;
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]

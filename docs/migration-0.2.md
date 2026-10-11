@@ -113,7 +113,7 @@ Default Deferred startup waits for its catalogs, preserves declared dependencies
 and runs each completed step once. Frame updates continue during loading.
 For a complete application, follow the [quickstart](../README.md#setup).
 The [0.3.1 migration](migration-0.3.1.md) covers startup policies and passive reads.
-Bevy 0.16–0.18 instead use [native readiness conditions and application-owned loading](../GUIDE.md#older-bevy-backends).
+Bevy 0.16–0.18 instead use their [registration helpers](../GUIDE.md#older-bevy-backends).
 
 A full-tree consumer can likewise request `Res<texts::Translations>` through
 ordinary registration. Controller access through `localization.catalog()` instead returns

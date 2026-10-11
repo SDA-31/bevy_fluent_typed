@@ -62,7 +62,7 @@ external applications use the [application setup](../../README.md#setup).
 The normal dependency selects Bevy 0.20 by default. To use another supported
 backend, disable its defaults and select that backend feature; leave the
 build-dependency unchanged. Native resource discovery and Deferred startup work
-on 0.19/0.20. Bevy 0.16–0.18 use [application-owned loading and native readiness conditions](../../GUIDE.md#older-bevy-backends)
+on 0.19/0.20. Bevy 0.16–0.18 use [registration helpers](../../GUIDE.md#older-bevy-backends)
 for the resource-focused binary and required-resource tests; the compatibility
 runner adapts these registrations only in its copied fixtures. Compatible patches are accepted, starting at 0.16.1
 for the oldest backend and .0 for the others.
