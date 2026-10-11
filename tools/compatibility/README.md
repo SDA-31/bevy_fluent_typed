@@ -66,10 +66,12 @@ constant manifests; the package version alone does not identify development
 revisions. See the [local checkout setup](../../docs/build.md#work-on-local-checkouts).
 The matrix verifies ordinary native-resource discovery and Deferred startup on
 0.19/0.20. Public resource examples use native `add_systems`; copied 0.16–0.18
-fixtures adapt the four resource registrations to the existing localization helpers.
-The adapter validates each expected registration and import before writing the
-copy; original examples and host/build feature isolation are unchanged. Older
-backends retain independent Update-based one-time initialization.
+fixtures adapt four resource registrations to application-owned requests and
+native `resource_exists` conditions. One-time readers use Update with
+`resource_exists.and(run_once)`; they do not defer startup phases. The adapter
+validates each expected registration before writing the copy. Original examples
+and host/build feature isolation are unchanged. No removed localization helper
+is imported by the fixtures.
 The 0.16 backend starts at 0.16.1. The earlier 0.16.0 `bevy_color` package is
 yanked and cannot be selected by a fresh exact-release fixture.
 The 0.16.1 family pins `bevy_color` to 0.16.2 because that is the published

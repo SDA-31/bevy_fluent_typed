@@ -2,8 +2,8 @@
 use super::{Gate, pump};
 use crate::bevy::{ecs as bevy_ecs, prelude::*};
 use crate::{
-	FluentCatalog, FluentScope, Localization, LocalizationAppExt, LocalizationPlugin, Manual,
-	Module, ModuleStatus, ModuleStore, ScopeRegistration,
+	FluentCatalog, FluentScope, Localization, LocalizationPlugin, Manual, Module, ModuleStatus,
+	ModuleStore, ScopeRegistration,
 };
 use std::sync::{
 	Arc, Mutex,
@@ -222,15 +222,17 @@ fn out_of_order_leaves_gate_native_resources_and_release_only_unrequested_scopes
 	let root_runs = Arc::new(AtomicUsize::new(0));
 	let group_observed = group_runs.clone();
 	let root_observed = root_runs.clone();
-	app.add_localized_systems(
+	app.add_systems(
 		Update,
 		(
-			move |_: Res<Presentation>| {
+			(move |_: Res<Presentation>| {
 				group_observed.fetch_add(1, Ordering::Relaxed);
-			},
-			move |_: Res<Root>| {
+			})
+			.run_if(resource_exists::<Presentation>),
+			(move |_: Res<Root>| {
 				root_observed.fetch_add(1, Ordering::Relaxed);
-			},
+			})
+			.run_if(resource_exists::<Root>),
 		),
 	);
 	{

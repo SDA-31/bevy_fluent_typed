@@ -2,7 +2,8 @@
 
 Runtime 0.3.1 keeps the loading modes, provider contract and generator 0.2.2.
 On Bevy 0.19/0.20, catalog consumers now use ordinary native system registration.
-Rust 1.97.1 remains the minimum; Bevy 0.16–0.18 keep their existing helpers.
+Rust 1.97.1 remains the minimum. Bevy 0.16–0.18 remain supported, with
+application-owned loading and native readiness conditions for direct catalog readers.
 
 ## Register required catalog consumers normally
 
@@ -32,9 +33,14 @@ loading policies. Install localization plugins before schedule initialization;
 already initialized systems retain their previous behavior. Custom schedules need
 an App update to discover them before their first manual run.
 
-The old helpers remain available. They infer direct parameters and retain their
-original independent Update-based initialization semantics, so existing code does
-not have to change all at once.
+`LocalizationAppExt`, `localized` and `IntoLocalizedSystems` are removed on every
+backend, including their independent Update-based startup helper. Replace their
+imports and registrations. On Bevy 0.16–0.18, request and retain scopes explicitly
+or select Full, and guard direct readers with ordinary Bevy readiness conditions.
+For one-time work after loading, use a recurring loading phase or
+`resource_exists::<Scope>.and(run_once)` in Update. This does not preserve native
+startup ordering. See the [older-backend recipe](../GUIDE.md#older-bevy-backends).
+`LocalizedText` still owns its scope automatically in Lazy on every backend.
 
 ## Account for deferred startup
 
@@ -77,8 +83,8 @@ Bevy exposes identical scheduler read metadata for `Res<Scope>` and
 `Option<Res<Scope>>`; ordinary optional reads are therefore conservatively treated
 as consumers on Bevy 0.19/0.20. An observer that must run while absent can use
 `Option<PassiveRes<Scope>>`, which immediately receives `None` without requesting
-or retaining the module. Broad World inspection stays passive. Optional parameters
-inside the legacy helpers retain their earlier behavior.
+or retaining the module. Broad World inspection stays passive. On Bevy 0.16–0.18,
+native `Option<Res<Scope>>` remains passive because there is no resource-read discovery.
 
 ## Update both dependency entries
 

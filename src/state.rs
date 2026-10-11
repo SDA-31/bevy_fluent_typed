@@ -56,7 +56,8 @@ impl<C: FluentCatalog> RequestedModule<C> {
 
 /// Controller for the selected locale and requested scopes.
 ///
-/// Default Lazy tracks inserted bindings and localized required-resource systems.
+/// Default Lazy tracks inserted bindings on every backend and native resource
+/// consumers on Bevy 0.19/0.20. Older direct resource systems need application-owned loading.
 /// Optional manual pins retain additional scopes independently of consumers.
 /// With neither consumers nor pins, no modules are loaded. Full requests the root;
 /// explicit Manual exposes idempotent application-owned scope requests.

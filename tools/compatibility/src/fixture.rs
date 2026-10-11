@@ -72,35 +72,38 @@ impl<'a> Fixture<'a> {
 		}
 
 		if !bsn {
-			// Public examples use native discovery on 0.19/0.20. Keep older
-			// backends exercising the equivalent legacy registration in copies only.
-			for (file, dependency, native, legacy) in [
+			// Older engines use application-owned requests and native conditions.
+			// Adapt copies only; public examples exercise discovery on 0.19/0.20.
+			for (file, function, catalog, scope) in [
 				(
 					"examples/minimal/src/bin/typed_resources.rs",
-					"bevy_fluent_typed",
-					".add_systems(Startup, show_hud)",
-					".add_localized_startup_systems(show_hud)",
+					"show_hud",
+					"texts::Translations",
+					"texts::Translations",
 				),
 				(
 					"examples/asset_source/src/main.rs",
-					"bevy_fluent_typed",
-					".add_systems(Startup, show_title)",
-					".add_localized_startup_systems(show_title)",
+					"show_title",
+					"texts::Translations",
+					"texts::ui::Hud",
 				),
+			] {
+				adapt_startup(&path.join(file), function, catalog, scope)?;
+			}
+
+			for (file, scope, request) in [
 				(
 					"examples/codegen/tests/bytes.rs",
-					"bevy_fluent_typed",
-					".add_systems(Update, move |",
-					".add_localized_systems(Update, move |",
+					"texts::ui::Greeting",
+					true,
 				),
 				(
 					"examples/minimal/tests/catalog/macros.rs",
-					"localization_runtime",
-					".add_systems(Update, move |",
-					".add_localized_systems(Update, move |",
+					"Interface",
+					false,
 				),
 			] {
-				adapt_registration(&path.join(file), dependency, native, legacy)?;
+				adapt_update(&path.join(file), scope, request)?;
 			}
 		}
 
@@ -201,22 +204,46 @@ impl<'a> Fixture<'a> {
 	}
 }
 
-fn adapt_registration(path: &Path, dependency: &str, native: &str, legacy: &str) -> Result<()> {
+fn adapt_startup(path: &Path, function: &str, catalog: &str, scope: &str) -> Result<()> {
 	let source = fs::read_to_string(path)?;
+	let native = format!(".add_systems(Startup, {function})");
+
+	if source.matches(&native).count() != 1 {
+		return Err(format!("native registration changed in {}", path.display()).into());
+	}
+
+	let replacement = format!(
+		".add_systems(Startup, |mut localization: ResMut<bevy_fluent_typed::Localization<{catalog}>>| localization.load::<{scope}>())\n.add_systems(Update, {function}.run_if(resource_exists::<{scope}>.and(run_once)))"
+	);
+	fs::write(path, source.replace(&native, &replacement))?;
+	Ok(())
+}
+
+fn adapt_update(path: &Path, scope: &str, request: bool) -> Result<()> {
+	let source = fs::read_to_string(path)?;
+	let native = ".add_systems(Update, move |";
 
 	if source.matches(native).count() != 1 {
 		return Err(format!("native registration changed in {}", path.display()).into());
 	}
 
-	// Import in the same scope as the adapted method, including test-local uses.
-	let registration = source.find(native).expect("checked registration");
-	let import = source[..registration]
-		.rfind(&format!("use {dependency}::{{"))
-		.ok_or_else(|| format!("runtime import changed in {}", path.display()))?;
-	let mut adapted = source.replace(native, legacy);
-	adapted.insert_str(
-		import + format!("use {dependency}::{{").len(),
-		"LocalizationAppExt, ",
+	let start = source.find(native).expect("checked registration");
+	let end = source[start..]
+		.find("\n\t});")
+		.map(|offset| start + offset)
+		.ok_or_else(|| format!("consumer closure changed in {}", path.display()))?;
+	let request = if request {
+		format!(
+			"\n.add_systems(Startup, |mut localization: ResMut<Localization<texts::Translations>>| localization.load::<{scope}>())"
+		)
+	} else {
+		String::new()
+	};
+	let adapted = format!(
+		"{}.add_systems(Update, (move |{}\n\t}}).run_if(resource_exists::<{scope}>)){request};{}",
+		&source[..start],
+		&source[start + native.len()..end],
+		&source[end + "\n\t});".len()..],
 	);
 	fs::write(path, adapted)?;
 	Ok(())

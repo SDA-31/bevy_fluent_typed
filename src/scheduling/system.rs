@@ -6,6 +6,7 @@
 	)
 )]
 use super::access;
+use super::readiness::Probe;
 use crate::bevy::{
 	ecs::{
 		change_detection::{CheckChangeTicks, Tick},
@@ -23,7 +24,7 @@ use crate::bevy::{
 	utils::prelude::DebugName,
 };
 use crate::compatibility::scheduling::SystemAccess;
-use crate::{compatibility::readiness::Probe, demand::Consumer};
+use crate::demand::Consumer;
 use std::{
 	any::TypeId,
 	sync::{

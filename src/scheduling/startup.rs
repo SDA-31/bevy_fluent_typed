@@ -197,13 +197,11 @@ pub(super) fn prepare(
 			false
 		}
 	});
-	let excluded = descendants(graph, crate::systems::ExplicitReadiness.intern());
-
 	let keys: Vec<_> = graph
 		.systems
 		.iter()
 		.map(|(key, _, _)| key)
-		.filter(|key| !excluded.contains(key) && !tracking.states.lock().unwrap().contains_key(key))
+		.filter(|key| !tracking.states.lock().unwrap().contains_key(key))
 		.collect();
 	for key in &keys {
 		let complete_in_gate = deferred

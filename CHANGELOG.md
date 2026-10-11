@@ -33,9 +33,18 @@ See the [migration from 0.3.0](docs/migration-0.3.1.md). The generator remains
 - **Behavior change:** plain `Option<Res<Scope>>` in automatically discovered
   systems is treated as a catalog consumer because Bevy does not distinguish its
   scheduler metadata from required `Res`. Use `Option<PassiveRes<Scope>>` for
-  passive observation. Existing localization helpers retain their optional behavior.
+  passive observation. Older native optional reads remain passive.
 - Quickstarts and generated resource examples use native `add_systems` on
-  Bevy 0.19/0.20. Bevy 0.16–0.18 keep their existing registration helpers.
+  Bevy 0.19/0.20. Bevy 0.16–0.18 use application-owned loading and native
+  readiness conditions for direct catalog readers. Inserted `LocalizedText`
+  retains automatic scope ownership on every backend.
+
+### Removed
+
+- **Breaking:** `LocalizationAppExt`, `localized` and `IntoLocalizedSystems`,
+  including both recurring and independent one-time registration helpers,
+  on every backend. On 0.19/0.20 use ordinary native registration; on older
+  engines use the [readiness recipe](GUIDE.md#older-bevy-backends).
 
 ## [0.3.0] - 2026-10-09
 

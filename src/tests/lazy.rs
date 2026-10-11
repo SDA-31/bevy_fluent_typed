@@ -437,7 +437,7 @@ fn cancelled_pending_load_releases_owned_assets_and_explicit_retry_recovers() {
 
 #[test]
 fn required_system_waits_through_io_failure_and_retry_without_blocking_optional_system() {
-	use crate::LocalizationAppExt;
+	use super::OptionalCatalog;
 	use std::sync::atomic::AtomicUsize;
 
 	let (mut app, gate, files) = asynchronous_app();
@@ -445,13 +445,14 @@ fn required_system_waits_through_io_failure_and_retry_without_blocking_optional_
 	let optional_runs = Arc::new(AtomicUsize::new(0));
 	let required_counter = required_runs.clone();
 	let optional_counter = optional_runs.clone();
-	app.add_localized_systems(
+	app.add_systems(
 		Update,
 		(
-			move |_: Res<TestCatalog>| {
+			(move |_: Res<TestCatalog>| {
 				required_counter.fetch_add(1, Ordering::Relaxed);
-			},
-			move |_: Option<Res<TestCatalog>>| {
+			})
+			.run_if(resource_exists::<TestCatalog>),
+			move |_: OptionalCatalog| {
 				optional_counter.fetch_add(1, Ordering::Relaxed);
 			},
 		),

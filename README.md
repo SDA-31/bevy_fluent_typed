@@ -210,7 +210,7 @@ Bevy 0.16 uses `EventWriter`/`send` instead of `MessageWriter`/`write`.
 
 Bevy 0.19 and 0.20 discover native resource consumers, provide startup strategies,
 and enforce immutable generated resources in ECS. On Bevy 0.16–0.18, use the
-[localization scheduling helpers](GUIDE.md#older-bevy-backends) for resource
+[native readiness conditions](GUIDE.md#older-bevy-backends) and application-owned loading for resource
 readiness; those backends keep native one-shot startup and expose read-only
 catalog APIs without the ECS immutability guarantee. `watch` is an
 optional normal-dependency feature for filesystem change notifications.
@@ -230,7 +230,7 @@ minimal runtime and a handwritten provider.
 | `translations!` cannot find generated output | Add the shown build-dependency and return `bevy_fluent_typed::build()` from `build.rs`. |
 | Types or methods are missing | Add the corresponding FTL module/message in every language and rebuild. File edits at runtime cannot change the compiled schema. |
 | An `embed_manifest!` selector is rejected | Use 0.3.1 for both runtime and build dependencies and use relative schema paths; imported catalog aliases are for constructors/resources. |
-| The resource is absent | On Bevy 0.19/0.20, ordinary `add_systems` with `Res<Scope>` requests the scope in Lazy and waits for readiness. World inspection is passive. Explicit Manual still needs `load`; older backends use the [compatibility helpers](GUIDE.md#older-bevy-backends). |
+| The resource is absent | On Bevy 0.19/0.20, ordinary `add_systems` with `Res<Scope>` requests the scope in Lazy and waits for readiness. World inspection is passive. Explicit Manual still needs `load`; older backends use the [native readiness recipe](GUIDE.md#older-bevy-backends). |
 | A bound label stays empty | Check `localization.status::<YourLeaf>()`. An inserted binding requests its scope in Lazy; check its source and validation. A root binding waits for the whole tree. Explicit Manual needs a manual request. |
 | Files are not found | The manifest origin is relative to Bevy's asset root. Do not prefix it with `assets/` when `AssetPlugin` already points there. |
 | Editing the TOML has no runtime effect | The plugin receives a parsed contract and does not reload TOML. Rebuild this quickstart or construct a new contract during application setup. |

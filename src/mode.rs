@@ -9,7 +9,7 @@ pub trait LoadingMode: sealed::Sealed + Send + Sync + 'static {
 	#[doc(hidden)]
 	const FULL: bool;
 
-	/// Whether inserted bindings and localized systems establish demand.
+	/// Whether bindings and supported native resource consumers establish demand.
 	#[doc(hidden)]
 	const AUTOMATIC: bool;
 }
@@ -19,8 +19,8 @@ pub trait LoadingMode: sealed::Sealed + Send + Sync + 'static {
 /// Inserted `LocalizedText<S>` retains its scope until removed. On Bevy 0.19/0.20,
 /// ordinary `Res<S>` systems retain it while their system state exists, including
 /// aliases and derived parameters. Deferred startup consumers release their
-/// demand after completion and deferred command application. Older backends use
-/// localization scheduling helpers; one-time helpers release after invocation.
+/// demand after completion and deferred command application. On older backends,
+/// direct resource systems need application-owned loading and readiness conditions.
 /// Optional `Localization::load`/`unload` calls add or remove idempotent manual
 /// pins without evicting automatic consumers or overlapping pins. Unattached
 /// messages and world inspection are passive. On Bevy 0.19/0.20,

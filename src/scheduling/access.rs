@@ -1,6 +1,7 @@
+use super::readiness::{CatalogReadiness, Probe};
 use crate::bevy::prelude::World;
 use crate::compatibility::scheduling::{IS_RESOURCE, SystemAccess};
-use crate::{compatibility::readiness::Probe, passive::PassiveMarkers, systems::CatalogReadiness};
+use crate::passive::PassiveMarkers;
 use std::sync::Arc;
 
 pub(super) fn probes(world: &World, access: &SystemAccess) -> Vec<Arc<Probe>> {

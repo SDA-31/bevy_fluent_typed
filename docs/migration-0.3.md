@@ -27,7 +27,7 @@ See the [0.3.1 migration](migration-0.3.1.md) for these scheduling changes.
 
 No consumers, manual pins or leases means no module reads or parsing.
 `World::get_resource` inspection and unattached messages remain passive.
-On Bevy 0.16–0.18, retain the [registration helpers](../GUIDE.md#older-bevy-backends).
+On Bevy 0.16–0.18, use [application-owned loading and native readiness conditions](../GUIDE.md#older-bevy-backends).
 Keep explicit Full if your application directly polls the
 world or needs a complete language loaded independently of consumers:
 

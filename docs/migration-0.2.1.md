@@ -25,17 +25,15 @@ The helper reads no files and embeds no FTL. Existing explicit manifests and
 
 See the [0.3.1 migration](migration-0.3.1.md) for startup strategies and the
 [resource reference](../GUIDE.md#read-resources-and-handle-readiness) for schedule
-discovery boundaries, passive observers and older-backend helpers.
+discovery boundaries, passive observers and older-backend readiness conditions.
 
 ## Older Bevy backends
 
-Bevy 0.16–0.18 keep `LocalizationAppExt::add_localized_systems` and `localized`
-for recurring functions with direct required catalog parameters.
-`add_localized_startup_systems` provides independent one-time work in Update,
-without preserving original startup ordering references. Their ordinary startup
-and custom one-shot schedules do not retry waiting catalog consumers.
-These helpers remain available for existing 0.19/0.20 code, but are unnecessary
-for ordinary native registration on those backends.
+Bevy 0.16–0.18 use application-owned loading and ordinary Bevy readiness
+conditions for direct catalog readers. Their one-shot startup does not retry an
+absent catalog. See the [older-backend recipe](../GUIDE.md#older-bevy-backends).
+`LocalizedText` still loads and retains its scope automatically in Lazy on all
+backends. The previous localization scheduling helpers are removed.
 
 ## Keep explicit loading when intended
 

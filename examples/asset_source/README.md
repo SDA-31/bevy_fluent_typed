@@ -59,7 +59,7 @@ contains metadata, not source bytes. A real pack provides its own FTL.
 Older Bevy backends have the same localization contract, but Bevy 0.16/0.17 use
 `AssetSourceBuilder::default().with_reader(...)`; Bevy 0.16 uses events instead of
 messages. Required-resource systems use the
-[compatibility helpers](../../GUIDE.md#older-bevy-backends) on 0.16–0.18; native
+[application-owned loading and native readiness conditions](../../GUIDE.md#older-bevy-backends) on 0.16–0.18; native
 discovery and Deferred startup are available on 0.19/0.20.
 
 ## Verification

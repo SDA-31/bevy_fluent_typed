@@ -55,8 +55,7 @@ pub(crate) fn register<S: FluentScope>(app: &mut App, automatic: bool) {
 				compatibility::before_text_detection(dispatch)
 					.before(compatibility::UiSystems::Content)
 					.before(compatibility::update_text2d_layout)
-					.in_set(LocalizationSystems::Refresh)
-					.in_set(crate::systems::ExplicitReadiness),
+					.in_set(LocalizationSystems::Refresh),
 			);
 	}
 

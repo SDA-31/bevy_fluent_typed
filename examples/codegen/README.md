@@ -19,7 +19,7 @@ disable defaults and add the matching `bevy-0-16` / `bevy-0-17` / `bevy-0-18` /
 `bevy-0-19` to the **normal dependency** features in Cargo.toml.
 Leave the build-dependency unchanged. The required-resource byte validation test
 uses native registration on 0.19/0.20; older backends need the
-[compatibility helpers](../../GUIDE.md#older-bevy-backends), which the maintainer
+[native readiness conditions and explicit requests](../../GUIDE.md#older-bevy-backends), which the maintainer
 runner applies only in copied fixtures.
 
 The complete setup is [Cargo.toml](Cargo.toml), the explicit generation call in

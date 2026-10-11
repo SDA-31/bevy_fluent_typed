@@ -1,6 +1,7 @@
 use super::{Hud, Other, Panel, Presentation, Root, controlled_mode, pump};
 use crate::bevy::prelude::*;
-use crate::{Lazy, LocalizationAppExt, LocalizedText};
+use crate::{Lazy, LocalizedText};
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 use std::sync::{
 	Arc,
 	atomic::{AtomicUsize, Ordering},
@@ -36,11 +37,12 @@ fn automatic_group_and_leaf_owners_load_only_their_union_and_release_independent
 }
 
 #[test]
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 fn required_leaf_system_loads_only_its_module_without_manual_requests() {
 	let (mut app, source) = controlled_mode::<Lazy>();
 	let runs = Arc::new(AtomicUsize::new(0));
 	let observed = runs.clone();
-	app.add_localized_systems(Update, move |_: Res<Hud>| {
+	app.add_systems(Update, move |_: Res<Hud>| {
 		observed.fetch_add(1, Ordering::Relaxed);
 	});
 	pump(&mut app, |_| source.count() == 1);
@@ -52,7 +54,10 @@ fn required_leaf_system_loads_only_its_module_without_manual_requests() {
 	assert_eq!(source.count(), 1);
 }
 
-#[cfg(feature = "manifest")]
+#[cfg(all(
+	feature = "manifest",
+	any(feature = "bevy-0-19", feature = "bevy-0-20")
+))]
 #[test]
 fn manifest_only_plugin_and_required_leaf_consumer_leave_siblings_unloaded() {
 	use crate::{Localization, LocalizationManifest, LocalizationPlugin, ModuleStatus};
@@ -73,7 +78,7 @@ fn manifest_only_plugin_and_required_leaf_consumer_leave_siblings_unloaded() {
 		AssetPlugin::default(),
 		LocalizationPlugin::<Root>::new(manifest),
 	))
-	.add_localized_systems(Update, |hud: Res<Hud>| assert_eq!(&**hud.0, "hud"));
+	.add_systems(Update, |hud: Res<Hud>| assert_eq!(&**hud.0, "hud"));
 	app.update();
 	app.update();
 	assert!(app.world().contains_resource::<Hud>());

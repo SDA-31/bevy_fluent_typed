@@ -31,8 +31,6 @@ impl Drop for Consumer {
 	}
 }
 
-pub(crate) type Consumers = Arc<[Arc<Consumer>]>;
-
 #[derive(Resource, Default)]
 struct Demands {
 	consumers: Vec<Weak<Consumer>>,

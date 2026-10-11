@@ -89,8 +89,6 @@ mod scope;
 mod state;
 #[cfg(feature = "runtime")]
 mod status;
-#[cfg(feature = "runtime")]
-mod systems;
 
 #[cfg(all(feature = "codegen", feature = "runtime"))]
 mod macros;
@@ -146,8 +144,6 @@ pub use scope::{ModuleStore, ScopeRegistration};
 pub use state::Localization;
 #[cfg(feature = "runtime")]
 pub use status::{ModuleError, ModuleStatus};
-#[cfg(feature = "runtime")]
-pub use systems::{IntoLocalizedSystems, LocalizationAppExt, localized};
 
 /// Compatible upstream runtime used by generated accessors; no separate dependency needed.
 #[cfg(feature = "runtime")]

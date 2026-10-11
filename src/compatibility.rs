@@ -1,5 +1,4 @@
 //! Keep Bevy minor-version differences out of loading and scheduling policy.
-pub(crate) mod readiness;
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 pub(crate) mod scheduling;
 

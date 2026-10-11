@@ -6,7 +6,6 @@ use crate::{
 	compatibility, demand,
 	loading::reload_catalogs,
 	resources,
-	systems::CatalogReadiness,
 };
 #[cfg(feature = "manifest")]
 use crate::{
@@ -48,8 +47,9 @@ enum Source<C: FluentCatalog> {
 /// ordinary native `Res<Scope>` consumers are discovered before their schedule's
 /// first execution and wait for readiness. `Option<PassiveRes<Scope>>` observes
 /// without demand; plain `Option<Res<Scope>>` is conservatively a consumer because
-/// Bevy exposes the same access metadata for both native forms. Older backends
-/// use explicit localization scheduling helpers. World inspection is passive.
+/// Bevy exposes the same access metadata for both native forms. Older direct
+/// resource systems need application-owned loading and native readiness conditions.
+/// World inspection is passive.
 /// Optional Lazy manual pins retain additional scopes independently. Explicit Full requests
 /// every module; explicit Manual waits for `load` calls. Creating this value
 /// performs no I/O. On Bevy 0.19/0.20, unconfigured startup uses `Deferred`:
@@ -221,7 +221,8 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 		crate::progress::register::<C, M>(app);
 
 		for scope in C::scopes() {
-			CatalogReadiness::register::<C, M>(app.world_mut(), &scope);
+			#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+			crate::scheduling::CatalogReadiness::register::<C, M>(app.world_mut(), &scope);
 			(scope.bindings)(app, M::AUTOMATIC);
 		}
 
