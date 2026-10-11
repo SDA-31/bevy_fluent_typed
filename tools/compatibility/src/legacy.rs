@@ -82,7 +82,9 @@ fn compiled_modules(fixture: &Fixture<'_>, features: &str, expected: bool) -> Re
 		return Err(String::from_utf8_lossy(&result.stderr).into_owned().into());
 	}
 
-	let manifest = fixture.path.join("Cargo.toml");
+	// Cargo reports canonical paths, while macOS temporary directories may use
+	// a symlinked spelling. Resolve both before matching the compiler artifact.
+	let manifest = fs::canonicalize(fixture.path.join("Cargo.toml"))?;
 	let artifact = result
 		.stdout
 		.split(|byte| *byte == b'\n')
@@ -92,7 +94,8 @@ fn compiled_modules(fixture: &Fixture<'_>, features: &str, expected: bool) -> Re
 				&& message["target"]["name"] == "bevy_fluent_typed"
 				&& message["manifest_path"]
 					.as_str()
-					.is_some_and(|path| Path::new(path) == manifest)
+					.and_then(|path| fs::canonicalize(path).ok())
+					.is_some_and(|path| path == manifest)
 		})
 		.ok_or("missing runtime compiler artifact for legacy module check")?;
 	let output = artifact["filenames"]
