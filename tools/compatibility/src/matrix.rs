@@ -60,6 +60,8 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 
 	validate_engine_versions(&graph, &active, version)?;
 
+	crate::legacy::check(&fixture, &backend)?;
+
 	fs::write(
 		fixture.path.join("verified-metadata.json"),
 		serde_json::to_vec_pretty(&graph)?,

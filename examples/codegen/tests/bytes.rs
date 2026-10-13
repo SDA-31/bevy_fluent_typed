@@ -1,5 +1,5 @@
 use bevy_fluent_typed::bevy::prelude::*;
-use bevy_fluent_typed::{Localization, LocalizationAppExt, LocalizationPlugin, ModuleStatus};
+use bevy_fluent_typed::{Localization, LocalizationPlugin, ModuleStatus};
 use std::{
 	sync::{
 		Arc,
@@ -21,7 +21,7 @@ fn custom_loader_uses_generated_schema_checks_before_publishing_resources() {
 			Ok::<_, String>(b"other = Not the compiled message\n".to_vec())
 		}),
 	))
-	.add_localized_systems(Update, move |_: Res<texts::ui::Greeting>| {
+	.add_systems(Update, move |_: Res<texts::ui::Greeting>| {
 		observed.fetch_add(1, Ordering::Relaxed);
 	});
 	app.finish();

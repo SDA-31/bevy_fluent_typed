@@ -47,3 +47,8 @@ or simplifying the application.
 ICU is only a dev-dependency here. Tests preserve Fluent isolation but do not
 render pixels or verify fonts, shaping or visual RTL layout. The
 [ICU resource example](../../icu) adds Arabic digits and percentage formatting.
+
+Required-resource regressions use ordinary native `add_systems` on Bevy 0.19/0.20.
+For Bevy 0.16–0.18, the maintainer compatibility runner adapts those registrations
+in copied fixtures to the helpers compiled only for those older backends; it does
+not forward backend features to the build-only dependency.

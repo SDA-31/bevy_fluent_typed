@@ -14,6 +14,8 @@ generated types and Bevy 0.20.
 - [Headless application](#headless-application)
 - [Load and release a screen](#load-and-release-a-screen)
 - [Read resources](#read-resources-and-handle-readiness)
+- [Startup strategies](#startup-strategies)
+- [Older Bevy backends](#older-bevy-backends)
 - [Loading progress](#observe-loading-progress)
 - [Optional module details](#optional-module-details)
 - [Navigate from a parent](#navigate-from-the-root-or-a-parent)
@@ -30,7 +32,7 @@ leaves, or the whole `Translations` tree. Loading a scope requests all its leave
 
 | Need | Plugin/controller mode | Requests |
 | --- | --- | --- |
-| Load only modules used by text or resource systems | `Lazy` (default) | Inserted bindings and localized systems own their scopes |
+| Load only modules used by text or resource systems | `Lazy` (default) | Bindings on every backend; native resource readers on 0.19/0.20, helper-registered readers on 0.16–0.18 |
 | Keep the whole selected language ready, including direct world polling | `Full` | All modules automatically |
 | Manage loading explicitly, including hybrid lifetimes | `Manual` | Explicit `load` and `unload` |
 
@@ -54,28 +56,29 @@ commands.spawn((
 ```
 
 In `Lazy`, every inserted `LocalizedText<Scope>` requests and retains its scope.
-Removing the last binding releases that demand. Other bindings and localized
-systems using overlapping scopes keep their required leaves loaded. No explicit
-screen-entry or screen-exit loading calls are needed for bound text.
+Removing the last binding releases that demand. Other bindings, native resource
+consumers on 0.19/0.20 and helper-registered consumers on 0.16–0.18 keep
+overlapping scopes loaded. No explicit screen-entry or screen-exit loading calls
+are needed for bound text.
 
-Register required resource systems with `add_localized_systems` or `localized`.
-They acquire scope ownership when Bevy initializes the system, then wait until
-its direct required `Res<Scope>` parameters are ready. Recurring systems retain
-ownership while their system state exists, including when `run_if` is false;
-a condition controls execution, not module lifetime. Remove the owning schedule
-or use entity-bound text for lifetime that follows a screen's entities.
+On Bevy 0.19/0.20, register ordinary `Res<Scope>` consumers with
+`app.add_systems`. The plugin discovers their catalog reads when Bevy initializes
+the schedule and waits for readiness. Recurring systems retain ownership while
+their system state exists, including when `run_if` is false; a condition controls
+execution, not module lifetime. Remove the owning schedule or use entity-bound
+text for lifetime that follows a screen's entities. Catalog reads in run conditions
+also establish demand.
 
-`add_localized_startup_systems` releases its temporary demand after the function
-body returns, including returned errors. Bindings inserted through deferred
-commands take over ownership before unneeded modules are released. A one-time
-read does not keep the catalog loaded afterward.
+With default Deferred startup, each startup consumer releases temporary demand
+after it finishes and deferred commands apply. Inserted bindings take over their
+own demand before unneeded modules are released. A one-time read does not keep
+the catalog loaded afterward. [Older backends](#older-bevy-backends) use
+explicit registration helpers for automatic demand and readiness of direct readers.
 
-Plain `app.add_systems(Update, function_with_res)` does not infer loading demand.
-Use the existing localization helper for automatic required-resource consumers.
-`Option<Res<Scope>>`, standalone messages, and `World::get_resource` inspection
-neither request nor retain a module. For an application that polls the complete language
-directly, select `LocalizationPlugin::<texts::Translations, Full>::new(manifest)`
-and use the matching `Localization<texts::Translations, Full>` controller type.
+Standalone messages and `World::get_resource` inspection neither request nor
+retain a module. For an application that polls the complete language directly,
+select `LocalizationPlugin::<texts::Translations, Full>::new(manifest)` and use
+the matching `Localization<texts::Translations, Full>` controller type.
 
 After the last consumer, manual pin and lease disappear, the plugin releases parsed
 snapshots and strong asset handles at synchronization. Bevy may retire assets
@@ -130,7 +133,7 @@ new `texts::screens::Pause` type and `texts::Locale::Es` variant.
 
 Use this advanced recipe only when the application owns explicit requests.
 Keep the quickstart's imports, `translations!` declaration and `show_title`.
-Unlike Lazy, Manual does not let bindings or localized systems request modules.
+Unlike Lazy, Manual does not let bindings or native resource consumers request modules.
 Add the Manual controller types:
 
 ```rust,ignore
@@ -149,8 +152,7 @@ fn main() {
             ..default()
         }))
         .add_plugins(LocalizationPlugin::<texts::Translations, Manual>::new(texts::manifest()))
-        .add_systems(Startup, request_hud)
-        .add_localized_startup_systems(show_title)
+        .add_systems(Startup, (request_hud, show_title).chain())
         .run();
 }
 ```
@@ -174,7 +176,7 @@ that load, then the plugin publishes its typed resource. All modes use
 Bevy's asynchronous loading; Manual lets the application choose which scopes to
 request and retain. No additional parsing is deferred until accessor use.
 
-Use the same 0.3.0 facade in both normal and build dependencies for this recipe.
+Use the same 0.3.1 facade in both normal and build dependencies for this recipe.
 Then embed only the HUD by declaring its source next to `translations!`:
 
 ```rust,ignore
@@ -215,8 +217,8 @@ use localization::{HUD, Interface, Translations};
 app.add_plugins(LocalizationPlugin::<Translations>::new(HUD));
 ```
 
-Insert `LocalizedText<Interface>` or register a direct `Res<Interface>` consumer
-with `add_localized_systems`; Lazy requests its scope without manual calls.
+Insert `LocalizedText<Interface>` or register a `Res<Interface>` consumer with
+`add_systems` on Bevy 0.19/0.20; Lazy requests its scope without manual calls.
 `Interface` names the catalog resource; `HUD` describes its embedded source.
 The macro's selectors always use the original relative schema names. Multiple
 constants, visibility and per-declaration `#[cfg(...)]` attributes are supported.
@@ -267,8 +269,8 @@ fn open_pause(mut commands: Commands, mut localization: ResMut<AppLocalization>)
 }
 ```
 
-Continue consuming ready translations through native `Res<Scope>` and the
-readiness helpers below. Each `hold` creates an independent owner, including
+Continue consuming ready translations through native `Res<Scope>` and ordinary
+system registration below. Each `hold` creates an independent owner, including
 repeated holds of the same scope; overlapping groups and leaves share loading.
 Dropping a token on any thread releases only its owner's demand at the next
 publication boundary. Explicit `load` requests survive token drops, and `unload`
@@ -277,7 +279,7 @@ active. Dropping before the first publication starts
 no I/O. Tokens retain demand across language changes and do not keep a removed
 controller alive. They cannot be cloned; an application may share one token
 through `Arc`, releasing it when the last clone drops. Lazy bindings and
-localized required-resource systems own scopes automatically; they do not need
+native required-resource systems on Bevy 0.19/0.20 own scopes automatically; they do not need
 application-held lease tokens. Explicit Manual remains manual. Failed attempts
 retry through `set_locale`, `load` or `ReloadCatalogs`; acquiring another lease
 does not retry a failed attempt.
@@ -296,77 +298,165 @@ implicit fallback.
 
 ## Read resources and handle readiness
 
-Use native `Res<Scope>` when a system needs ready translations on every run:
+On Bevy 0.19/0.20, use ordinary system registration and native `Res<Scope>`:
 
 ```rust,ignore
-use bevy_fluent_typed::LocalizationAppExt;
-
 fn update_hud(hud: Res<texts::presentation::Hud>) {
     println!("{}", hud.msg_title());
 }
 
-app.add_localized_systems(Update, update_hud);
+app.add_systems(Update, update_hud);
 ```
 
-The library infers the required catalog types from direct `Res<Scope>` parameters.
-While a required scope is absent, the system waits without blocking the frame.
-It resumes when its catalogs are ready. During a locale switch, it continues
-using ready active resources until the target is published. A complete parent
-waits for all its children; a HUD leaf does not wait for the pause module.
-In Lazy, the helper requests and retains the required scopes from system
-initialization until the system state is dropped. This applies even when an
-additional `run_if` is false. Explicit Manual still needs a lease or manual
-`load`/`unload`; Full
-keeps all modules of the selected language loaded automatically.
+The plugin discovers registered catalog reads from Bevy's scheduler metadata,
+including aliases, nested parameters, derived `SystemParam`s and `ParamSet`.
+Each system waits for its own catalogs without blocking the frame. A parent
+waits for all descendants; a HUD leaf does not wait for its siblings. During a
+locale switch, consumers keep using active resources until the target publishes.
+In Lazy, recurring consumers retain scopes even when their `run_if` is false.
+Manual still requires explicit pins or leases; Full keeps the whole language loaded.
+Missing non-catalog resources and application errors retain native Bevy behavior.
 
-For systems that must also run while a catalog is absent, such as UI cleanup,
-Bevy's `Option<Res<Scope>>` remains available. That optional parameter neither
-waits for the catalog nor requests or retains it.
-
-Functions and tuples are supported; tuple members wait independently. To add
-normal Bevy scheduling configuration, wrap functions before configuring them:
+Apply normal Bevy configuration directly; original function ordering remains valid:
 
 ```rust,ignore
-use bevy_fluent_typed::localized;
-
-app.add_systems(Update, localized(update_hud).run_if(screen_is_open));
+app.add_systems(Update, update_hud.run_if(screen_is_open));
+app.add_systems(Update, (update_title, update_buttons).chain());
 ```
 
-For initialization that must happen once after loading:
+Install localization plugins before a schedule's first initialization. New systems
+added later are discovered on subsequent App updates. Register custom schedules
+before an `App::update` discovers them and before their first manual execution;
+direct `World::run_schedule` before App discovery bypasses this setup. Systems
+initialized before discovery retain their previous behavior. `OnEnter` and other
+one-shot custom schedules do not retry readiness waits: load ahead of time or
+move the consumer to a recurring loading/ready phase. Broad `&World` inspection
+is passive and does not request every catalog.
+
+For an observer that must run while a catalog is absent, Bevy 0.19/0.20 provides
+`Option<PassiveCatalog<Scope>>`: it returns `None` without requesting, retaining or
+waiting for a module. A plain `Option<Res<Scope>>` has the same scheduler metadata
+as required `Res` and is conservatively treated as a consumer. This distinction
+applies to automatic discovery, including run conditions.
+`PassiveCatalog` accepts only `FluentScope` types; after matching `Some(scope)`,
+its `Deref` exposes the catalog methods directly.
+
+### Startup strategies
+
+Default **Deferred** preserves startup phases and declared dependencies:
 
 ```rust,ignore
-app.add_localized_startup_systems(setup_hud);
+app.add_systems(Startup, (setup_hud, finish_setup).chain());
 
 fn setup_hud(mut commands: Commands, hud: Res<texts::presentation::Hud>) {
     commands.spawn(Text::new(hud.msg_title()));
 }
 ```
 
-This helper runs in `Update`, remembers actual invocation and applies normal
-Bevy deferred commands. In Lazy it releases its temporary scope ownership after
-the body returns; inserted bindings retain their own demand. It does not rerun
-after unloading or language changes; use `LocalizedText` for text that must stay live. A function returning an error
-still counts as invoked, and Bevy handles that error normally. These functions
-have no ordering relationship with ordinary `Startup` systems beyond running
-later. Tuple members are independent. This helper wraps each function, so
-`.before(setup_hud)` / `.after(setup_hud)` do not target the deferred wrapper.
-Combine dependent initialization steps in one function, or use recurring
-`localized(...)` systems with application-owned initialization state and ordering.
+Independent steps execute once. Catalog consumers wait; steps ordered after them
+wait too. `PostStartup` follows completed `Startup`. A completed or normally
+condition-skipped step does not rerun. Temporary demand is released after deferred
+commands apply, including when the function returns an error. Use `LocalizedText`
+for text that must follow later language changes.
 
-Readiness inference supports direct native `Res<Scope>` parameters of functions
-and closures. Custom derived `SystemParam`s, `ParamSet` and nested parameter tuples
-are not inspected: expose each required catalog as a direct parameter. For
-advanced forms, retain the needed scopes with manual pins or leases and provide
-readiness conditions separately; explicit Full is also available. Install the localization plugin before the schedule is
-initialized so its catalog types are registered. Apply configuration after
-`localized`; already configured systems have erased their parameter types.
-Missing ordinary resources retain Bevy's normal validation behavior.
+Frame schedules keep running while startup waits so Bevy can load assets.
+Guard ordinary frame systems that require application resources created by
+unfinished startup steps. Only catalog readiness is deferred automatically.
+Put asset-source/bootstrap setup before consumers: a `PreStartup` catalog consumer
+cannot wait for a loader that the application starts only in a later startup phase.
+Failed loads remain observable through `status` and wait until explicitly retried.
 
-The ordinary `add_systems` API is unchanged. The new helper requires a recurring
-schedule, such as `Update`, to retry waiting systems. Ordinary `Startup`, `OnEnter`
-and other one-shot schedules do not retry; use deferred initialization above when
-needed. `add_localized_systems` rejects the three built-in startup schedules to
-avoid silently losing an initialization step.
+Select another policy on the same localization plugin:
+
+```rust,ignore
+use bevy_fluent_typed::StartupStrategy;
+
+app.add_plugins(
+    LocalizationPlugin::<texts::Translations>::new(texts::manifest())
+        .with_startup_strategy(StartupStrategy::Native),
+);
+```
+
+**Native** preserves ordinary one-shot startup and native missing-resource
+validation. Startup catalog reads do not request or wait automatically in this
+policy; use already-ready catalogs or create bindings without reading one.
+Recurring consumers and inserted bindings remain automatic in Lazy.
+
+To configure startup in a separate application module, add the public plugin:
+
+```rust,ignore
+use bevy_fluent_typed::{LocalizationStartupPlugin, StartupStrategy};
+
+app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Native));
+```
+
+Register it before or after `LocalizationPlugin`, before the first App update.
+If absent, `LocalizationPlugin` adds an implicit Deferred fallback. An explicit
+startup plugin added later selects the policy without installing a second
+coordinator or executing startup twice. The existing root-plugin builders remain
+available and configure the same policy.
+
+**Barrier** waits for the selected set's combined catalog requirements:
+
+```rust,ignore
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct AppStartup;
+
+app.add_plugins(
+    LocalizationPlugin::<texts::Translations>::new(texts::manifest())
+        .with_startup_barrier(AppStartup),
+);
+app.add_systems(Startup, (setup_hud, setup_buttons).in_set(AppStartup));
+```
+
+The separate plugin can select the same barrier with
+`LocalizationStartupPlugin::barrier(AppStartup)`.
+
+Startup outside the set may proceed while its catalogs load, subject to ordinary
+ordering. Use the barrier builder to select the set; passing `StartupStrategy::Barrier`
+to `with_startup_strategy` is rejected. Loading mode and startup strategy are
+independent: a Manual barrier still needs application-owned requests.
+
+Startup policy belongs to the App. Unconfigured roots inherit the explicit choice
+from startup plugins or root builders regardless of registration order. Without
+an explicit choice, the App uses Deferred. Matching explicit choices are accepted;
+contradictory choices and changes after startup begins are rejected.
+
+### Older Bevy backends
+
+Bevy 0.16–0.18 provide `LocalizationAppExt`, `localized` and
+`IntoLocalizedSystems` exclusively for those backends. Their implementation and
+exports are not compiled on 0.19/0.20 or in build-only configurations.
+
+```rust,ignore
+use bevy_fluent_typed::{LocalizationAppExt, localized};
+
+app.add_localized_systems(Update, update_hud);
+app.add_systems(Update, localized(update_buttons).run_if(screen_is_open));
+app.add_localized_startup_systems(setup_hud);
+```
+
+In Lazy, each helper-registered direct required `Res<Scope>` requests and retains
+its scope. A recurring consumer retains demand while its system state exists,
+even with a false application condition. Each tuple member waits independently.
+Plain `Option<Res<Scope>>` remains passive. Aliases of a direct required resource
+work; derived `SystemParam`s, nested tuples and `ParamSet` are not inspected.
+Expose each required catalog as a direct parameter when using these helpers.
+Install the localization plugin before initializing the schedule.
+
+The one-time helper runs each function once in Update after its catalogs are
+ready. It does not defer native Startup phases or preserve ordering references
+to the original function. Combine dependent setup steps into one function or own
+their initialization state explicitly. Completion releases the helper's demand;
+inserted text bindings take over before unused modules are released.
+Manual still needs explicit requests; Full keeps the selected language loaded.
+
+Ordinary `add_systems` does not gain resource discovery on these older backends.
+For application-owned loading through Full, pins or leases, native
+`resource_exists::<Scope>` remains available as a readiness condition. Native
+Startup, OnEnter and custom one-shot schedules do not retry skipped consumers.
+`LocalizedText` owns its scope automatically in Lazy on every backend. Startup
+strategies and `PassiveCatalog` remain exclusive to Bevy 0.19/0.20.
 
 `Localization::new(locale)` and `Default` create a controller, not a ready catalog.
 Use `status::<Scope>()` to distinguish `Unloaded`, `Loading`, `Ready` and
@@ -481,7 +571,7 @@ Enable the default-off `diagnostics` feature only when you need individual
 module paths, attempt errors or snapshot availability:
 
 ```toml
-bevy_fluent_typed = { version = "0.3.0", features = ["codegen", "diagnostics"] }
+bevy_fluent_typed = { version = "0.3.1", features = ["codegen", "diagnostics"] }
 ```
 
 Keep the build dependency unchanged. During explicit inspection:
@@ -531,7 +621,7 @@ fn inspect_complete(presentation: Res<texts::Presentation>) {
 }
 ```
 
-Register that system with `app.add_localized_systems(Update, inspect_complete)`.
+Register that system with `app.add_systems(Update, inspect_complete)` on Bevy 0.19/0.20.
 `localization.catalog()` returns `Option<&texts::Translations>`; it is normally
 `None` in an application that intentionally leaves some modules unloaded.
 
@@ -568,7 +658,7 @@ content while a new locale loads or fails validation.
 
 For stored notices, use `Message<Scope>` and render only when its scope is ready.
 A stored message does not establish demand until inserted as a `LocalizedText`
-binding; render it in a localized required-resource system when needed:
+binding; render it in a native required-resource system on Bevy 0.19/0.20 when needed:
 
 ```rust,ignore
 use bevy_fluent_typed::Message;
@@ -755,9 +845,10 @@ let plugin = LocalizationPlugin::<texts::Translations>::from_bytes([
 app.add_plugins(plugin);
 ```
 
-The usual inserted bindings and localized required `Res` systems request only
-the modules they need; no explicit `load` call is needed. Supply Spanish buffers
-too if the application will switch to Spanish.
+Inserted bindings on every backend, native `Res` consumers on Bevy 0.19/0.20
+and helper-registered readers on 0.16–0.18 request only the modules they need;
+no explicit `load` call is needed. Supply Spanish buffers too if the application
+will switch to Spanish.
 
 `from_bytes` accepts `(locale, leaf path, bytes)` tuples, checks their keys
 immediately, and validates FTL when a module is parsed. A missing buffer becomes
@@ -791,7 +882,7 @@ For Bevy 0.20, the minimal dependency is:
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["bevy-0-20"] }
+bevy_fluent_typed = { version = "0.3.1", default-features = false, features = ["bevy-0-20"] }
 ```
 
 There is no build-dependency, `build.rs`, `translations!`, TOML manifest or
@@ -835,7 +926,7 @@ use bevy::{
     prelude::*,
 };
 use bevy_fluent_typed::{
-    Localization, LocalizationAppExt, LocalizationPlugin, ModuleStatus,
+    Localization, LocalizationPlugin, ModuleStatus,
 };
 use std::{path::Path, time::Duration};
 
@@ -857,7 +948,7 @@ fn main() -> AppExit {
             },
             LocalizationPlugin::<texts::Translations>::new(texts::manifest()),
         ))
-        .add_localized_startup_systems(show_title)
+        .add_systems(Startup, show_title)
         .add_systems(Update, report_failure)
         .run()
 }
@@ -891,9 +982,9 @@ asset configuration and event loop, as in the quickstart.
 
 ## Migration from registry 0.1.3
 
-Follow the [migration guide to 0.3.0](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) for dependency updates, before/after
+Follow the [migration guide to 0.3.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) for dependency updates, before/after
 initialization, readiness handling, optional Manual adoption and handwritten providers.
-The standard upgrade uses Lazy with inserted bindings and localized systems;
+The standard upgrade uses Lazy with inserted bindings and native resource systems;
 choose explicit Full to preserve eager loading or direct world polling.
 
 ## Compile-time mode boundaries

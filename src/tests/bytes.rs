@@ -1,8 +1,6 @@
 use super::TestCatalog;
 use crate::bevy::prelude::*;
-use crate::{
-	Localization, LocalizationAppExt, LocalizationPlugin, LocalizedText, Manual, ModuleStatus,
-};
+use crate::{Localization, LocalizationPlugin, LocalizedText, Manual, ModuleStatus};
 use std::{
 	any::TypeId,
 	sync::{
@@ -66,10 +64,14 @@ fn bytes_publish_checked_resources_and_bindings_without_asset_plugin() {
 		.id();
 	let runs = Arc::new(AtomicUsize::new(0));
 	let observed = runs.clone();
-	app.add_localized_systems(Update, move |text: Res<TestCatalog>| {
-		assert!(!text.0.is_empty());
-		observed.fetch_add(1, Ordering::Relaxed);
-	});
+	app.add_systems(
+		Update,
+		(move |text: Res<TestCatalog>| {
+			assert!(!text.0.is_empty());
+			observed.fetch_add(1, Ordering::Relaxed);
+		})
+		.run_if(resource_exists::<TestCatalog>),
+	);
 
 	for (locale, value) in [("ja", "Japanese"), ("es", "Spanish"), ("ja", "Japanese")] {
 		let before = runs.load(Ordering::Relaxed);
@@ -166,9 +168,13 @@ fn manual_loader_waits_for_demand_and_discards_old_locale_completion() {
 	let (mut app, requests) = controlled();
 	let runs = Arc::new(AtomicUsize::new(0));
 	let observed = runs.clone();
-	app.add_localized_systems(Update, move |_: Res<TestCatalog>| {
-		observed.fetch_add(1, Ordering::Relaxed);
-	});
+	app.add_systems(
+		Update,
+		(move |_: Res<TestCatalog>| {
+			observed.fetch_add(1, Ordering::Relaxed);
+		})
+		.run_if(resource_exists::<TestCatalog>),
+	);
 
 	for _ in 0..3 {
 		app.update();

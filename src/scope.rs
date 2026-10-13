@@ -185,6 +185,7 @@ pub struct ScopeRegistration<C: FluentCatalog> {
 	pub(crate) id: TypeId,
 	pub(crate) parent: Option<TypeId>,
 	pub(crate) progress: fn() -> crate::progress::Subscription<C>,
+	#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17", feature = "bevy-0-18"))]
 	pub(crate) parameter: TypeId,
 	pub(crate) paths: &'static [&'static str],
 	pub(crate) assemble: fn(&ModuleStore<C>) -> Option<SharedScope>,
@@ -204,6 +205,7 @@ impl<C: FluentCatalog> ScopeRegistration<C> {
 			id: TypeId::of::<S>(),
 			parent: None,
 			progress: crate::progress::Subscription::new::<S>,
+			#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17", feature = "bevy-0-18"))]
 			parameter: TypeId::of::<Res<'static, S>>(),
 			paths: S::module_paths(),
 			assemble: |store| S::assemble(store).map(|scope| Arc::new(scope) as SharedScope),

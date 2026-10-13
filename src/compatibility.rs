@@ -1,5 +1,8 @@
 //! Keep Bevy minor-version differences out of loading and scheduling policy.
+#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17", feature = "bevy-0-18"))]
 pub(crate) mod readiness;
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+pub(crate) mod scheduling;
 
 #[cfg(feature = "manifest")]
 use crate::bevy::asset::{AssetPath, LoadContext};

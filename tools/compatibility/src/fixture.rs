@@ -71,6 +71,35 @@ impl<'a> Fixture<'a> {
 			)?;
 		}
 
+		if !bsn {
+			// Adapt copies to the helpers compiled only for Bevy 0.16–0.18.
+			// Public examples keep ordinary native registration on 0.19/0.20.
+			for (file, native, legacy) in [
+				(
+					"examples/minimal/src/bin/typed_resources.rs",
+					".add_systems(Startup, show_hud)",
+					".add_localized_startup_systems(show_hud)",
+				),
+				(
+					"examples/asset_source/src/main.rs",
+					".add_systems(Startup, show_title)",
+					".add_localized_startup_systems(show_title)",
+				),
+				(
+					"examples/codegen/tests/bytes.rs",
+					".add_systems(Update, move |",
+					".add_localized_systems(Update, move |",
+				),
+				(
+					"examples/minimal/tests/catalog/macros.rs",
+					".add_systems(Update, move |",
+					".add_localized_systems(Update, move |",
+				),
+			] {
+				adapt_legacy_registration(&path.join(file), native, legacy)?;
+			}
+		}
+
 		if bsn {
 			let manifest = path.join("examples/bsn/Cargo.toml");
 			let original = fs::read_to_string(&manifest)?;
@@ -166,6 +195,29 @@ impl<'a> Fixture<'a> {
 
 		Ok(())
 	}
+}
+
+fn adapt_legacy_registration(path: &Path, native: &str, legacy: &str) -> Result<()> {
+	let source = fs::read_to_string(path)?;
+
+	if source.matches(native).count() != 1 {
+		return Err(format!("native registration changed in {}", path.display()).into());
+	}
+
+	let runtime = if source.contains("extern crate localization_runtime as bevy_fluent_typed") {
+		"bevy_fluent_typed"
+	} else if source.contains("localization_runtime::") {
+		"localization_runtime"
+	} else {
+		"bevy_fluent_typed"
+	};
+	let source = source.replace(native, legacy);
+	// Append after existing crate-level inner documentation and attributes.
+	fs::write(
+		path,
+		format!("{source}\nuse {runtime}::LocalizationAppExt as _;\n"),
+	)?;
+	Ok(())
 }
 
 fn copy(source: &Path, destination: &Path) -> Result<()> {

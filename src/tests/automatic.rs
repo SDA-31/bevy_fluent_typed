@@ -1,12 +1,8 @@
-use super::{TestCatalog, bytes::pump};
-use crate::bevy::{
-	ecs::{self as bevy_ecs, schedule::ScheduleLabel},
-	prelude::*,
-};
-use crate::{
-	FluentScope, Localization, LocalizationAppExt, LocalizationPlugin, LocalizedText, ModuleStore,
-	localized,
-};
+use super::{OptionalCatalog, TestCatalog, bytes::pump};
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+use crate::bevy::ecs::schedule::ScheduleLabel;
+use crate::bevy::{ecs as bevy_ecs, prelude::*};
+use crate::{FluentScope, Localization, LocalizationPlugin, LocalizedText, ModuleStore};
 use std::sync::{
 	Arc,
 	atomic::{AtomicUsize, Ordering},
@@ -34,7 +30,7 @@ fn unattached_messages_and_optional_parameters_do_not_start_io() {
 	let _unattached = binding();
 	let observed = Arc::new(AtomicUsize::new(0));
 	let runs = observed.clone();
-	app.add_localized_systems(Update, move |catalog: Option<Res<TestCatalog>>| {
+	app.add_systems(Update, move |catalog: OptionalCatalog| {
 		assert!(catalog.is_none());
 		runs.fetch_add(1, Ordering::Relaxed);
 	});
@@ -85,6 +81,7 @@ fn inserted_bindings_share_demand_and_last_removal_releases_data() {
 	);
 }
 
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 #[derive(ScheduleLabel, Debug, Clone, PartialEq, Eq, Hash)]
 struct ConsumerSchedule;
 
@@ -168,9 +165,11 @@ fn prepared_failures_follow_current_automatic_demand() {
 }
 
 #[test]
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 fn registered_system_owns_demand_until_its_schedule_is_dropped() {
 	let (mut app, reads) = app();
-	app.add_localized_systems(ConsumerSchedule, |_: Res<TestCatalog>| {});
+	app.add_systems(ConsumerSchedule, |_: Res<TestCatalog>| {});
+	app.update();
 	app.world_mut().run_schedule(ConsumerSchedule);
 	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
 	assert_eq!(reads.load(Ordering::Relaxed), 1);
@@ -187,11 +186,12 @@ fn registered_system_owns_demand_until_its_schedule_is_dropped() {
 }
 
 #[test]
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 fn a_paused_recurring_system_keeps_ownership_and_survives_controller_replacement() {
 	let (mut app, reads) = app();
 	app.add_systems(
 		Update,
-		localized(|_: Res<TestCatalog>| panic!("paused system ran")).run_if(|| false),
+		(|_: Res<TestCatalog>| panic!("paused system ran")).run_if(|| false),
 	);
 	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
 	app.world_mut()
@@ -205,11 +205,12 @@ fn a_paused_recurring_system_keeps_ownership_and_survives_controller_replacement
 }
 
 #[test]
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 fn once_completion_releases_its_demand() {
 	let (mut app, reads) = app();
 	let runs = Arc::new(AtomicUsize::new(0));
 	let observed = runs.clone();
-	app.add_localized_startup_systems(move |_: Res<TestCatalog>| {
+	app.add_systems(Startup, move |_: Res<TestCatalog>| {
 		observed.fetch_add(1, Ordering::Relaxed);
 	});
 	pump(&mut app, |_| runs.load(Ordering::Relaxed) == 1);
@@ -219,9 +220,10 @@ fn once_completion_releases_its_demand() {
 }
 
 #[test]
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 fn once_commands_handoff_keeps_the_same_snapshot_without_another_read() {
 	let (mut app, reads) = app();
-	app.add_localized_startup_systems(|_: Res<TestCatalog>, mut commands: Commands| {
+	app.add_systems(Startup, |_: Res<TestCatalog>, mut commands: Commands| {
 		let label = commands.spawn(binding()).id();
 		commands.insert_resource(Spawned(label));
 	});
@@ -235,6 +237,7 @@ fn once_commands_handoff_keeps_the_same_snapshot_without_another_read() {
 	assert!(!app.world().contains_resource::<TestCatalog>());
 }
 
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 #[derive(Resource)]
 struct Spawned(Entity);
 

@@ -4,8 +4,8 @@ use super::TestCatalog;
 use crate::bevy::ecs as bevy_ecs;
 use crate::bevy::prelude::*;
 use crate::{
-	CommitLocaleError, Full, LoadingMode, Localization, LocalizationAppExt, LocalizationPlugin,
-	LocalizedText, Manual, PreparationStatus,
+	CommitLocaleError, Full, LoadingMode, Localization, LocalizationPlugin, LocalizedText, Manual,
+	PreparationStatus,
 };
 use std::{
 	sync::{
@@ -63,7 +63,7 @@ fn exercise_bytes<M: LoadingMode>() {
 		.id();
 	let calls = Arc::new(AtomicUsize::new(0));
 	let observed = calls.clone();
-	app.add_localized_systems(Update, move |catalog: Res<TestCatalog>| {
+	app.add_systems(Update, move |catalog: Res<TestCatalog>| {
 		assert!(!catalog.0.is_empty());
 		observed.fetch_add(1, Ordering::Relaxed);
 	});

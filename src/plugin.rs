@@ -6,7 +6,6 @@ use crate::{
 	compatibility, demand,
 	loading::reload_catalogs,
 	resources,
-	systems::CatalogReadiness,
 };
 #[cfg(feature = "manifest")]
 use crate::{
@@ -44,21 +43,64 @@ enum Source<C: FluentCatalog> {
 /// Register loading and typed resources from a manifest or application-owned byte source.
 ///
 /// Manifest sources require AssetPlugin; byte sources need only MinimalPlugins.
-/// Default Lazy loads scopes used by inserted text bindings and required `Res`
-/// systems registered through localization helpers. Plain systems, optional
-/// resources and world inspection do not establish demand. Optional Lazy manual
-/// pins retain additional scopes independently. Explicit Full requests
+/// Default Lazy loads scopes used by inserted text bindings. On Bevy 0.19/0.20,
+/// ordinary native `Res<Scope>` consumers are discovered before their schedule's
+/// first execution and wait for readiness. `Option<PassiveCatalog<Scope>>` observes
+/// without demand; plain `Option<Res<Scope>>` is conservatively a consumer because
+/// Bevy exposes the same access metadata for both native forms. On Bevy 0.16–0.18,
+/// direct resource systems use `LocalizationAppExt` or `localized` for readiness
+/// and automatic Lazy demand. Native registrations need application-owned loading
+/// and native readiness conditions on those older backends.
+/// World inspection is passive.
+/// Optional Lazy manual pins retain additional scopes independently. Explicit Full requests
 /// every module; explicit Manual waits for `load` calls. Creating this value
-/// performs no I/O.
+/// performs no I/O. On Bevy 0.19/0.20, unconfigured startup uses `Deferred`:
+/// independent steps execute once; catalog consumers and their declared
+/// dependents wait, and later startup phases follow only after completion.
+/// Normal frame schedules continue during this wait. Non-catalog resources keep
+/// Bevy's ordinary validation, so applications must guard update systems that
+/// depend on unfinished initialization. `Native` preserves stock startup.
+/// An absent `LocalizationStartupPlugin` is added as an implicit fallback.
+/// An explicit startup plugin can select the shared policy before or after this
+/// plugin, before the first App update; the coordinator is installed only once.
+/// Custom schedules must be registered before an `App::update` discovers them,
+/// before their first manual execution. Already initialized systems retain their
+/// previous behavior; newly added systems are discovered on later updates.
 /// Only one plugin/controller mode may own a given root provider in an App.
 /// `Localization::set_locale` retains active resources until desired target scopes
 /// validate, then switches automatically at publication.
 pub struct LocalizationPlugin<C: FluentCatalog, M: LoadingMode = Lazy> {
 	source: Source<C>,
+	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+	startup: Option<crate::scheduling::StartupConfiguration>,
 	marker: PhantomData<fn() -> (C, M)>,
 }
 
 impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
+	/// Select startup execution for this application. Unconfigured roots inherit
+	/// the application's choice, or `Deferred` when no root chooses explicitly.
+	/// Contradictory explicit settings across roots are rejected.
+	/// The same App policy can be selected independently with `LocalizationStartupPlugin`.
+	/// Available on Bevy 0.19/0.20. For `Barrier`, use
+	/// [`Self::with_startup_barrier`] to provide the selected set.
+	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+	pub fn with_startup_strategy(mut self, strategy: crate::StartupStrategy) -> Self {
+		self.startup = Some(crate::scheduling::StartupConfiguration::new(strategy));
+		self
+	}
+
+	/// Wait for all catalog requirements of a selected startup set together.
+	/// Startup systems outside this set can execute while its catalogs load,
+	/// subject to declared ordering. Available on Bevy 0.19/0.20; loading mode
+	/// is unchanged, so Manual still needs explicit requests.
+	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+	pub fn with_startup_barrier(mut self, set: impl SystemSet) -> Self {
+		self.startup = Some(crate::scheduling::StartupConfiguration::barrier(
+			set.intern(),
+		));
+		self
+	}
+
 	/// Configure the selected loading mode from a ready source contract.
 	/// File origins are Bevy asset addresses; named sources are preserved.
 	/// Generated consumers can pass `texts::manifest()` for their build-configured
@@ -71,11 +113,13 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 		Self {
 			source: Source::Manifest(manifest),
 			marker: PhantomData,
+			#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+			startup: None,
 		}
 	}
 
 	/// Retain readable module bytes, parsing only modules requested by the loading mode.
-	/// Default Lazy waits for inserted bindings or localized required-resource systems.
+	/// Default Lazy waits for inserted bindings or required-resource consumers.
 	/// Each tuple contains a compiled locale, a logical leaf path (e.g. `Hud::PATH`)
 	/// and owned bytes. The provider's default locale is selected initially.
 	/// Missing modules fail when requested. Retained buffers survive `unload`;
@@ -140,6 +184,8 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 		Self {
 			source: Source::Bytes(ByteLoader::new(load)),
 			marker: PhantomData,
+			#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+			startup: None,
 		}
 	}
 }
@@ -175,11 +221,22 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 		}
 
 		app.init_resource::<Localization<C, M>>();
+		#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+		{
+			if !app.is_plugin_added::<crate::LocalizationStartupPlugin>() {
+				app.add_plugins(crate::LocalizationStartupPlugin::fallback());
+			}
+
+			crate::scheduling::register(app, self.startup);
+		}
 		compatibility::register_notifications::<C>(app);
 		crate::progress::register::<C, M>(app);
 
 		for scope in C::scopes() {
-			CatalogReadiness::register::<C, M>(app.world_mut(), &scope);
+			#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17", feature = "bevy-0-18"))]
+			crate::legacy_systems::CatalogReadiness::register::<C, M>(app.world_mut(), &scope);
+			#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+			crate::scheduling::CatalogReadiness::register::<C, M>(app.world_mut(), &scope);
 			(scope.bindings)(app, M::AUTOMATIC);
 		}
 

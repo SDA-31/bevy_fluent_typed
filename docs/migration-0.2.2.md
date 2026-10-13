@@ -1,21 +1,22 @@
 # Migrate from bevy_fluent_typed 0.2.1 to 0.2.2
 
-Plugin constructors, explicit Full/Manual requests, typed resources and readiness
-helpers keep their signatures. This guide covers generation paths and selective
-embedding; the current 0.3 default is Lazy. See [automatic loading](migration-0.3.md#adopt-automatic-module-loading)
-for the default change and explicit Full compatibility.
+This guide covers generation paths and selective embedding. The current runtime
+0.3.1 defaults to Lazy; explicit Full/Manual loading remains available. See
+[automatic loading](migration-0.3.md#adopt-automatic-module-loading) for the default
+change and [resource registration](migration-0.3.1.md#register-required-catalog-consumers-normally)
+for native systems and older-backend registration helpers.
 
 ## Update both facade dependencies
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.3.0", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.3.1", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.3.1", default-features = false, features = ["build"] }
 ```
 
-These dependency snippets target runtime 0.3.0. Follow the
+These dependency snippets target runtime 0.3.1. Follow the
 [0.3 migration](migration-0.3.md) to select Bevy 0.20 or retain an older backend.
 The facade requires generator 0.2.2; no separate bridge package is needed.
 Keep `bevy_fluent_typed::build()` in

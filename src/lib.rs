@@ -65,12 +65,16 @@ mod demand;
 mod generation;
 #[cfg(feature = "runtime")]
 mod leases;
+#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17", feature = "bevy-0-18"))]
+mod legacy_systems;
 #[cfg(feature = "runtime")]
 mod loading;
 #[cfg(feature = "runtime")]
 mod message;
 #[cfg(feature = "runtime")]
 mod mode;
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+mod passive;
 #[cfg(feature = "runtime")]
 mod plugin;
 #[cfg(feature = "runtime")]
@@ -79,14 +83,14 @@ mod preparation;
 mod progress;
 #[cfg(feature = "runtime")]
 mod resources;
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+mod scheduling;
 #[cfg(feature = "runtime")]
 mod scope;
 #[cfg(feature = "runtime")]
 mod state;
 #[cfg(feature = "runtime")]
 mod status;
-#[cfg(feature = "runtime")]
-mod systems;
 
 #[cfg(all(feature = "codegen", feature = "runtime"))]
 mod macros;
@@ -120,10 +124,14 @@ pub use fluent_typed_codegen::{LocalizationManifest, ManifestError};
 pub use fluent_typed_codegen::{CatalogConfig, ConfigError, ConfigField, FieldError, PathError};
 #[cfg(feature = "runtime")]
 pub use leases::ModuleLease;
+#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17", feature = "bevy-0-18"))]
+pub use legacy_systems::{IntoLocalizedSystems, LocalizationAppExt, localized};
 #[cfg(feature = "runtime")]
 pub use message::{CatalogUpdate, CatalogUpdateReader, LocalizedText, Message, ReloadCatalogs};
 #[cfg(feature = "runtime")]
 pub use mode::{Full, Lazy, LoadingMode, Manual};
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+pub use passive::PassiveCatalog;
 #[cfg(feature = "runtime")]
 pub use plugin::{LocalizationPlugin, LocalizationSystems};
 #[cfg(feature = "runtime")]
@@ -132,14 +140,14 @@ pub use preparation::{CommitLocaleError, PreparationStatus};
 pub use progress::ModuleDiagnostic;
 #[cfg(feature = "runtime")]
 pub use progress::{LoadingProgress, LocalizationProgress, LocalizationProgressPlugin};
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+pub use scheduling::{LocalizationStartupPlugin, StartupStrategy};
 #[cfg(feature = "runtime")]
 pub use scope::{ModuleStore, ScopeRegistration};
 #[cfg(feature = "runtime")]
 pub use state::Localization;
 #[cfg(feature = "runtime")]
 pub use status::{ModuleError, ModuleStatus};
-#[cfg(feature = "runtime")]
-pub use systems::{IntoLocalizedSystems, LocalizationAppExt, localized};
 
 /// Compatible upstream runtime used by generated accessors; no separate dependency needed.
 #[cfg(feature = "runtime")]

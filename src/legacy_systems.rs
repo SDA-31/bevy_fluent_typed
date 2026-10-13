@@ -1,4 +1,4 @@
-//! Readiness gates inferred from native, top-level `Res<Scope>` parameters.
+//! Explicit resource readiness for Bevy 0.16–0.18.
 use crate::bevy::{
 	ecs::{
 		self as bevy_ecs,
@@ -7,8 +7,7 @@ use crate::bevy::{
 	},
 	prelude::*,
 };
-use crate::compatibility::readiness::{Probe, Readiness};
-use crate::demand::Consumers;
+use crate::compatibility::readiness::{Consumers, Probe, Readiness};
 use crate::{FluentCatalog, LoadingMode, Localization, ScopeRegistration};
 use std::{
 	any::TypeId,
@@ -63,11 +62,14 @@ impl CatalogReadiness {
 /// In default Lazy, each direct required catalog is requested when Bevy initializes
 /// the system. Recurring systems retain demand while their state exists, including
 /// when `run_if` is false. Explicit Manual still needs manual `load` / `unload`;
-/// plain `add_systems` and optional resource parameters do not create demand.
+/// this helper's optional resource parameters do not create demand. On Bevy
+/// 0.16–0.18, use these helpers for direct required catalog reads. They are not
+/// compiled or exported on Bevy 0.19/0.20; those backends use native `add_systems`.
 ///
-/// Register in a recurring schedule such as `Update`. A skipped `Startup` or
-/// `OnEnter` system cannot retry; use [`LocalizationAppExt::add_localized_startup_systems`]
-/// for one-time initialization after readiness. Custom derived `SystemParam`s and
+/// Register this helper in a recurring schedule such as `Update`. For ordinary
+/// `Startup`, [`LocalizationAppExt::add_localized_startup_systems`] provides
+/// independent one-time initialization in Update. `OnEnter` and custom one-shot
+/// schedules do not retry skipped consumers. Custom derived `SystemParam`s and
 /// nested parameter tuples are not inspected; use a direct `Res` parameter for
 /// each required catalog. Ordinary missing resources keep Bevy's validation behavior.
 /// Install localization plugins before the schedule is first initialized or run,
@@ -76,15 +78,17 @@ pub fn localized<M>(systems: impl IntoLocalizedSystems<M>) -> ScheduleConfigs<Sc
 	systems.into_localized(false)
 }
 
-/// Register native-resource consumers that wait without blocking the frame.
+/// Resource-readiness registration available only on Bevy 0.16–0.18.
+///
+/// The one-time helper runs independently in Update. It does not defer native
+/// startup phases. Bevy 0.19/0.20 use ordinary `App::add_systems` instead.
 pub trait LocalizationAppExt {
 	/// Add recurring functions with inferred catalog ownership and readiness gates.
 	/// Lazy owns required scopes for the system-state lifetime, even while skipped.
 	///
 	/// Accepts functions and tuples. Use [`localized`] with `add_systems` when
-	/// applying Bevy configuration. Built-in startup schedules are rejected because
-	/// they cannot retry a skipped system; custom one-shot schedules have the same
-	/// limitation and must not be used here.
+	/// applying Bevy configuration. This recurring helper rejects built-in startup
+	/// schedules. Custom one-shot schedules do not retry waiting consumers.
 	fn add_localized_systems<M>(
 		&mut self,
 		schedule: impl ScheduleLabel,

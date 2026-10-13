@@ -1,5 +1,5 @@
 use bevy::{app::AppExit, prelude::*};
-use bevy_fluent_typed::{Localization, LocalizationSystems, ModuleStatus, localized};
+use bevy_fluent_typed::{Localization, LocalizationSystems, ModuleStatus};
 use localization_bsn_example::{app, greeting_scene, texts};
 use texts::presentation::Hud as Interface;
 
@@ -8,7 +8,7 @@ fn main() -> AppExit {
 		.add_systems(Startup, spawn_greeting)
 		.add_systems(
 			PostUpdate,
-			localized(report_greeting).after(LocalizationSystems::Refresh),
+			report_greeting.after(LocalizationSystems::Refresh),
 		)
 		.add_systems(Update, report_failure)
 		.run()

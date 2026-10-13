@@ -1,9 +1,9 @@
 //! Consumer-level checks for native required and optional catalog resources.
-use super::{TestCatalog, manifest};
+use super::{OptionalCatalog, TestCatalog, bytes::pump, manifest};
 use crate::bevy::{ecs as bevy_ecs, prelude::*};
 use crate::{
-	FluentCatalog, FluentScope, Localization, LocalizationAppExt, LocalizationManifest,
-	LocalizationPlugin, Manual, Module, ModuleStore, ScopeRegistration, localized,
+	FluentCatalog, FluentScope, Localization, LocalizationManifest, LocalizationPlugin, Manual,
+	Module, ModuleStore, PassiveCatalog, ScopeRegistration,
 };
 
 #[derive(Resource, Default)]
@@ -23,7 +23,7 @@ fn required(catalog: Res<TestCatalog>, mut observations: ResMut<Observations>) {
 	observations.required.push(catalog.0.clone());
 }
 
-fn optional(catalog: Option<Res<TestCatalog>>, mut observations: ResMut<Observations>) {
+fn optional(catalog: OptionalCatalog, mut observations: ResMut<Observations>) {
 	observations
 		.optional
 		.push(catalog.map(|catalog| catalog.0.clone()));
@@ -53,7 +53,7 @@ fn app() -> App {
 fn native_resources_wait_and_optional_observers_do_not_request_loading() {
 	let mut app = app();
 	// Registration order must not affect inference of the registered scope types.
-	app.add_localized_systems(Update, (required, optional))
+	app.add_systems(Update, (required, optional))
 		.add_plugins(LocalizationPlugin::<TestCatalog>::new_manual(manifest()));
 	app.update();
 	assert!(app.world().resource::<Observations>().required.is_empty());
@@ -99,7 +99,7 @@ fn full_mode_publishes_before_the_first_required_update() {
 	app.add_plugins(LocalizationPlugin::<TestCatalog, crate::Full>::new(
 		manifest(),
 	))
-	.add_localized_systems(Update, required);
+	.add_systems(Update, required);
 	app.update();
 	assert_eq!(app.world().resource::<Observations>().required, ["ja"]);
 }
@@ -117,7 +117,7 @@ fn same_schedule_resource_removal_delays_a_required_consumer() {
 			(|world: &mut World| {
 				world.remove_resource::<TestCatalog>();
 			}),
-			localized(required),
+			required,
 		)
 			.chain(),
 	);
@@ -128,51 +128,10 @@ fn same_schedule_resource_removal_delays_a_required_consumer() {
 }
 
 #[test]
-fn inferred_condition_does_not_conflict_with_unrelated_writes() {
-	use crate::bevy::ecs::system::System;
-	use crate::compatibility::readiness::Readiness;
-
-	let mut app = app();
-	app.add_plugins(LocalizationPlugin::<TestCatalog, crate::Full>::new(
-		manifest(),
-	));
-	let mut gate = IntoSystem::into_system(
-		|ready: Readiness<(Res<TestCatalog>, ResMut<Observations>)>| ready.ready(),
-	);
-	let mut unrelated = IntoSystem::into_system(|_: ResMut<Observations>, _: Query<&mut Text>| {});
-
-	#[cfg(feature = "bevy-0-16")]
-	{
-		gate.initialize(app.world_mut());
-		unrelated.initialize(app.world_mut());
-		assert!(
-			gate.component_access()
-				.is_compatible(unrelated.component_access())
-		);
-	}
-
-	#[cfg(not(feature = "bevy-0-16"))]
-	{
-		let gate_access = gate.initialize(app.world_mut());
-		let unrelated_access = unrelated.initialize(app.world_mut());
-
-		#[cfg(feature = "bevy-0-20")]
-		assert!(gate_access.is_compatible(&unrelated_access));
-
-		#[cfg(not(feature = "bevy-0-20"))]
-		assert!(
-			gate_access
-				.combined_access()
-				.is_compatible(unrelated_access.combined_access())
-		);
-	}
-}
-
-#[test]
 fn deferred_setup_waits_runs_once_and_applies_commands() {
 	let mut app = app();
 	app.add_plugins(LocalizationPlugin::<TestCatalog>::new_manual(manifest()))
-		.add_localized_startup_systems(setup);
+		.add_systems(Startup, setup);
 	app.update();
 	app.update();
 	assert_eq!(app.world().resource::<Observations>().setups, 0);
@@ -180,7 +139,9 @@ fn deferred_setup_waits_runs_once_and_applies_commands() {
 	app.world_mut()
 		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
-	app.update();
+	pump(&mut app, |world| {
+		world.resource::<Observations>().setups == 1
+	});
 	assert_eq!(app.world().resource::<Observations>().setups, 1);
 	assert_eq!(
 		app.world_mut()
@@ -194,7 +155,11 @@ fn deferred_setup_waits_runs_once_and_applies_commands() {
 		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.set_locale("es");
 	app.update();
-	app.update();
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<TestCatalog, Manual>>()
+			.locale() == "es"
+	});
 	assert_eq!(app.world().resource::<Observations>().setups, 1);
 }
 
@@ -202,7 +167,7 @@ fn deferred_setup_waits_runs_once_and_applies_commands() {
 fn startup_tuple_members_wait_independently() {
 	let mut app = app();
 	app.add_plugins(LocalizationPlugin::<TestCatalog>::new_manual(manifest()))
-		.add_localized_startup_systems((setup, optional));
+		.add_systems(Startup, (setup, optional));
 	app.update();
 	app.update();
 	assert_eq!(app.world().resource::<Observations>().optional, [None]);
@@ -211,7 +176,9 @@ fn startup_tuple_members_wait_independently() {
 	app.world_mut()
 		.resource_mut::<Localization<TestCatalog, Manual>>()
 		.load::<TestCatalog>();
-	app.update();
+	pump(&mut app, |world| {
+		world.resource::<Observations>().setups == 1
+	});
 	assert_eq!(app.world().resource::<Observations>().setups, 1);
 	assert_eq!(app.world().resource::<Observations>().optional, [None]);
 }
@@ -222,7 +189,7 @@ fn original_function_ordering_and_bevy_configuration_are_preserved() {
 	app.add_plugins(LocalizationPlugin::<TestCatalog, crate::Full>::new(
 		manifest(),
 	))
-	.add_systems(Update, localized(required).run_if(|| true))
+	.add_systems(Update, required.run_if(|| true))
 	.add_systems(
 		Update,
 		(|mut observations: ResMut<Observations>| observations.required.push("before".into()))
@@ -250,7 +217,7 @@ fn a_locale_change_within_update_preserves_the_active_snapshot_until_publication
 			|mut localization: ResMut<Localization<TestCatalog, crate::Full>>| {
 				localization.set_locale("es")
 			},
-			localized(required),
+			required,
 		)
 			.chain(),
 	);
@@ -264,19 +231,13 @@ fn a_locale_change_within_update_preserves_the_active_snapshot_until_publication
 }
 
 #[test]
-#[should_panic(expected = "startup schedules cannot retry")]
-fn recurring_helper_rejects_startup_instead_of_losing_the_system() {
-	app().add_localized_systems(Startup, required);
-}
-
-#[test]
 fn ordinary_missing_resources_are_not_silenced() {
 	let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
 		let mut app = app();
 		app.add_plugins(LocalizationPlugin::<TestCatalog, crate::Full>::new(
 			manifest(),
 		))
-		.add_localized_systems(Update, |_: Res<TestCatalog>, _: Res<Unrelated>| {});
+		.add_systems(Update, |_: Res<TestCatalog>, _: Res<Unrelated>| {});
 		app.update();
 	}));
 	assert!(result.is_err());
@@ -296,12 +257,14 @@ fn fallible_system_outputs_retain_normal_bevy_error_handling() {
 			));
 
 			if once {
-				app.add_localized_startup_systems(fail);
+				app.add_systems(Startup, fail);
 			} else {
-				app.add_localized_systems(Update, fail);
+				app.add_systems(Update, fail);
 			}
 
-			app.update();
+			for _ in 0..3 {
+				app.update();
+			}
 		}));
 		assert!(result.is_err());
 	}
@@ -320,7 +283,7 @@ fn deferred_setup_returning_an_error_is_not_repeated_by_a_nonpanicking_handler()
 	let mut app = app();
 	app.insert_resource(FallbackErrorHandler(ignore))
 		.add_plugins(LocalizationPlugin::<TestCatalog>::new_manual(manifest()))
-		.add_localized_startup_systems(fail_once);
+		.add_systems(Startup, fail_once);
 	app.update();
 	assert_eq!(app.world().resource::<Observations>().setups, 0);
 	app.world_mut()
@@ -383,14 +346,14 @@ fn several_required_roots_gate_together_but_an_optional_root_does_not() {
 		LocalizationPlugin::<TestCatalog, crate::Full>::new(manifest()),
 		LocalizationPlugin::<OtherCatalog>::new_manual(other),
 	))
-	.add_localized_systems(
+	.add_systems(
 		Update,
 		(
 			|_: Res<TestCatalog>, _: Res<OtherCatalog>, mut observations: ResMut<Observations>| {
 				observations.required.push("both".into());
 			},
 			|_: Res<TestCatalog>,
-			 other: Option<Res<OtherCatalog>>,
+			 other: Option<PassiveCatalog<OtherCatalog>>,
 			 mut observations: ResMut<Observations>| {
 				observations.optional.push(other.map(|_| "other".into()));
 			},

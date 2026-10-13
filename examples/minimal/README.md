@@ -40,8 +40,9 @@ In an enclosing workspace, the package is `localization-example`; add
 - [tests/](tests): contract, resource, watcher and formatting regressions. Start
   with [tests/README.md](tests/README.md) when looking for verification.
 
-Default Lazy loads scopes owned by inserted bindings and localized resource
-systems; plain world inspection does not request modules. The default binary
+Default Lazy on Bevy 0.19/0.20 loads scopes owned by inserted bindings and native
+`Res<Scope>` systems registered with ordinary `add_systems`. Deferred startup
+runs the one-time resource consumer when ready; plain world inspection is passive. The default binary
 waits for successful file loads, prints the bound
 text, switches through every discovered language and exits. Watch mode keeps the
 English label alive: edit `assets/localizations/translations/en/ui.ftl` **inside
@@ -58,9 +59,12 @@ enables only `build`. The build adapter lives inside the public crate. This publ
 facade is available since 0.1.1. Repository-local paths test this checkout;
 external applications use the [application setup](../../README.md#setup).
 
-The normal dependency selects Bevy 0.20 by default. To use 0.16, 0.17, 0.18 or 0.19,
-disable its defaults and select the corresponding backend feature; leave the
-build-dependency unchanged. Compatible patches are accepted, starting at 0.16.1
+The normal dependency selects Bevy 0.20 by default. To use another supported
+backend, disable its defaults and select that backend feature; leave the
+build-dependency unchanged. Native resource discovery and Deferred startup work
+on 0.19/0.20. Bevy 0.16–0.18 use [registration helpers](../../GUIDE.md#older-bevy-backends)
+for the resource-focused binary and required-resource tests; the compatibility
+runner adapts these registrations only in its copied fixtures. Compatible patches are accepted, starting at 0.16.1
 for the oldest backend and .0 for the others.
 
 Cargo metadata selects `catalog = "assets/localizations/localization.toml"`

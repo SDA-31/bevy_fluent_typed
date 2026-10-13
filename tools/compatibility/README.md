@@ -25,6 +25,9 @@ pins the consumer's selected official Bevy packages to the requested release, th
 - A compile probe: generated `ResMut` is rejected on 0.19/0.20 and accepted by older ECS
   versions. The generated catalog API remains read-only on every backend.
 - Runtime-only dependency isolation; on 0.19/0.20, rejected missing/conflicting backend selections.
+- Legacy helper availability: generated consumers compile on 0.16–0.18 and
+  imports fail on 0.19/0.20. Rustc dependency files verify the helper and its
+  readiness adapter are compiled only for older backends, never newer or build-only.
 
 No Python, shell-script runtime, game source or game assets are required. This
 package is not a dependency of the library or example and is not published.
@@ -64,7 +67,14 @@ The generator path is explicit; no sibling checkout convention is assumed.
 Supply a generator checkout matching the runtime's generated API, including
 constant manifests; the package version alone does not identify development
 revisions. See the [local checkout setup](../../docs/build.md#work-on-local-checkouts).
-The matrix also verifies native-resource readiness and deferred setup.
+The matrix verifies ordinary native-resource discovery and Deferred startup on
+0.19/0.20. Public resource examples use native `add_systems`; copied 0.16–0.18
+fixtures adapt four resource registrations to `LocalizationAppExt`, which is
+compiled only on those older backends. One-time readers run once in Update;
+they do not defer startup phases. The adapter validates each expected
+registration before writing the copy. Original examples
+and host/build feature isolation are unchanged. Native 0.19/0.20 fixtures never
+import legacy helpers. The separate compile-fail probe verifies their absence.
 The 0.16 backend starts at 0.16.1. The earlier 0.16.0 `bevy_color` package is
 yanked and cannot be selected by a fresh exact-release fixture.
 The 0.16.1 family pins `bevy_color` to 0.16.2 because that is the published
@@ -85,7 +95,10 @@ The tool prints each temporary fixture path and retains it, even on failure, for
 inspection. `verified-metadata.json` records workspace-resolved packages,
 `localization-example-dependencies.txt` and `bevy_fluent_typed-dependencies.txt`
 record the selected normal/build dependency trees, and
-`immutability-probe.log` records the expected compiler outcome. Remove these
+`immutability-probe.log` records the expected compiler outcome.
+`legacy-api-probe.log` records the generated consumer result;
+`legacy-modules-<features>.log` retains rustc source dependencies for the selected
+backend and the build-only graph. Remove these
 specific temporary directories yourself when the audit is no longer needed.
 The optional shared target directory reuses build artifacts across runs.
 Completed fixtures contain an intentional `immutable_probe` compile-fail binary

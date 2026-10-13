@@ -15,22 +15,37 @@ mod documentation;
 #[cfg(feature = "manifest")]
 mod lazy;
 mod leases;
+#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17", feature = "bevy-0-18"))]
+mod legacy_systems;
 #[cfg(feature = "manifest")]
 mod loader;
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+mod native_resources;
 mod preparation;
 mod progress;
 mod progress_registration;
 #[cfg(feature = "manifest")]
 mod scheduling;
 mod spans;
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+mod startup;
 mod switching;
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 mod template;
-#[cfg(feature = "manifest")]
+#[cfg(all(
+	feature = "manifest",
+	any(feature = "bevy-0-19", feature = "bevy-0-20")
+))]
 mod waiting;
 
 #[derive(Resource, Clone)]
 struct TestCatalog(String);
+
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+type OptionalCatalog<'w> = Option<crate::PassiveCatalog<'w, TestCatalog>>;
+
+#[cfg(not(any(feature = "bevy-0-19", feature = "bevy-0-20")))]
+type OptionalCatalog<'w> = Option<Res<'w, TestCatalog>>;
 
 impl FluentScope for TestCatalog {
 	type Catalog = Self;

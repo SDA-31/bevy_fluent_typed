@@ -1,12 +1,4 @@
-//! Narrow, dynamically selected read access for inferred catalog parameters.
-#![cfg_attr(
-	feature = "bevy-0-20",
-	allow(
-		deprecated,
-		reason = "Bevy 0.20 retains the narrow resource views shared with older backends."
-	)
-)]
-
+//! Dynamically selected catalog reads for the Bevy 0.16–0.18 helper adapter.
 use crate::bevy::{
 	ecs::{
 		system::{
@@ -17,19 +9,19 @@ use crate::bevy::{
 	},
 	prelude::World,
 };
-use crate::demand::{Consumer, Consumers};
-use crate::systems::{CatalogReadiness, ParameterTypes};
+use crate::demand::Consumer;
+use crate::legacy_systems::{CatalogReadiness, ParameterTypes};
 use std::{marker::PhantomData, sync::Arc};
 
-#[cfg(any(feature = "bevy-0-18", feature = "bevy-0-19", feature = "bevy-0-20"))]
+#[cfg(feature = "bevy-0-18")]
 use crate::bevy::ecs::change_detection::Tick;
-#[cfg(not(any(feature = "bevy-0-18", feature = "bevy-0-19", feature = "bevy-0-20")))]
+#[cfg(not(feature = "bevy-0-18"))]
 use crate::bevy::ecs::component::Tick;
 
-#[cfg(all(not(feature = "bevy-0-16"), not(feature = "bevy-0-20")))]
+#[cfg(not(feature = "bevy-0-16"))]
 use crate::bevy::ecs::query::FilteredAccessSet as SystemAccess;
-#[cfg(feature = "bevy-0-20")]
-use crate::bevy::ecs::system::SystemAccess;
+
+pub(crate) type Consumers = Arc<[Arc<Consumer>]>;
 
 pub(crate) struct Probe {
 	pub(crate) access: Box<dyn Fn(&mut FilteredResourcesBuilder) + Send + Sync>,
@@ -131,7 +123,6 @@ unsafe impl<P: ParameterTypes + 'static> SystemParam for Readiness<'_, '_, P> {
 		FilteredResources::init_access(&state.resources, meta, access, world);
 	}
 
-	#[cfg(not(any(feature = "bevy-0-19", feature = "bevy-0-20")))]
 	unsafe fn get_param<'w, 's>(
 		state: &'s mut Self::State,
 		meta: &SystemMeta,
@@ -149,26 +140,6 @@ unsafe impl<P: ParameterTypes + 'static> SystemParam for Readiness<'_, '_, P> {
 			consumers: &state.consumers,
 			marker: PhantomData,
 		}
-	}
-
-	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
-	unsafe fn get_param<'w, 's>(
-		state: &'s mut Self::State,
-		meta: &SystemMeta,
-		world: UnsafeWorldCell<'w>,
-		tick: Tick,
-	) -> Result<Self::Item<'w, 's>, crate::bevy::ecs::system::SystemParamValidationError> {
-		// SAFETY: Our caller guarantees the same World and access recorded by the
-		// delegated initialization. State and lifetimes are forwarded unchanged.
-		let resources =
-			unsafe { FilteredResources::get_param(&mut state.resources, meta, world, tick) }?;
-
-		Ok(Readiness {
-			resources,
-			probes: &state.probes,
-			consumers: &state.consumers,
-			marker: PhantomData,
-		})
 	}
 }
 

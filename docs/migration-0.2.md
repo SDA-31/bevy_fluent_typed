@@ -1,10 +1,10 @@
-# Migrate from bevy_fluent_typed 0.1.3 to 0.3.0
+# Migrate from bevy_fluent_typed 0.1.3 to 0.3.1
 
-This guide upgrades runtime 0.1.3 to 0.3.0.
+This guide upgrades runtime 0.1.3 to 0.3.1.
 It includes the generated manifest helper and native required-resource waiting.
 
-Start with default **Lazy**: inserted text bindings and localized systems request
-their scopes automatically. Existing full-tree bindings request the whole tree;
+Start with default **Lazy**: inserted text bindings and native resource consumers
+on Bevy 0.19/0.20 request their scopes automatically. Existing full-tree bindings request the whole tree;
 prefer smaller scopes where appropriate. Resources become ready asynchronously.
 Select explicit **Full** for eager loading or direct world polling, or **Manual**
 when the application must own requests manually.
@@ -15,10 +15,10 @@ Replace the localization entries in your Cargo.toml:
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.3.0", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.3.1", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.3.0", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.3.1", default-features = false, features = ["build"] }
 ```
 
 The dependency snippet selects Bevy 0.20 by default. Upgrade the application's
@@ -30,7 +30,7 @@ Use Cargo resolver 2 or 3 and update localization metadata as shown in
 
 Remove development Git/path patches for the runtime, bridge and generator when
 switching to the registry. Standard consumers do not declare a bridge or generator
-dependency; runtime 0.3.0 uses generator 0.2.2. If you rename the facade, use the
+dependency; runtime 0.3.1 uses generator 0.2.2. If you rename the facade, use the
 same alias in both dependency sections.
 
 Keep your existing `build.rs`:
@@ -85,12 +85,10 @@ back to implicitly embedded text. Keep `AssetPlugin` installed for both choices.
 ## 3. Wait for resources, including with embedded data
 
 Before, a system could read `Res<texts::presentation::Hud>` immediately.
-Keep that parameter and register recurring consumers with the readiness helper:
+On Bevy 0.19/0.20, keep that parameter and register recurring consumers normally:
 
 ```rust
-use bevy_fluent_typed::LocalizationAppExt;
-
-app.add_localized_systems(Update, show_title);
+app.add_systems(Update, show_title);
 ```
 
 The system itself still uses Bevy's native resource:
@@ -108,16 +106,17 @@ A system with several required catalog parameters waits for all of them.
 For one-time initialization after loading, register it separately:
 
 ```rust
-app.add_localized_startup_systems(setup_hud);
+app.add_systems(Startup, setup_hud);
 ```
 
-This helper runs once in `Update`; ordinary `Startup` does not retry a skipped
-system. For a complete application, follow the [quickstart](../README.md#setup).
-The [resource-waiting reference](migration-0.2.1.md) covers scheduling constraints
-and parameter shapes that require explicit readiness conditions.
+Default Deferred startup waits for its catalogs, preserves declared dependencies
+and runs each completed step once. Frame updates continue during loading.
+For a complete application, follow the [quickstart](../README.md#setup).
+The [0.3.1 migration](migration-0.3.1.md) covers startup policies and passive reads.
+Bevy 0.16–0.18 instead use their [registration helpers](../GUIDE.md#older-bevy-backends).
 
-A full-tree consumer can likewise request `Res<texts::Translations>` through the
-helper. Controller access through `localization.catalog()` instead returns
+A full-tree consumer can likewise request `Res<texts::Translations>` through
+ordinary registration. Controller access through `localization.catalog()` instead returns
 `Option<&Translations>` because a complete tree may not be ready. Resource
 readiness follows the [publication schedule](../GUIDE.md#scheduling-and-reload-guarantees).
 
@@ -189,7 +188,7 @@ For selective constant manifests, follow the
 
 ## 6. Account for changed reload behavior
 
-| In 0.1.3 | In 0.3.0 |
+| In 0.1.3 | In 0.3.1 |
 | --- | --- |
 | All embedded languages were initialized | Lazy requests consumer scopes in the selected language; explicit Full requests that entire language |
 | Locale changes could select a retained catalog immediately | Requests persist; the active language stays usable until all needed target leaves validate and switch automatically |
@@ -254,7 +253,7 @@ settings, keep only `Settings { catalog: ... }`. Generated `CATALOG_PATH` replac
 `..` to share source translations across packages. Runtime logical module paths
 and `translations-directory` still cannot escape their declared scope.
 
-Use runtime 0.3.0 with generator 0.2.2. See the
+Use runtime 0.3.1 with generator 0.2.2. See the
 [catalog path and embedding migration](migration-0.2.2.md) for the complete changes.
 
 `texts::manifest()` retains `CATALOG_PATH` verbatim. Configure the application's

@@ -2,7 +2,7 @@
 extern crate localization_runtime as bevy_fluent_typed;
 
 use bevy_fluent_typed::bevy::{asset::AssetPlugin, prelude::*};
-use bevy_fluent_typed::{Localization, LocalizationAppExt, LocalizationPlugin, LocalizedText};
+use bevy_fluent_typed::{Localization, LocalizationPlugin, LocalizedText};
 use std::time::{Duration, Instant};
 
 bevy_fluent_typed::translations!(pub mod texts);
@@ -15,7 +15,7 @@ fn main() {
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, AssetPlugin::default()))
 		.add_plugins(LocalizationPlugin::<texts::Translations>::new(EMBEDDED))
-		.add_localized_startup_systems(show_hud);
+		.add_systems(Startup, show_hud);
 	app.finish();
 	app.cleanup();
 	wait_for_hud(&mut app, texts::Locale::En);
