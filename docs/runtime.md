@@ -355,6 +355,20 @@ validation. Startup catalog reads do not request or wait automatically in this
 policy; use already-ready catalogs or create bindings without reading one.
 Recurring consumers and inserted bindings remain automatic in Lazy.
 
+To configure startup in a separate application module, add the public plugin:
+
+```rust,ignore
+use bevy_fluent_typed::{LocalizationStartupPlugin, StartupStrategy};
+
+app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Native));
+```
+
+Register it before or after `LocalizationPlugin`, before the first App update.
+If absent, `LocalizationPlugin` adds an implicit Deferred fallback. An explicit
+startup plugin added later selects the policy without installing a second
+coordinator or executing startup twice. The existing root-plugin builders remain
+available and configure the same policy.
+
 **Barrier** waits for the selected set's combined catalog requirements:
 
 ```rust,ignore
@@ -368,14 +382,18 @@ app.add_plugins(
 app.add_systems(Startup, (setup_hud, setup_buttons).in_set(AppStartup));
 ```
 
+The separate plugin can select the same barrier with
+`LocalizationStartupPlugin::barrier(AppStartup)`.
+
 Startup outside the set may proceed while its catalogs load, subject to ordinary
 ordering. Use the barrier builder to select the set; passing `StartupStrategy::Barrier`
 to `with_startup_strategy` is rejected. Loading mode and startup strategy are
 independent: a Manual barrier still needs application-owned requests.
 
-Startup policy belongs to the App. With multiple root plugins, unconfigured roots
-inherit the explicit choice regardless of registration order. Without an explicit
-choice, the App uses Deferred; contradictory explicit choices are rejected.
+Startup policy belongs to the App. Unconfigured roots inherit the explicit choice
+from startup plugins or root builders regardless of registration order. Without
+an explicit choice, the App uses Deferred. Matching explicit choices are accepted;
+contradictory choices and changes after startup begins are rejected.
 
 ### Older Bevy backends
 

@@ -18,6 +18,9 @@ See the [migration from 0.3.0](docs/migration-0.3.1.md). The generator remains
   scopes while their system state exists, even when an application condition is false.
 - `StartupStrategy` and builders on `LocalizationPlugin` for Deferred, Native
   and selected-set Barrier startup. Multiple roots share one application policy.
+- Public `LocalizationStartupPlugin` on Bevy 0.19/0.20 for independent startup
+  configuration. Root plugins add an implicit fallback when it is absent;
+  explicit startup configuration works in either registration order with one coordinator.
 - `PassiveCatalog<Scope>` on Bevy 0.19/0.20 for optional observers that must run
   without requesting or retaining absent catalogs.
 

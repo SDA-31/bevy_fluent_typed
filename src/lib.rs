@@ -141,7 +141,7 @@ pub use progress::ModuleDiagnostic;
 #[cfg(feature = "runtime")]
 pub use progress::{LoadingProgress, LocalizationProgress, LocalizationProgressPlugin};
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
-pub use scheduling::StartupStrategy;
+pub use scheduling::{LocalizationStartupPlugin, StartupStrategy};
 #[cfg(feature = "runtime")]
 pub use scope::{ModuleStore, ScopeRegistration};
 #[cfg(feature = "runtime")]

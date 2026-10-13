@@ -2,8 +2,9 @@ use crate::bevy::ecs::schedule::InternedSystemSet;
 
 /// How native startup systems wait for their localization catalogs on Bevy 0.19/0.20.
 ///
-/// Selected on the existing `LocalizationPlugin`; unconfigured roots share the
-/// App's explicit policy, or Deferred when no root makes an explicit choice.
+/// Selected through `LocalizationStartupPlugin` or builders on `LocalizationPlugin`.
+/// Unconfigured roots share the App's explicit policy, or Deferred when no plugin
+/// makes an explicit choice.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum StartupStrategy {
 	/// Preserve Bevy's ordinary one-shot startup and missing-resource validation.
@@ -11,8 +12,8 @@ pub enum StartupStrategy {
 	/// Run independent startup steps once, retrying catalog waits and dependents.
 	#[default]
 	Deferred,
-	/// Wait for every catalog needed by the set selected with `with_startup_barrier`.
-	/// Use that builder rather than passing this variant to `with_startup_strategy`.
+	/// Wait for every catalog needed by a selected startup set.
+	/// Use `LocalizationStartupPlugin::barrier` or `LocalizationPlugin::with_startup_barrier`.
 	Barrier,
 }
 
@@ -26,7 +27,7 @@ impl StartupConfiguration {
 	pub(crate) fn new(strategy: StartupStrategy) -> Self {
 		assert!(
 			!matches!(strategy, StartupStrategy::Barrier),
-			"Barrier requires a selected startup set; use with_startup_barrier(set)"
+			"Barrier requires a selected startup set; use LocalizationStartupPlugin::barrier(set) or LocalizationPlugin::with_startup_barrier(set)"
 		);
 		Self {
 			strategy,

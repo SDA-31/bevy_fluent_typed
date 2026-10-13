@@ -3,7 +3,7 @@ use crate::bevy::{
 	ecs::{self as bevy_ecs, schedule::SingleThreadedExecutor},
 	prelude::*,
 };
-use crate::{LocalizationPlugin, LocalizedText, StartupStrategy};
+use crate::{LocalizationPlugin, LocalizationStartupPlugin, LocalizedText, StartupStrategy};
 use std::sync::{Arc, Mutex};
 
 #[derive(Resource, Default)]
@@ -503,6 +503,167 @@ fn contradictory_explicit_root_policies_are_rejected() {
 			.unwrap()
 			.with_startup_strategy(StartupStrategy::Deferred),
 		);
+}
+
+#[test]
+fn public_startup_plugin_overrides_fallback_in_both_registration_orders() {
+	fn optional_catalog(_: Option<Res<TestCatalog>>, mut steps: ResMut<Steps>) {
+		steps.0.push("optional");
+	}
+
+	for explicit_first in [false, true] {
+		let mut app = App::new();
+		app.add_plugins(MinimalPlugins).init_resource::<Steps>();
+		let root = delayed_plugin(Arc::new(Gate::default()));
+		let startup = LocalizationStartupPlugin::new(StartupStrategy::Native);
+
+		if explicit_first {
+			app.add_plugins(startup).add_plugins(root);
+			assert_eq!(
+				app.get_added_plugins::<LocalizationStartupPlugin>().len(),
+				1
+			);
+		} else {
+			app.add_plugins(root).add_plugins(startup);
+			assert_eq!(
+				app.get_added_plugins::<LocalizationStartupPlugin>().len(),
+				2
+			);
+		}
+
+		app.add_systems(Startup, optional_catalog)
+			.add_systems(PostStartup, post);
+		app.update();
+		app.update();
+		assert_eq!(app.world().resource::<Steps>().0, ["optional", "post"]);
+		assert!(!app.world().contains_resource::<TestCatalog>());
+	}
+}
+
+#[test]
+fn fallback_and_matching_explicit_plugins_install_one_main_driver() {
+	use crate::bevy::app::Main;
+
+	let mut app = app(delayed_plugin(Arc::new(Gate::default())));
+	assert_eq!(
+		app.get_added_plugins::<LocalizationStartupPlugin>().len(),
+		1
+	);
+	let original = app
+		.world()
+		.resource::<Schedules>()
+		.get(Main)
+		.unwrap()
+		.graph()
+		.systems
+		.len();
+
+	app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Deferred));
+	app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Deferred));
+	assert_eq!(
+		app.world()
+			.resource::<Schedules>()
+			.get(Main)
+			.unwrap()
+			.graph()
+			.systems
+			.len(),
+		original
+	);
+	app.add_systems(Startup, services)
+		.add_systems(PostStartup, post);
+	app.update();
+	app.update();
+	assert_eq!(app.world().resource::<Steps>().0, ["services", "post"]);
+}
+
+#[test]
+fn public_startup_barrier_waits_for_the_selected_set_in_both_registration_orders() {
+	for explicit_first in [false, true] {
+		let allow = Arc::new(Gate::default());
+		let mut app = App::new();
+		app.add_plugins(MinimalPlugins).init_resource::<Steps>();
+		let root = delayed_plugin(allow.clone());
+		let startup = LocalizationStartupPlugin::barrier(AppStartup);
+
+		if explicit_first {
+			app.add_plugins(startup).add_plugins(root);
+		} else {
+			app.add_plugins(root).add_plugins(startup);
+		}
+
+		app.add_systems(Startup, services)
+			.add_systems(
+				Startup,
+				(hud, |mut steps: ResMut<Steps>| steps.0.push("selected")).in_set(AppStartup),
+			)
+			.add_systems(PostStartup, post);
+		app.update();
+		app.update();
+		assert_eq!(app.world().resource::<Steps>().0, ["services"]);
+
+		allow.open();
+		pump(&mut app, |world| {
+			world.resource::<Steps>().0.contains(&"post")
+		});
+		app.update();
+		for step in ["services", "hud", "selected", "post"] {
+			assert_eq!(
+				app.world()
+					.resource::<Steps>()
+					.0
+					.iter()
+					.filter(|observed| **observed == step)
+					.count(),
+				1
+			);
+		}
+	}
+}
+
+#[test]
+fn public_startup_plugin_can_run_without_localization_roots() {
+	let mut app = App::new();
+	app.add_plugins((
+		MinimalPlugins,
+		LocalizationStartupPlugin::new(StartupStrategy::Deferred),
+	))
+	.init_resource::<Steps>()
+	.add_systems(Startup, (services, complete_setup).chain())
+	.add_systems(PostStartup, post);
+	app.update();
+	app.update();
+	assert_eq!(
+		app.world().resource::<Steps>().0,
+		["services", "finish", "post"]
+	);
+}
+
+#[test]
+#[should_panic(expected = "conflicting startup strategies")]
+fn public_startup_plugin_rejects_a_conflicting_root_builder() {
+	let mut app = App::new();
+	app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Native));
+	app.add_plugins(
+		delayed_plugin(Arc::new(Gate::default())).with_startup_strategy(StartupStrategy::Deferred),
+	);
+}
+
+#[test]
+#[should_panic(expected = "conflicting startup strategies")]
+fn root_builder_rejects_a_conflicting_public_startup_plugin() {
+	let mut app =
+		app(delayed_plugin(Arc::new(Gate::default()))
+			.with_startup_strategy(StartupStrategy::Deferred));
+	app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Native));
+}
+
+#[test]
+#[should_panic(expected = "startup strategy cannot change after the application has started")]
+fn public_startup_policy_cannot_be_added_after_startup_begins() {
+	let mut app = app(delayed_plugin(Arc::new(Gate::default())));
+	app.update();
+	app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Native));
 }
 
 #[derive(crate::bevy::ecs::schedule::ScheduleLabel, Debug, Clone, Copy, PartialEq, Eq, Hash)]

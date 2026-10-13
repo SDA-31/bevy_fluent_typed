@@ -60,6 +60,9 @@ enum Source<C: FluentCatalog> {
 /// Normal frame schedules continue during this wait. Non-catalog resources keep
 /// Bevy's ordinary validation, so applications must guard update systems that
 /// depend on unfinished initialization. `Native` preserves stock startup.
+/// An absent `LocalizationStartupPlugin` is added as an implicit fallback.
+/// An explicit startup plugin can select the shared policy before or after this
+/// plugin, before the first App update; the coordinator is installed only once.
 /// Custom schedules must be registered before an `App::update` discovers them,
 /// before their first manual execution. Already initialized systems retain their
 /// previous behavior; newly added systems are discovered on later updates.
@@ -77,6 +80,7 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 	/// Select startup execution for this application. Unconfigured roots inherit
 	/// the application's choice, or `Deferred` when no root chooses explicitly.
 	/// Contradictory explicit settings across roots are rejected.
+	/// The same App policy can be selected independently with `LocalizationStartupPlugin`.
 	/// Available on Bevy 0.19/0.20. For `Barrier`, use
 	/// [`Self::with_startup_barrier`] to provide the selected set.
 	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
@@ -218,7 +222,13 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 
 		app.init_resource::<Localization<C, M>>();
 		#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
-		crate::scheduling::register(app, self.startup);
+		{
+			if !app.is_plugin_added::<crate::LocalizationStartupPlugin>() {
+				app.add_plugins(crate::LocalizationStartupPlugin::fallback());
+			}
+
+			crate::scheduling::register(app, self.startup);
+		}
 		compatibility::register_notifications::<C>(app);
 		crate::progress::register::<C, M>(app);
 

@@ -73,9 +73,20 @@ For an explicit group that waits for all its catalog requirements, use
 `.with_startup_barrier(AppStartup)` and place its systems in that `SystemSet`.
 See [startup strategies](../GUIDE.md#startup-strategies).
 
-The startup policy is shared by all root plugins in an App. Unconfigured roots
-inherit an explicit choice regardless of registration order; conflicting explicit
-choices are rejected. Without a choice, the App uses Deferred.
+Startup configuration may instead live in another application module:
+
+```rust,ignore
+use bevy_fluent_typed::{LocalizationStartupPlugin, StartupStrategy};
+
+app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Native));
+```
+
+Register it before or after the root plugin, before the first App update.
+`LocalizationStartupPlugin::barrier(AppStartup)` selects a grouped barrier.
+An absent startup plugin is added as an implicit Deferred fallback; an explicit
+plugin added later selects the policy without a second coordinator. All root
+builders and startup plugins share the App's policy. Matching explicit choices
+are accepted; contradictory choices and changes after startup begins are rejected.
 
 ## Keep optional observers passive when needed
 
