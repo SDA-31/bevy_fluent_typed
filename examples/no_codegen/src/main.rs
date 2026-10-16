@@ -1,7 +1,7 @@
 mod texts;
 
 use bevy_fluent_typed::bevy::prelude::*;
-use bevy_fluent_typed::{Localization, LocalizationPlugin, LocalizedText};
+use bevy_fluent_typed::{Localization, LocalizationPlugin, Localized};
 use texts::Texts;
 
 fn main() {
@@ -30,7 +30,7 @@ fn main() {
 		.world_mut()
 		.spawn((
 			Text::default(),
-			LocalizedText::<Texts>::new(|texts| texts.hello.clone()),
+			Localized::<Text, Texts>::new(|texts| texts.hello.clone()),
 		))
 		.id();
 	app.finish();

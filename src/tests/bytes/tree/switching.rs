@@ -1,13 +1,13 @@
 use super::{Hud, Panel, Presentation, Root, controlled_mode, pump};
 use crate::bevy::prelude::*;
-use crate::{Lazy, Localization, LocalizedText};
+use crate::{Lazy, Localization, Localized};
 
 #[test]
 fn overlapping_manual_pins_and_automatic_consumers_release_independently() {
 	let (mut app, source) = controlled_mode::<Lazy>();
 	let binding = app
 		.world_mut()
-		.spawn(LocalizedText::<Hud>::new(|hud| hud.0.to_string()))
+		.spawn(Localized::<Text, Hud>::new(|hud| hud.0.to_string()))
 		.id();
 	{
 		let mut state = app.world_mut().resource_mut::<Localization<Root>>();
@@ -42,7 +42,7 @@ fn switching_a_partial_tree_tracks_added_and_removed_manual_pins() {
 	let (mut app, source) = controlled_mode::<Lazy>();
 	let binding = app
 		.world_mut()
-		.spawn(LocalizedText::<Hud>::new(|hud| hud.0.to_string()))
+		.spawn(Localized::<Text, Hud>::new(|hud| hud.0.to_string()))
 		.id();
 	pump(&mut app, |_| source.count() == 1);
 	let english = source.release::<Hud>("en", 0);
@@ -96,7 +96,7 @@ fn switching_tracks_automatic_demand_added_and_removed_during_preparation() {
 	pump(&mut app, |_| source.count() == 2);
 	let binding = app
 		.world_mut()
-		.spawn(LocalizedText::<Panel>::new(|panel| panel.0.to_string()))
+		.spawn(Localized::<Text, Panel>::new(|panel| panel.0.to_string()))
 		.id();
 	pump(&mut app, |_| source.count() == 4);
 	let spanish = source.release::<Hud>("es", 0);

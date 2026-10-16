@@ -1,7 +1,7 @@
 use super::{TestCatalog, bytes::pump};
 use crate::bevy::prelude::*;
 use crate::{
-	CatalogUpdate, CatalogUpdateReader, Localization, LocalizationPlugin, LocalizedText,
+	CatalogUpdate, CatalogUpdateReader, Localization, LocalizationPlugin, Localized,
 	PreparationStatus,
 };
 use std::{
@@ -63,7 +63,7 @@ fn app() -> (App, Attempts, Entity) {
 	app.add_plugins((MinimalPlugins, plugin));
 	let label = app
 		.world_mut()
-		.spawn(LocalizedText::<TestCatalog>::new(|catalog| {
+		.spawn(Localized::<Text, TestCatalog>::new(|catalog| {
 			catalog.0.clone()
 		}))
 		.id();
@@ -272,7 +272,7 @@ fn failed_target_is_observable_retains_text_and_manual_load_retries_it() {
 	);
 	let label = app
 		.world_mut()
-		.spawn(LocalizedText::<TestCatalog>::new(|catalog| {
+		.spawn(Localized::<Text, TestCatalog>::new(|catalog| {
 			catalog.0.clone()
 		}))
 		.id();
@@ -334,7 +334,7 @@ fn repeating_initial_selection_retries_failed_active_leaves_without_a_manual_pin
 	app.add_plugins((MinimalPlugins, plugin));
 	let binding = app
 		.world_mut()
-		.spawn(LocalizedText::<TestCatalog>::new(|catalog| {
+		.spawn(Localized::<Text, TestCatalog>::new(|catalog| {
 			catalog.0.clone()
 		}))
 		.id();

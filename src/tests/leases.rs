@@ -1,9 +1,7 @@
 //! Independent ownership without changing idempotent explicit requests.
 use super::TestCatalog;
 use crate::bevy::prelude::*;
-use crate::{
-	Localization, LocalizationPlugin, LocalizedText, Manual, ModuleStatus, ReloadCatalogs,
-};
+use crate::{Localization, LocalizationPlugin, Localized, Manual, ModuleStatus, ReloadCatalogs};
 use std::{
 	sync::{
 		Arc, Barrier,
@@ -156,7 +154,7 @@ fn dropping_before_first_publication_performs_no_io_or_implicit_binding_load() {
 		std::future::ready(Ok::<_, String>(b"data".to_vec()))
 	}));
 	app.world_mut()
-		.spawn(LocalizedText::<TestCatalog>::new(|catalog| {
+		.spawn(Localized::<Text, TestCatalog>::new(|catalog| {
 			catalog.0.clone()
 		}));
 	let lease = app

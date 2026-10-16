@@ -25,15 +25,21 @@ For application dependencies and the native syntax for each backend, see the
 1. [Cargo.toml](Cargo.toml) enables `bevy_scene` on the application's Bevy
    dependency and uses the normal `codegen`/build-only `build` split.
 2. [build.rs](build.rs) explicitly generates `texts::presentation::Hud`.
-3. [scene.rs](src/scene.rs) captures an owned name in a `LocalizedText<Interface>`
+3. [scene.rs](src/scene.rs) captures an owned name in a `Localized<Text, Interface>`
    and returns a native `bsn!` scene with an explicit `Text` target. `Interface` is an ordinary imported alias.
 4. [app.rs](src/app.rs) installs the asset, scene and localization plugins. Lazy
    loading uses the generated manifest helper.
 5. [main.rs](src/main.rs) spawns the scene and prints its label after the required
    `Res<Interface>` is ready and text refresh has run.
 
+[buttons.rs](src/buttons.rs) demonstrates Msg-taking buttons: visible text
+lives on a child, while an explicit `AccessibleLabel` and its binding supply the
+root's semantic name. Caption slots accept a Scene or boxed SceneList, including an
+icon-only caption. [Button tests](src/tests/buttons.rs) check EN/ES/RU names,
+native scene-call/list syntax and scope release after removing the controls.
+
 Creating a scene or cloning an unattached binding is passive. Inserting its
-`LocalizedText<Interface>` requests and retains the scope in default Lazy.
+`Localized<Text, Interface>` requests and retains the scope in default Lazy.
 Removing the last binding releases that demand unless another consumer, manual
 pin or lease remains.
 Explicit Manual still requires manual requests. Clones share the formatter and

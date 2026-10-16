@@ -3,6 +3,7 @@
 #![cfg_attr(feature = "runtime", doc = include_str!("../docs/asset-sources.md"))]
 #![cfg_attr(feature = "runtime", doc = include_str!("../docs/formatting.md"))]
 #![cfg_attr(feature = "runtime", doc = include_str!("../docs/bsn.md"))]
+#![cfg_attr(feature = "runtime", doc = include_str!("../docs/bindings.md"))]
 #![cfg_attr(feature = "build", doc = include_str!("../docs/build.md"))]
 #![warn(missing_docs)]
 
@@ -56,6 +57,8 @@ mod bindings;
 #[cfg(feature = "runtime")]
 mod bytes;
 #[cfg(feature = "runtime")]
+mod cache_policy;
+#[cfg(feature = "runtime")]
 mod catalog;
 #[cfg(feature = "runtime")]
 mod compatibility;
@@ -91,6 +94,8 @@ mod scope;
 mod state;
 #[cfg(feature = "runtime")]
 mod status;
+#[cfg(feature = "runtime")]
+mod target_bindings;
 
 #[cfg(all(feature = "codegen", feature = "runtime"))]
 mod macros;
@@ -112,6 +117,8 @@ pub use fluent_typed_codegen::{
 pub use fluent_syntax;
 
 #[cfg(feature = "runtime")]
+pub use cache_policy::CachePolicy;
+#[cfg(feature = "runtime")]
 pub use catalog::{FluentCatalog, FluentScope, Module};
 #[cfg(any(feature = "manifest", feature = "build"))]
 #[doc(hidden)]
@@ -127,13 +134,19 @@ pub use leases::ModuleLease;
 #[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17", feature = "bevy-0-18"))]
 pub use legacy_systems::{IntoLocalizedSystems, LocalizationAppExt, localized};
 #[cfg(feature = "runtime")]
-pub use message::{CatalogUpdate, CatalogUpdateReader, LocalizedText, Message, ReloadCatalogs};
+#[allow(
+	deprecated,
+	reason = "Re-export the compatibility alias for existing consumers"
+)]
+pub use message::Message;
+#[cfg(feature = "runtime")]
+pub use message::{CatalogUpdate, CatalogUpdateReader, Msg, ReloadCatalogs};
 #[cfg(feature = "runtime")]
 pub use mode::{Full, Lazy, LoadingMode, Manual};
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 pub use passive::PassiveCatalog;
 #[cfg(feature = "runtime")]
-pub use plugin::{LocalizationPlugin, LocalizationSystems};
+pub use plugin::{LocalizationAccessibilitySet, LocalizationPlugin, LocalizationSystems};
 #[cfg(feature = "runtime")]
 pub use preparation::{CommitLocaleError, PreparationStatus};
 #[cfg(all(feature = "runtime", feature = "diagnostics"))]
@@ -148,6 +161,15 @@ pub use scope::{ModuleStore, ScopeRegistration};
 pub use state::Localization;
 #[cfg(feature = "runtime")]
 pub use status::{ModuleError, ModuleStatus};
+#[cfg(feature = "runtime")]
+pub use target_bindings::{
+	LocalizationTarget, LocalizationUpdate, Localized, TargetItem, TargetReadItem,
+	TargetUpdatePhase, UpdateResult,
+};
+
+/// Derive an adapter for one `#[localized]` String field on a mutable Default component.
+#[cfg(all(feature = "runtime", feature = "derive"))]
+pub use bevy_fluent_typed_macros::LocalizationTarget;
 
 /// Compatible upstream runtime used by generated accessors; no separate dependency needed.
 #[cfg(feature = "runtime")]

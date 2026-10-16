@@ -1,6 +1,6 @@
 use super::TestCatalog;
 use crate::bevy::prelude::*;
-use crate::{Localization, LocalizationPlugin, LocalizedText, Manual};
+use crate::{Localization, LocalizationPlugin, Localized, Manual};
 use std::{
 	sync::{
 		Arc, Mutex,
@@ -31,7 +31,7 @@ fn pump(app: &mut App, value: Option<&str>, spans: &[Entity]) {
 fn ui_and_world_spans_follow_catalog_lifetime_without_becoming_roots() {
 	let calls = Arc::new(AtomicUsize::new(0));
 	let observed = calls.clone();
-	let binding = LocalizedText::<TestCatalog>::new(move |catalog| {
+	let binding = Localized::<TextSpan, TestCatalog>::new(move |catalog| {
 		observed.fetch_add(1, Ordering::Relaxed);
 		catalog.0.clone()
 	});
@@ -92,7 +92,7 @@ fn ui_and_world_spans_follow_catalog_lifetime_without_becoming_roots() {
 
 	app.world_mut()
 		.entity_mut(spans[0])
-		.insert(LocalizedText::<TestCatalog>::new(|catalog| {
+		.insert(Localized::<TextSpan, TestCatalog>::new(|catalog| {
 			format!("new {}", catalog.0)
 		}));
 	pump(&mut app, Some("new Spanish"), &spans[..1]);
@@ -115,10 +115,13 @@ fn automatic_spans_and_manual_pins_retain_and_release_independently() {
 			.unwrap();
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, plugin));
-	let binding = LocalizedText::<TestCatalog>::new(|catalog| catalog.0.clone());
+	let binding = Localized::<TextSpan, TestCatalog>::new(|catalog| catalog.0.clone());
 	let root = app
 		.world_mut()
-		.spawn((Text::default(), binding.clone()))
+		.spawn((
+			Text::default(),
+			Localized::<Text, TestCatalog>::new(|catalog| catalog.0.clone()),
+		))
 		.id();
 	let span = app
 		.world_mut()
@@ -127,7 +130,7 @@ fn automatic_spans_and_manual_pins_retain_and_release_independently() {
 	pump(&mut app, Some("Japanese"), &[span]);
 	app.world_mut()
 		.entity_mut(root)
-		.remove::<LocalizedText<TestCatalog>>();
+		.remove::<Localized<Text, TestCatalog>>();
 	app.update();
 	assert!(app.world().contains_resource::<TestCatalog>());
 	app.world_mut()
@@ -172,7 +175,7 @@ fn failed_switch_keeps_active_span_and_diagnostics_until_explicit_retry() {
 		.spawn((
 			TextSpan::default(),
 			ChildOf(parent),
-			LocalizedText::<TestCatalog>::new(move |catalog| {
+			Localized::<TextSpan, TestCatalog>::new(move |catalog| {
 				observed.fetch_add(1, Ordering::Relaxed);
 				catalog.0.clone()
 			}),

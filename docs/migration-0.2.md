@@ -126,9 +126,9 @@ Existing root-bound closures still work: in Lazy an inserted root binding
 requests the entire tree; explicit Full keeps it loaded independently of bindings:
 
 ```rust
-use bevy_fluent_typed::Message;
+use bevy_fluent_typed::Msg;
 
-let title = Message::<texts::Translations>::new(|texts| {
+let title = Msg::<texts::Translations>::new(|texts| {
     texts.presentation().hud().msg_title()
 });
 ```
@@ -137,12 +137,12 @@ A root binding waits until the entire root is available. To render as soon as
 the HUD is ready, use its generated type:
 
 ```rust
-use bevy_fluent_typed::Message;
+use bevy_fluent_typed::Msg;
 
-let title = Message::<texts::presentation::Hud>::new(|hud| hud.msg_title());
+let title = Msg::<texts::presentation::Hud>::new(|hud| hud.msg_title());
 ```
 
-Use `LocalizedText<texts::presentation::Hud>` for the corresponding binding.
+Use `Localized<Text, texts::presentation::Hud>` for the corresponding binding.
 Capture owned arguments in deferred closures; do not capture a translated string
 or an old scope snapshot. Typed message accessor signatures remain unchanged.
 

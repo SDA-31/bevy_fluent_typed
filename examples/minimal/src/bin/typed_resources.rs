@@ -2,7 +2,7 @@
 extern crate localization_runtime as bevy_fluent_typed;
 
 use bevy_fluent_typed::bevy::{asset::AssetPlugin, prelude::*};
-use bevy_fluent_typed::{Localization, LocalizationPlugin, LocalizedText};
+use bevy_fluent_typed::{Localization, LocalizationPlugin, Localized};
 use std::time::{Duration, Instant};
 
 bevy_fluent_typed::translations!(pub mod texts);
@@ -43,7 +43,7 @@ fn show_hud(mut commands: Commands, translations: Res<texts::Translations>) {
 
 	commands.spawn((
 		Text::default(),
-		LocalizedText::<texts::presentation::Hud>::new(|hud| hud.msg_detail("Ada")),
+		Localized::<Text, texts::presentation::Hud>::new(|hud| hud.msg_detail("Ada")),
 	));
 }
 

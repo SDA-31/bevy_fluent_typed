@@ -2,7 +2,7 @@ use super::{OptionalCatalog, TestCatalog, bytes::pump};
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 use crate::bevy::ecs::schedule::ScheduleLabel;
 use crate::bevy::{ecs as bevy_ecs, prelude::*};
-use crate::{FluentScope, Localization, LocalizationPlugin, LocalizedText, ModuleStore};
+use crate::{FluentScope, Localization, LocalizationPlugin, Localized, ModuleStore};
 use std::sync::{
 	Arc,
 	atomic::{AtomicUsize, Ordering},
@@ -20,8 +20,8 @@ fn app() -> (App, Arc<AtomicUsize>) {
 	(app, reads)
 }
 
-fn binding() -> LocalizedText<TestCatalog> {
-	LocalizedText::<TestCatalog>::new(|catalog| catalog.0.clone())
+fn binding() -> Localized<Text, TestCatalog> {
+	Localized::<Text, TestCatalog>::new(|catalog| catalog.0.clone())
 }
 
 #[test]
@@ -53,7 +53,13 @@ fn unattached_messages_and_optional_parameters_do_not_start_io() {
 fn inserted_bindings_share_demand_and_last_removal_releases_data() {
 	let (mut app, reads) = app();
 	let first = app.world_mut().spawn(binding()).id();
-	let second = app.world_mut().spawn((Text2d::default(), binding())).id();
+	let second = app
+		.world_mut()
+		.spawn((
+			Text2d::default(),
+			Localized::<Text2d, TestCatalog>::new(|catalog| catalog.0.clone()),
+		))
+		.id();
 	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
 	assert_eq!(reads.load(Ordering::Relaxed), 1);
 	let weak = Arc::downgrade(
@@ -69,7 +75,7 @@ fn inserted_bindings_share_demand_and_last_removal_releases_data() {
 	assert!(weak.upgrade().is_some());
 	app.world_mut()
 		.entity_mut(second)
-		.remove::<LocalizedText<TestCatalog>>();
+		.remove::<Localized<Text2d, TestCatalog>>();
 	app.update();
 	assert!(!app.world().contains_resource::<TestCatalog>());
 	assert!(weak.upgrade().is_none());
@@ -262,7 +268,7 @@ fn unregistered_binding_scopes_and_cancelled_prepublication_bindings_do_not_load
 	let cancelled = app.world_mut().spawn(binding()).id();
 	app.world_mut().despawn(cancelled);
 	app.world_mut()
-		.spawn(LocalizedText::<Unregistered>::new(|_| String::new()));
+		.spawn(Localized::<Text, Unregistered>::new(|_| String::new()));
 	app.update();
 	assert_eq!(reads.load(Ordering::Relaxed), 0);
 	assert!(!app.world().contains_resource::<TestCatalog>());

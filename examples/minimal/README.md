@@ -26,7 +26,7 @@ In an enclosing workspace, the package is `localization-example`; add
 ## Start here
 
 - [main.rs](src/main.rs): generated `texts`, plugin setup, a deferred
-  `LocalizedText<texts::Ui>` binding and language changes.
+  `Localized<Text, texts::Ui>` binding and language changes.
 - [typed_resources.rs](src/bin/typed_resources.rs): the shorter resource-focused
   walkthrough. It shows `Res<texts::Translations>` with chained
   `Translations → Presentation → Hud` borrows and the same text entity after a
@@ -81,5 +81,11 @@ The extra catalogs with names such as `type`, `vec` and `as-ref` belong to the
 [test suite](tests/README.md): they exercise generated-name collisions, not
 additional application setup. The separate [ICU example](../icu) demonstrates
 application-owned Decimal and percentage formatters through Bevy resources.
+
+## Application-defined components
+
+The separate [binding example](../bindings) covers custom component bindings,
+field adapters, native text targets, button captions and query filters.
+See [the binding guide](../../docs/bindings.md) for the contracts.
 
 [MIT](LICENSE), for the example and its translation fixtures only.

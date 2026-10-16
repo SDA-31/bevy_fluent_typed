@@ -1,5 +1,8 @@
-use bevy_fluent_typed::bevy::{asset::AssetPlugin, prelude::*};
-use bevy_fluent_typed::{Localization, LocalizationPlugin, LocalizedText};
+use bevy_fluent_typed::bevy::{
+	asset::AssetPlugin,
+	prelude::{App, MinimalPlugins, Text},
+};
+use bevy_fluent_typed::{Localization, LocalizationPlugin, Localized};
 use std::time::{Duration, Instant};
 
 bevy_fluent_typed::translations!(mod texts);
@@ -15,10 +18,10 @@ fn main() {
 		AssetPlugin::default(),
 		LocalizationPlugin::<texts::Translations>::new(EMBEDDED),
 	));
-	app.world_mut()
-		.spawn(LocalizedText::<texts::ui::Greeting>::new(|greeting| {
-			greeting.msg_hello()
-		}));
+	app.world_mut().spawn((
+		Text::default(),
+		Localized::<Text, texts::ui::Greeting>::new(|greeting| greeting.msg_hello()),
+	));
 	app.finish();
 	app.cleanup();
 

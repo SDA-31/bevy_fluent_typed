@@ -1,9 +1,7 @@
 //! Older-backend demand, readiness and independent one-time initialization.
 use super::{TestCatalog, bytes::pump};
 use crate::bevy::{ecs as bevy_ecs, prelude::*};
-use crate::{
-	Localization, LocalizationAppExt, LocalizationPlugin, LocalizedText, Manual, localized,
-};
+use crate::{Localization, LocalizationAppExt, LocalizationPlugin, Localized, Manual, localized};
 use std::sync::{
 	Arc, Mutex,
 	atomic::{AtomicUsize, Ordering},
@@ -45,7 +43,7 @@ fn observe(catalog: Option<Res<TestCatalog>>, mut observed: ResMut<Observed>) {
 
 fn setup(_: Res<TestCatalog>, mut commands: Commands, mut observed: ResMut<Observed>) {
 	observed.setups += 1;
-	commands.spawn(LocalizedText::<TestCatalog>::new(|catalog| {
+	commands.spawn(Localized::<Text, TestCatalog>::new(|catalog| {
 		catalog.0.clone()
 	}));
 }
@@ -191,7 +189,7 @@ fn independent_setup_waits_once_and_hands_demand_to_its_deferred_binding() {
 	assert!(app.world().contains_resource::<TestCatalog>());
 	let label = app
 		.world_mut()
-		.query_filtered::<Entity, With<LocalizedText<TestCatalog>>>()
+		.query_filtered::<Entity, With<Localized<Text, TestCatalog>>>()
 		.single(app.world())
 		.unwrap();
 	assert_eq!(app.world().get::<Text>(label).unwrap().0, "ja");

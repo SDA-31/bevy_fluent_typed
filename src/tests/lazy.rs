@@ -6,7 +6,7 @@ use crate::bevy::asset::io::{
 use crate::bevy::prelude::*;
 use crate::bevy::tasks::futures_lite::io::AsyncRead;
 use crate::{
-	Full, Localization, LocalizationPlugin, LocalizationProgressPlugin, LocalizedText, Manual,
+	Full, Localization, LocalizationPlugin, LocalizationProgressPlugin, Localized, Manual,
 	ModuleStatus,
 };
 use std::{
@@ -534,7 +534,7 @@ fn manual_constructors_wait_for_explicit_demand_and_clear_bindings_on_unload() {
 			.world_mut()
 			.spawn((
 				Text("old".into()),
-				LocalizedText::new(|catalog: &TestCatalog| catalog.0.clone()),
+				Localized::<Text, _>::new(|catalog: &TestCatalog| catalog.0.clone()),
 			))
 			.id();
 		app.finish();

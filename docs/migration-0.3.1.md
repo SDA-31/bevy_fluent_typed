@@ -40,7 +40,7 @@ remain available: direct required `Res<Scope>` parameters request catalogs in La
 and wait for readiness. `add_localized_startup_systems` runs once in Update; it
 does not preserve native startup phases or original function ordering. See the
 [older-backend recipe](../GUIDE.md#older-bevy-backends).
-`LocalizedText` still owns its scope automatically in Lazy on every backend.
+`Localized` still owns its scope automatically in Lazy on every backend.
 
 ## Account for deferred startup
 
@@ -48,7 +48,7 @@ The default startup policy changes to **Deferred** on Bevy 0.19/0.20.
 Independent steps execute once; catalog consumers and their declared dependents
 wait. `PostStartup` follows completed Startup. Original function ordering, sets
 and deferred commands remain available. Completed steps do not rerun after locale
-changes; insert `LocalizedText` for live text.
+changes; insert `Localized` for live text.
 
 Frame schedules continue while startup waits. Guard frame systems that need
 non-catalog resources produced by unfinished startup steps, and initialize asset

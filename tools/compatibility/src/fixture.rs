@@ -27,6 +27,8 @@ impl<'a> Fixture<'a> {
 			"GUIDE.md",
 			".rustfmt.toml",
 			"src",
+			"tests",
+			"macros",
 			"docs",
 			"examples/minimal",
 			"examples/codegen",
@@ -43,7 +45,11 @@ impl<'a> Fixture<'a> {
 
 		if bsn {
 			copy(&source.join("examples/bsn"), &path.join("examples/bsn"))?;
-			generated_examples.push("bsn");
+			copy(
+				&source.join("examples/bindings"),
+				&path.join("examples/bindings"),
+			)?;
+			generated_examples.extend(["bsn", "bindings"]);
 		}
 
 		// Keep the smallest example free of backend-forwarding features: forwarding
@@ -101,23 +107,31 @@ impl<'a> Fixture<'a> {
 		}
 
 		if bsn {
-			let manifest = path.join("examples/bsn/Cargo.toml");
-			let original = fs::read_to_string(&manifest)?;
-			let scene_dependency = "bevy = { version = \"0.20.0\"";
+			for example in ["bsn", "bindings"] {
+				let manifest = path.join(format!("examples/{example}/Cargo.toml"));
+				let original = fs::read_to_string(&manifest)?;
+				let scene_dependency = "bevy = { version = \"0.20.0\"";
 
-			if !original.contains(scene_dependency) {
-				return Err("BSN example's scene dependency changed".into());
+				if !original.contains(scene_dependency) {
+					return Err("Example's Bevy dependency changed".into());
+				}
+
+				fs::write(
+					manifest,
+					original.replace(
+						scene_dependency,
+						&format!("bevy = {{ version = \"{version}\""),
+					),
+				)?;
 			}
 
-			fs::write(
-				manifest,
-				original.replace(
-					scene_dependency,
-					&format!("bevy = {{ version = \"{version}\""),
-				),
-			)?;
-
 			if backend == "bevy-0-19" {
+				let buttons = path.join("examples/bsn/src/buttons.rs");
+				fs::write(
+					&buttons,
+					fs::read_to_string(&buttons)?
+						.replace("buttons/native/bevy_0_20.rs", "buttons/native/bevy_0_19.rs"),
+				)?;
 				let tests = path.join("examples/bsn/src/tests.rs");
 				fs::write(
 					&tests,
@@ -127,7 +141,11 @@ impl<'a> Fixture<'a> {
 			}
 		}
 
-		let bsn_member = if bsn { ", \"examples/bsn\"" } else { "" };
+		let bsn_member = if bsn {
+			", \"examples/bsn\", \"examples/bindings\""
+		} else {
+			""
+		};
 
 		let manifest = path.join("Cargo.toml");
 		let generator = serde_json::to_string(&options.generator.to_string_lossy())?;

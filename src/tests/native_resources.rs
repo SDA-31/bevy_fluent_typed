@@ -172,7 +172,7 @@ fn passive_reads_allow_module_eviction_while_the_observer_stays_registered() {
 	);
 	let owner = app
 		.world_mut()
-		.spawn(crate::LocalizedText::<TestCatalog>::new(|scope| {
+		.spawn(crate::Localized::<Text, TestCatalog>::new(|scope| {
 			scope.0.clone()
 		}))
 		.id();

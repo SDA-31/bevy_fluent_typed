@@ -1,6 +1,6 @@
 use super::TestCatalog;
 use crate::bevy::prelude::*;
-use crate::{Localization, LocalizationPlugin, LocalizedText, Manual, ModuleStatus};
+use crate::{Localization, LocalizationPlugin, Localized, Manual, ModuleStatus};
 use std::{
 	any::TypeId,
 	sync::{
@@ -59,7 +59,7 @@ fn bytes_publish_checked_resources_and_bindings_without_asset_plugin() {
 		.world_mut()
 		.spawn((
 			Text::default(),
-			LocalizedText::<TestCatalog>::new(|text| text.0.clone()),
+			Localized::<Text, TestCatalog>::new(|text| text.0.clone()),
 		))
 		.id();
 	let runs = Arc::new(AtomicUsize::new(0));

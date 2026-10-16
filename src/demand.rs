@@ -84,11 +84,12 @@ pub(crate) fn acquire<S: FluentScope>(world: &mut World) -> Arc<Consumer> {
 }
 
 pub(crate) fn synchronize<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
+	world.flush();
+
 	if !M::AUTOMATIC {
 		return;
 	}
 
-	world.flush();
 	let Some(mut demands) = world.get_resource_mut::<Demands>() else {
 		return;
 	};

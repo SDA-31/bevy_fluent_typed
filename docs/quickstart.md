@@ -108,7 +108,7 @@ root to Bevy's base directory (the package directory under `cargo run`) so
 For another source layout, pass a `LocalizationManifest` with its runtime origin.
 
 On Bevy 0.19/0.20, the default **Lazy** mode loads scopes used by inserted
-`LocalizedText` bindings and ordinary `Res<Scope>` systems. Startup defaults to
+`Localized` bindings and ordinary `Res<Scope>` systems. Startup defaults to
 **Deferred**: `show_title` waits for the HUD, runs once and releases its temporary
 demand. Independent startup steps run while it waits; frame updates keep loading
 assets. Optional `load`/`unload` calls retain extra scopes independently.
@@ -195,6 +195,7 @@ for a minimal runtime and a handwritten provider.
 - [Loading guide](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md): automatic module lifetime, manual modes and headless applications.
 - [BSN and text spans](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bsn.md): use the same binding on scene text and child spans.
 - [Loading progress](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md#observe-loading-progress): optional native progress subtrees and module details.
+- [Custom bindings](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bindings.md): custom components, semantic labels and provider cache policies.
 - [Native resource registration and startup](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.3.1.md): changes from 0.3.0.
 - [Migration to 0.3](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.3.md): Bevy 0.20, Rust minimum and older backends.
 - [Migration from 0.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) and [catalog path and embedding migration](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.2.md).

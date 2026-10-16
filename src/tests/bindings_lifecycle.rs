@@ -1,14 +1,14 @@
 use super::{TestCatalog, manifest};
 use crate::bevy::prelude::*;
-use crate::{Localization, LocalizationPlugin, LocalizedText, Manual};
+use crate::{Localization, LocalizationPlugin, LocalizationTarget, Localized, Manual};
 use std::sync::{
 	Arc,
 	atomic::{AtomicUsize, Ordering},
 };
 
-fn binding(calls: &Arc<AtomicUsize>) -> LocalizedText<TestCatalog> {
+fn binding<T: LocalizationTarget>(calls: &Arc<AtomicUsize>) -> Localized<T, TestCatalog> {
 	let calls = calls.clone();
-	LocalizedText::new(move |catalog: &TestCatalog| {
+	Localized::<T, _>::new(move |catalog: &TestCatalog| {
 		calls.fetch_add(1, Ordering::Relaxed);
 		catalog.0.clone()
 	})
@@ -19,15 +19,15 @@ fn bindings_track_lifetimes_before_and_after_plugin_installation() {
 	let calls = Arc::new(AtomicUsize::new(0));
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, AssetPlugin::default()));
-	let cancelled = app.world_mut().spawn(binding(&calls)).id();
+	let cancelled = app.world_mut().spawn(binding::<Text>(&calls)).id();
 	app.world_mut().despawn(cancelled);
 	let first = app
 		.world_mut()
-		.spawn((Text::default(), binding(&calls)))
+		.spawn((Text::default(), binding::<Text>(&calls)))
 		.id();
 	let second = app
 		.world_mut()
-		.spawn((Text2d::default(), binding(&calls)))
+		.spawn((Text2d::default(), binding::<Text2d>(&calls)))
 		.id();
 	app.add_plugins(LocalizationPlugin::<TestCatalog>::new_manual(manifest()));
 	app.world_mut()
@@ -39,12 +39,14 @@ fn bindings_track_lifetimes_before_and_after_plugin_installation() {
 	assert_eq!(calls.load(Ordering::Relaxed), 2);
 
 	app.world_mut().despawn(first);
-	app.world_mut().entity_mut(second).insert(binding(&calls));
+	app.world_mut()
+		.entity_mut(second)
+		.insert(binding::<Text2d>(&calls));
 	app.update();
 	assert_eq!(calls.load(Ordering::Relaxed), 3);
 	*app.world_mut()
-		.get_mut::<LocalizedText<TestCatalog>>(second)
-		.unwrap() = binding(&calls);
+		.get_mut::<Localized<Text2d, TestCatalog>>(second)
+		.unwrap() = binding::<Text2d>(&calls);
 	app.update();
 	assert_eq!(calls.load(Ordering::Relaxed), 4);
 
@@ -65,7 +67,7 @@ fn bindings_track_lifetimes_before_and_after_plugin_installation() {
 	app.update();
 	let later = app
 		.world_mut()
-		.spawn((Text::default(), binding(&calls)))
+		.spawn((Text::default(), binding::<Text>(&calls)))
 		.id();
 	app.update();
 	assert_eq!(app.world().get::<Text>(later).unwrap().0, "ja");
@@ -73,7 +75,7 @@ fn bindings_track_lifetimes_before_and_after_plugin_installation() {
 }
 
 #[test]
-fn missing_default_text_is_restored_in_the_same_frame() {
+fn an_application_removed_text_is_not_recreated_by_its_remaining_binding() {
 	let calls = Arc::new(AtomicUsize::new(0));
 	let mut app = App::new();
 	app.add_plugins((
@@ -81,13 +83,13 @@ fn missing_default_text_is_restored_in_the_same_frame() {
 		AssetPlugin::default(),
 		LocalizationPlugin::<TestCatalog>::new(manifest()),
 	));
-	let entity = app.world_mut().spawn(binding(&calls)).id();
+	let entity = app.world_mut().spawn(binding::<Text>(&calls)).id();
 	app.update();
 	app.update();
 	assert_eq!(app.world().get::<Text>(entity).unwrap().0, "ja");
 	assert_eq!(calls.load(Ordering::Relaxed), 1);
 	app.world_mut().entity_mut(entity).remove::<Text>();
 	app.update();
-	assert_eq!(app.world().get::<Text>(entity).unwrap().0, "ja");
-	assert_eq!(calls.load(Ordering::Relaxed), 2);
+	assert!(app.world().get::<Text>(entity).is_none());
+	assert_eq!(calls.load(Ordering::Relaxed), 1);
 }

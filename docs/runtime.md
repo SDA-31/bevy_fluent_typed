@@ -13,7 +13,7 @@ Use `LocalizationPlugin::<texts::Translations>::new(texts::manifest())` for the
 usual automatic path. With no consumers, manual pins or leases, no FTL modules
 are read or parsed.
 A scope requests complete FTL leaves, not individual messages. Creating an
-unattached `Message` or binding, inspecting the world, or navigating a controller
+unattached `Msg` or binding, inspecting the world, or navigating a controller
 view is passive. Lazy also supports optional manual pins; Full has no
 `load` or `unload` methods.
 
@@ -24,11 +24,11 @@ Insert a binding and let the plugin manage its scope:
 ```rust,ignore
 commands.spawn((
     Text::default(),
-    LocalizedText::<texts::presentation::Hud>::new(|hud| hud.msg_title()),
+    Localized::<Text, texts::presentation::Hud>::new(|hud| hud.msg_title()),
 ));
 ```
 
-In `Lazy`, every inserted `LocalizedText<Scope>` requests and retains its scope.
+In `Lazy`, every inserted `Localized<Text, Scope>` requests and retains its scope.
 Removing the last binding releases that demand. Other bindings, native resource
 consumers on 0.19/0.20 and helper-registered consumers on 0.16–0.18 keep
 overlapping scopes loaded. No explicit screen-entry or screen-exit loading calls
@@ -190,7 +190,7 @@ use localization::{HUD, Interface, Translations};
 app.add_plugins(LocalizationPlugin::<Translations>::new(HUD));
 ```
 
-Insert `LocalizedText<Interface>` or register a `Res<Interface>` consumer with
+Insert `Localized<Text, Interface>` or register a `Res<Interface>` consumer with
 `add_systems` on Bevy 0.19/0.20; Lazy requests its scope without manual calls.
 `Interface` names the catalog resource; `HUD` describes its embedded source.
 The macro's selectors always use the original relative schema names. Multiple
@@ -329,7 +329,7 @@ fn setup_hud(mut commands: Commands, hud: Res<texts::presentation::Hud>) {
 Independent steps execute once. Catalog consumers wait; steps ordered after them
 wait too. `PostStartup` follows completed `Startup`. A completed or normally
 condition-skipped step does not rerun. Temporary demand is released after deferred
-commands apply, including when the function returns an error. Use `LocalizedText`
+commands apply, including when the function returns an error. Use `Localized`
 for text that must follow later language changes.
 
 Frame schedules keep running while startup waits so Bevy can load assets.
@@ -428,7 +428,7 @@ Ordinary `add_systems` does not gain resource discovery on these older backends.
 For application-owned loading through Full, pins or leases, native
 `resource_exists::<Scope>` remains available as a readiness condition. Native
 Startup, OnEnter and custom one-shot schedules do not retry skipped consumers.
-`LocalizedText` owns its scope automatically in Lazy on every backend. Startup
+`Localized` owns its scope automatically in Lazy on every backend. Startup
 strategies and `PassiveCatalog` remain exclusive to Bevy 0.19/0.20.
 
 `Localization::new(locale)` and `Default` create a controller, not a ready catalog.
@@ -600,17 +600,17 @@ Register that system with `app.add_systems(Update, inspect_complete)` on Bevy 0.
 
 ## Bind text without keeping an old translation
 
-A `LocalizedText<Scope>` component stores a closure. The plugin renders it using
-the current resource and updates the existing `Text`, `Text2d` or `TextSpan`
-component when the language, module or binding changes:
+A `Localized<Text, Scope>` component stores a closure. The plugin renders it using
+the current resource and updates the selected target when the language, module
+or message changes. Select `Text`, `Text2d` or `TextSpan` explicitly:
 
 ```rust,ignore
-use bevy_fluent_typed::LocalizedText;
+use bevy_fluent_typed::Localized;
 
 fn spawn_title(mut commands: Commands) {
     commands.spawn((
         Text::default(),
-        LocalizedText::<texts::presentation::Hud>::new(|hud| hud.msg_title()),
+        Localized::<Text, texts::presentation::Hud>::new(|hud| hud.msg_title()),
     ));
 }
 ```
@@ -620,24 +620,28 @@ module loads. In Lazy, insertion requests the HUD and removal releases that
 binding's demand. Your application owns the usual Bevy UI/camera/font setup.
 Missing or unloaded resources clear bound text, and it
 refreshes when the resource becomes available. Bind to the smallest scope the
-message uses: a `LocalizedText<Translations>` would wait for the entire tree.
+message uses: a `Localized<Text, Translations>` would wait for the entire tree.
 
 Bindings can be cloned and used in native Bevy 0.19/0.20 scenes; see the
 [BSN recipe](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bsn.md) for the syntax of each backend and child text spans.
+Use `Localized<TextSpan, Scope>` for spans and `Localized<Text2d, Scope>` for world
+labels. Built-in targets can create a missing component through `Default`; custom
+adapters own that creation step, and targets without `Default` must be supplied
+by the application. See [target bindings](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bindings.md).
 A span binding owns its scope just like a root binding in Lazy. Its parent
 `Text`/`Text2d`, hierarchy and styles belong to the application; refreshing a
 span does not insert a root `Text`. All three targets keep their active-language
 content while a new locale loads or fails validation.
 
-For stored notices, use `Message<Scope>` and render only when its scope is ready.
-A stored message does not establish demand until inserted as a `LocalizedText`
+For stored notices, use `Msg<Scope>` and render only when its scope is ready.
+A stored message does not establish demand until inserted as a `Localized`
 binding; render it in a native required-resource system on Bevy 0.19/0.20 when needed:
 
 ```rust,ignore
-use bevy_fluent_typed::Message;
+use bevy_fluent_typed::Msg;
 
-let message = Message::new(|hud: &texts::presentation::Hud| hud.msg_title());
-// Or: Message::<texts::presentation::Hud>::new(|hud| hud.msg_title())
+let message = Msg::new(|hud: &texts::presentation::Hud| hud.msg_title());
+// Or: Msg::<texts::presentation::Hud>::new(|hud| hud.msg_title())
 
 if let Ok(hud) = localization.modules().presentation().hud() {
     let text = message.render(hud);
@@ -648,6 +652,12 @@ Capture owned message arguments, not a translated string or an old module
 snapshot. Replace the binding when captured values change. Editable text drafts
 should use separate components: localization replaces bound text. Number
 formatting stays application-owned; see the ICU4X example.
+The [complete Msg update rules](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bindings.md#every-msg-rendering-and-update-path)
+separate formatter invalidation, cached target repair and application-owned snapshots.
+The provider defaults to `CachePolicy::Rendered`. Use
+`.with_cache_policy(CachePolicy::None)` to retain tracking metadata without an
+additional formatted-output cache; see [cache policies](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bindings.md#choose-a-providers-cache-policy)
+for native repair, custom-adapter costs and paired accessibility handling.
 
 ## Change language and reload files
 
@@ -1006,3 +1016,11 @@ impl LoadingMode for Other { const FULL: bool = false; }
 - [Custom sources](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/asset-sources.md): supply files through your own reader.
 - [Decimal and percentage arguments](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/formatting.md): reuse ICU4X formatters.
 - [Build API](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/build.md): explicit generation and feature selection.
+
+## Custom components and semantic labels
+
+See [application-defined bindings](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bindings.md)
+for `Localized<Target, Scope>` on custom components and separate fields.
+Bindings retain scope demand by entity presence in Lazy, without registration
+or a user refresh system. The same interface
+updates immutable AccessibleLabel on Bevy 0.19/0.20 after UI accessibility producers.

@@ -34,6 +34,10 @@ are separate Cargo integration targets; no test assertions run in the examples.
 - [typed_resources.rs](typed_resources.rs): executable output from the
   [typed-resource walkthrough](../src/bin/typed_resources.rs).
 
+
+The separate [binding example](../../bindings) covers custom component bindings,
+native targets and application-owned text updates.
+
 Watcher tests modify disposable copied assets, never the example sources.
 They allow up to 15 seconds for convergence. Separate valid edits may publish
 intermediate snapshots; they do not claim a multi-file filesystem transaction.

@@ -1,6 +1,6 @@
 use super::{Hud, Other, Panel, Presentation, Root, configured_mode, pump};
 use crate::bevy::prelude::*;
-use crate::{Lazy, Localization, LocalizationProgress, LocalizationProgressPlugin, LocalizedText};
+use crate::{Lazy, Localization, LocalizationProgress, LocalizationProgressPlugin, Localized};
 use std::sync::Arc;
 
 #[test]
@@ -25,7 +25,7 @@ fn spans_leases_and_pins_share_recursive_progress_through_automatic_switching() 
 		.spawn((
 			TextSpan::default(),
 			ChildOf(parent),
-			LocalizedText::<Hud>::new(|hud| hud.0.to_string()),
+			Localized::<TextSpan, Hud>::new(|hud| hud.0.to_string()),
 		))
 		.id();
 	let lease = app

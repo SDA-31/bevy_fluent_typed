@@ -4,6 +4,11 @@ pub(crate) mod readiness;
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 pub(crate) mod scheduling;
 
+#[cfg(any(feature = "bevy-0-18", feature = "bevy-0-19", feature = "bevy-0-20"))]
+pub(crate) use crate::bevy::ecs::change_detection::Tick;
+#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17"))]
+pub(crate) use crate::bevy::ecs::component::Tick;
+
 #[cfg(feature = "manifest")]
 use crate::bevy::asset::{AssetPath, LoadContext};
 use crate::bevy::{
@@ -68,6 +73,20 @@ pub(crate) fn before_text_detection<M>(
 			.before(crate::bevy::text::detect_text_needs_rerender::<Text>)
 			.before(crate::bevy::text::detect_text_needs_rerender::<Text2d>)
 	}
+}
+
+pub(crate) fn after_accessibility_layout<M>(
+	systems: impl IntoScheduleConfigs<ScheduleSystem, M>,
+) -> ScheduleConfigs<ScheduleSystem> {
+	let systems = systems.after(crate::LocalizationSystems::Refresh);
+
+	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+	let systems = systems.after(UiSystems::PostLayout);
+
+	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+	let systems = systems.before(crate::bevy::a11y::AccessibilitySystems::Update);
+
+	systems
 }
 
 /// Publish only active catalog updates from an exclusive synchronization step.

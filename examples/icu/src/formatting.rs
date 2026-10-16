@@ -2,7 +2,7 @@
 use std::{collections::HashMap, sync::Arc};
 
 use bevy_fluent_typed::bevy::{ecs as bevy_ecs, prelude::*};
-use bevy_fluent_typed::{FluentCatalog, LocalizedText};
+use bevy_fluent_typed::{FluentCatalog, Localized};
 use icu_decimal::{DecimalFormatter, input::Decimal, options::GroupingStrategy};
 use icu_experimental::dimension::percent::formatter::PercentFormatter;
 use icu_locale_core::Locale as IcuLocale;
@@ -71,10 +71,10 @@ pub(crate) fn spawn_labels(mut commands: Commands, formats: Res<NumberFormats>) 
 }
 
 /// Keep the original exact amount and select formatting from the current catalog.
-pub(crate) fn damage_text(amount: Decimal, formats: &NumberFormats) -> LocalizedText<Hud> {
+pub(crate) fn damage_text(amount: Decimal, formats: &NumberFormats) -> Localized<Text, Hud> {
 	let formats = Arc::clone(&formats.0);
 
-	LocalizedText::new(move |catalog: &Hud| {
+	Localized::<Text, _>::new(move |catalog: &Hud| {
 		let formatter = &formats[&catalog.locale()].decimal;
 		let text = formatter.format_to_string(&amount);
 
@@ -83,10 +83,10 @@ pub(crate) fn damage_text(amount: Decimal, formats: &NumberFormats) -> Localized
 }
 
 /// The application stores a ratio; ICU4X 0.6's percent API takes percent units.
-pub(crate) fn chance_text(ratio: Decimal, formats: &NumberFormats) -> LocalizedText<Hud> {
+pub(crate) fn chance_text(ratio: Decimal, formats: &NumberFormats) -> Localized<Text2d, Hud> {
 	let formats = Arc::clone(&formats.0);
 
-	LocalizedText::new(move |catalog: &Hud| {
+	Localized::<Text2d, _>::new(move |catalog: &Hud| {
 		let formatter = &formats[&catalog.locale()].percent;
 		let mut percent = ratio.clone();
 		percent.multiply_pow10(2); // Exact conversion: 0.125 of the whole is 12.5 percent.

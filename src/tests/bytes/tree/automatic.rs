@@ -1,6 +1,6 @@
 use super::{Hud, Other, Panel, Presentation, Root, controlled_mode, pump};
 use crate::bevy::prelude::*;
-use crate::{Lazy, LocalizedText};
+use crate::{Lazy, Localized};
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 use std::sync::{
 	Arc,
@@ -12,11 +12,11 @@ fn automatic_group_and_leaf_owners_load_only_their_union_and_release_independent
 	let (mut app, source) = controlled_mode::<Lazy>();
 	let hud = app
 		.world_mut()
-		.spawn(LocalizedText::<Hud>::new(|hud| hud.0.to_string()))
+		.spawn(Localized::<Text, Hud>::new(|hud| hud.0.to_string()))
 		.id();
 	let group = app
 		.world_mut()
-		.spawn(LocalizedText::<Presentation>::new(|group| {
+		.spawn(Localized::<Text, Presentation>::new(|group| {
 			group.panel.0.to_string()
 		}))
 		.id();

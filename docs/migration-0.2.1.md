@@ -32,7 +32,7 @@ discovery boundaries, passive observers and older-backend registration helpers.
 Bevy 0.16–0.18 retain `LocalizationAppExt` and `localized` for direct required
 catalog reads, including automatic Lazy demand and readiness. Their one-time
 helper runs in Update; native one-shot startup does not retry an absent catalog. See the [older-backend recipe](../GUIDE.md#older-bevy-backends).
-`LocalizedText` still loads and retains its scope automatically in Lazy on all
+`Localized` still loads and retains its scope automatically in Lazy on all
 backends. The scheduling helpers are absent on Bevy 0.19/0.20.
 
 ## Keep explicit loading when intended

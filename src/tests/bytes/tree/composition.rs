@@ -1,6 +1,6 @@
 use super::{Hud, Other, Panel, Root, controlled_mode, pump};
 use crate::bevy::prelude::*;
-use crate::{Lazy, Localization, LocalizedText, PreparationStatus};
+use crate::{Lazy, Localization, Localized, PreparationStatus};
 
 #[test]
 fn root_removal_spans_pins_and_locale_switch_share_one_demand_union() {
@@ -9,7 +9,7 @@ fn root_removal_spans_pins_and_locale_switch_share_one_demand_union() {
 		.world_mut()
 		.spawn((
 			Text::default(),
-			LocalizedText::<Root>::new(|root| root.presentation.hud.0.to_string()),
+			Localized::<Text, Root>::new(|root| root.presentation.hud.0.to_string()),
 		))
 		.id();
 	let span = app
@@ -17,7 +17,7 @@ fn root_removal_spans_pins_and_locale_switch_share_one_demand_union() {
 		.spawn((
 			TextSpan::default(),
 			ChildOf(parent),
-			LocalizedText::<Hud>::new(|hud| hud.0.to_string()),
+			Localized::<TextSpan, Hud>::new(|hud| hud.0.to_string()),
 		))
 		.id();
 	pump(&mut app, |_| source.count() == 3);
@@ -28,7 +28,7 @@ fn root_removal_spans_pins_and_locale_switch_share_one_demand_union() {
 	assert!(!app.world().contains_resource::<Root>());
 	app.world_mut()
 		.entity_mut(parent)
-		.remove::<LocalizedText<Root>>();
+		.remove::<Localized<Text, Root>>();
 	app.update();
 	assert!(app.world().contains_resource::<Hud>());
 	assert!(!app.world().contains_resource::<Panel>());

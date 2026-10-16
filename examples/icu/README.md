@@ -2,7 +2,7 @@
 
 A headless application that creates Decimal and percentage formatters once per
 catalog locale, shares them through a Bevy resource, and injects them into
-deferred `LocalizedText<texts::presentation::Hud>` bindings. English documentation and source-language FTL;
+deferred `Localized<Text, texts::presentation::Hud>` bindings. English documentation and source-language FTL;
 English, Spanish, Russian and Arabic translations. No window, fonts or GPU needed.
 
 This example uses the existing `bevy_fluent_typed` API. ICU is an **application

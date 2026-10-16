@@ -129,7 +129,7 @@ root to Bevy's base directory (the package directory under `cargo run`) so
 For another source layout, pass a `LocalizationManifest` with its runtime origin.
 
 On Bevy 0.19/0.20, the default **Lazy** mode loads scopes used by inserted
-`LocalizedText` bindings and ordinary `Res<Scope>` systems. Startup defaults to
+`Localized` bindings and ordinary `Res<Scope>` systems. Startup defaults to
 **Deferred**: `show_title` waits for the HUD, runs once and releases its temporary
 demand. Independent startup steps run while it waits; frame updates keep loading
 assets. Optional `load`/`unload` calls retain extra scopes independently.
@@ -261,6 +261,7 @@ transports, fonts and shaping remain application responsibilities.
 - [Build API](docs/build.md): explicit generation and dependency feature isolation.
 - [Migration to 0.3](docs/migration-0.3.md): Bevy 0.20, Rust minimum and older backends.
 - [Migration from 0.1](docs/migration-0.2.md): update an older application.
+- [Custom bindings](docs/bindings.md): custom components, fields, semantic names and provider cache policies.
 - [Native resource setup](docs/migration-0.3.1.md): ordinary system registration
   and startup strategies on Bevy 0.19/0.20.
 - [Changelog](CHANGELOG.md): notable changes grouped by release.

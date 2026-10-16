@@ -1,10 +1,12 @@
 //! Deferred typed messages and catalog reload notifications.
-#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
-mod template;
-
-use crate::bevy::{ecs as bevy_ecs, prelude::Component};
+use crate::bevy::ecs as bevy_ecs;
 use crate::{FluentCatalog, FluentScope};
-use std::{fmt, marker::PhantomData, sync::Arc};
+use std::{
+	fmt,
+	marker::PhantomData,
+	ptr,
+	sync::{Arc, Weak},
+};
 
 /// Cloneable deferred formatting for a leaf, group or complete catalog.
 ///
@@ -21,18 +23,43 @@ use std::{fmt, marker::PhantomData, sync::Arc};
 /// shares application-owned formatters through a resource and `Arc`.
 /// Changing another resource does not invalidate captured values automatically;
 /// replace the binding when its value or formatter settings change.
-pub struct Message<C: FluentScope>(Arc<dyn Fn(&C) -> String + Send + Sync>);
+/// Automatic bindings may invoke formatters concurrently on Bevy's compute
+/// pool. Do not rely on entity iteration order or invocation on the main thread.
+pub struct Msg<C: FluentScope>(Arc<dyn Fn(&C) -> String + Send + Sync>);
 
-impl<C: FluentScope> Clone for Message<C> {
+/// Deprecated name for [`Msg`]; constructors and binding conversions are unchanged.
+#[deprecated(note = "use `Msg` instead")]
+pub type Message<C> = Msg<C>;
+
+pub(crate) struct MsgIdentity<C: FluentScope>(Weak<dyn Fn(&C) -> String + Send + Sync>);
+
+impl<C: FluentScope> MsgIdentity<C> {
+	pub(crate) fn matches(&self, message: &Msg<C>) -> bool {
+		// Keep the allocation's identity alive without retaining captured values.
+		// The weak control block prevents address reuse until this identity retires.
+		ptr::addr_eq(self.0.as_ptr(), Arc::as_ptr(&message.0))
+	}
+}
+
+impl<C: FluentScope> Clone for Msg<C> {
 	fn clone(&self) -> Self {
 		Self(Arc::clone(&self.0))
 	}
 }
 
-impl<C: FluentScope> Message<C> {
+impl<C: FluentScope> Msg<C> {
 	/// Store a thread-safe formatting closure; cloning shares the closure via `Arc`.
 	pub fn new(format: impl Fn(&C) -> String + Send + Sync + 'static) -> Self {
 		Self(Arc::new(format))
+	}
+
+	#[cfg(test)]
+	pub(crate) fn same_formatter(&self, other: &Self) -> bool {
+		Arc::ptr_eq(&self.0, &other.0)
+	}
+
+	pub(crate) fn identity(&self) -> MsgIdentity<C> {
+		MsgIdentity(Arc::downgrade(&self.0))
 	}
 
 	/// Store fixed text returned unchanged for every locale and catalog snapshot.
@@ -46,53 +73,9 @@ impl<C: FluentScope> Message<C> {
 	}
 }
 
-impl<C: FluentScope> fmt::Debug for Message<C> {
+impl<C: FluentScope> fmt::Debug for Msg<C> {
 	fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-		formatter.write_str("Message(<typed formatter>)")
-	}
-}
-
-#[derive(Component)]
-#[component(on_add = crate::bindings::added::<C>, on_remove = crate::bindings::removed::<C>)]
-/// Bind an existing Bevy `Text`, `Text2d` or `TextSpan` to a typed message.
-///
-/// The plugin changes text in place when the catalog or binding changes. It does
-/// not spawn/despawn the entity. In default Lazy, inserting the component requests
-/// and retains its scope until removed; the last consumer releases demand.
-/// Root and span targets have the same ownership. A span binding does not
-/// create a root `Text`; its parent hierarchy and styles belong to the application.
-/// Language changes keep active text until the target locale validates and
-/// publishes, including when target acquisition fails.
-/// Explicit Manual requires manual requests. An unavailable scope clears
-/// bound text until that scope becomes ready. Prefer the smallest scope the
-/// message needs, so unrelated modules do not delay it.
-/// Bound text contents are replaced, so keep editable drafts separate; this
-/// binding does not manage or preserve text-editor state.
-/// Cloning shares the formatter and its captured arguments, without capturing
-/// a catalog snapshot. Creating or cloning an unattached binding is passive.
-/// Each inserted clone owns demand in Lazy and refreshes independently.
-/// On Bevy 0.19/0.20, native BSN accepts `LocalizedText::<Scope>::new(...)`
-/// and `LocalizedText::<Scope>::from(...)` directly through `FromTemplate`.
-/// Number formatting belongs to the closure (see [`Message`]); shaping, visual
-/// bidi ordering and font coverage belong to the renderer, not this component.
-pub struct LocalizedText<C: FluentScope>(pub(crate) Message<C>);
-
-impl<C: FluentScope> Clone for LocalizedText<C> {
-	fn clone(&self) -> Self {
-		Self(self.0.clone())
-	}
-}
-
-impl<C: FluentScope> LocalizedText<C> {
-	/// Construct a binding; replace the component when captured arguments change.
-	pub fn new(format: impl Fn(&C) -> String + Send + Sync + 'static) -> Self {
-		Self(Message::new(format))
-	}
-}
-
-impl<C: FluentScope> From<Message<C>> for LocalizedText<C> {
-	fn from(message: Message<C>) -> Self {
-		Self(message)
+		formatter.write_str("Msg(<typed formatter>)")
 	}
 }
 

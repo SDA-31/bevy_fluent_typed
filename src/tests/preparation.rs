@@ -4,7 +4,7 @@ use super::TestCatalog;
 use crate::bevy::ecs as bevy_ecs;
 use crate::bevy::prelude::*;
 use crate::{
-	CommitLocaleError, Full, LoadingMode, Localization, LocalizationPlugin, LocalizedText, Manual,
+	CommitLocaleError, Full, LoadingMode, Localization, LocalizationPlugin, Localized, Manual,
 	PreparationStatus,
 };
 use std::{
@@ -58,7 +58,7 @@ fn exercise_bytes<M: LoadingMode>() {
 		.world_mut()
 		.spawn((
 			Text::default(),
-			LocalizedText::<TestCatalog>::new(|catalog| catalog.0.clone()),
+			Localized::<Text, TestCatalog>::new(|catalog| catalog.0.clone()),
 		))
 		.id();
 	let calls = Arc::new(AtomicUsize::new(0));

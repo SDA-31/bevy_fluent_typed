@@ -3,7 +3,7 @@ use super::TestCatalog;
 use crate::bevy::ecs::schedule::{NodeId, ScheduleGraph};
 use crate::bevy::ecs::system::System;
 use crate::bevy::{ecs as bevy_ecs, prelude::*};
-use crate::{Localization, LocalizationPlugin, LocalizedText, bindings};
+use crate::{Localization, LocalizationPlugin, Localized, bindings};
 use std::{any::TypeId, collections::HashSet};
 
 #[derive(Resource, Default)]
@@ -69,13 +69,13 @@ fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 	let ui = app
 		.world_mut()
 		.spawn((
-			LocalizedText::<TestCatalog>::new(|catalog| catalog.0.clone()),
+			Localized::<Text, TestCatalog>::new(|catalog| catalog.0.clone()),
 			Name::new("preserved"),
 		))
 		.id();
 	app.world_mut().spawn((
 		Text2d::default(),
-		LocalizedText::<TestCatalog>::new(|catalog| catalog.0.clone()),
+		Localized::<Text2d, TestCatalog>::new(|catalog| catalog.0.clone()),
 	));
 	app.finish();
 	app.cleanup();
@@ -143,7 +143,7 @@ fn update_changes_reach_ui_and_world_before_engine_text_detection() {
 
 	app.world_mut()
 		.entity_mut(ui)
-		.insert(LocalizedText::<TestCatalog>::new(|catalog| {
+		.insert(Localized::<Text, TestCatalog>::new(|catalog| {
 			format!("{}!", catalog.0)
 		}));
 	app.update();

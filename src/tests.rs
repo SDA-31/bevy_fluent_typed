@@ -2,7 +2,7 @@
 use crate::LocalizationManifest;
 use crate::bevy::{ecs as bevy_ecs, prelude::*};
 use crate::{
-	FluentCatalog, FluentScope, Localization, LocalizedText, Manual, Message, Module, ModuleStore,
+	FluentCatalog, FluentScope, Localization, Localized, Manual, Module, ModuleStore, Msg,
 	ScopeRegistration, bindings,
 };
 use std::sync::Arc;
@@ -11,6 +11,7 @@ mod automatic;
 #[cfg(feature = "manifest")]
 mod bindings_lifecycle;
 mod bytes;
+mod custom_bindings;
 mod documentation;
 #[cfg(feature = "manifest")]
 mod lazy;
@@ -19,6 +20,7 @@ mod leases;
 mod legacy_systems;
 #[cfg(feature = "manifest")]
 mod loader;
+mod msg;
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 mod native_resources;
 mod preparation;
@@ -123,22 +125,20 @@ fn selected_locale_preserves_active_data_and_logical_requests_until_ready() {
 
 #[test]
 fn deferred_messages_refresh_and_clear_existing_ui_and_world_labels() {
-	let message = Message::<TestCatalog>::new(|catalog| catalog.0.clone());
+	let message = Msg::<TestCatalog>::new(|catalog| catalog.0.clone());
 	let cloned = message.clone();
-	let binding = LocalizedText::from(message);
+	let binding = Localized::<Text, _>::from(message.clone());
 	let mut app = App::new();
-	app.insert_resource(TestCatalog("ja".into())).add_systems(
-		Update,
-		(
-			bindings::refresh_ui::<TestCatalog>,
-			bindings::refresh_world::<TestCatalog>,
-		),
-	);
+	bindings::register::<TestCatalog>(&mut app, false);
+	app.insert_resource(TestCatalog("ja".into()));
 	let ui = app
 		.world_mut()
 		.spawn((Text::default(), binding.clone()))
 		.id();
-	let world = app.world_mut().spawn((Text2d::default(), binding)).id();
+	let world = app
+		.world_mut()
+		.spawn((Text2d::default(), Localized::<Text2d, _>::from(message)))
+		.id();
 	app.update();
 	assert_eq!(app.world().get::<Text>(ui).unwrap().0, "ja");
 	app.world_mut().insert_resource(TestCatalog("es".into()));
@@ -153,10 +153,10 @@ fn deferred_messages_refresh_and_clear_existing_ui_and_world_labels() {
 }
 
 #[test]
-fn default_ui_respects_explicit_targets_and_waits_for_a_catalog() {
+fn native_defaults_create_only_the_selected_target_without_a_catalog() {
 	let mut app = App::new();
 	bindings::register::<TestCatalog>(&mut app, false);
-	let binding = LocalizedText::<TestCatalog>::new(|catalog| catalog.0.clone());
+	let binding = Localized::<Text, TestCatalog>::new(|catalog| catalog.0.clone());
 	let implicit = app.world_mut().spawn(binding.clone()).id();
 	let ui = app
 		.world_mut()
@@ -164,16 +164,24 @@ fn default_ui_respects_explicit_targets_and_waits_for_a_catalog() {
 		.id();
 	let world = app
 		.world_mut()
-		.spawn((binding.clone(), Text2d::default()))
+		.spawn((
+			Localized::<Text2d, TestCatalog>::new(|catalog| catalog.0.clone()),
+			Text2d::default(),
+		))
 		.id();
-	let late_world = app.world_mut().spawn(binding.clone()).id();
+	let late_world = app
+		.world_mut()
+		.spawn(Localized::<Text2d, TestCatalog>::new(|catalog| {
+			catalog.0.clone()
+		}))
+		.id();
 	app.world_mut()
 		.entity_mut(late_world)
 		.insert(Text2d::default());
 	let cancelled = app.world_mut().spawn(binding.clone()).id();
 	app.world_mut()
 		.entity_mut(cancelled)
-		.remove::<LocalizedText<TestCatalog>>();
+		.remove::<Localized<Text, TestCatalog>>();
 	let despawned = app.world_mut().spawn(binding).id();
 	app.world_mut().despawn(despawned);
 	app.update();
@@ -182,7 +190,8 @@ fn default_ui_respects_explicit_targets_and_waits_for_a_catalog() {
 	assert!(app.world().get::<Text>(ui).unwrap().0.is_empty());
 	assert!(app.world().get::<Text>(world).is_none());
 	assert!(app.world().get::<Text>(late_world).is_none());
-	assert!(app.world().get::<Text>(cancelled).is_none());
+	// Initialization may already have run when an exclusive world access flushed hooks.
+	assert!(app.world().get::<Text>(cancelled).unwrap().0.is_empty());
 	app.world_mut().insert_resource(TestCatalog("ready".into()));
 	app.update();
 

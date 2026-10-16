@@ -1,7 +1,7 @@
 //! Lease demand and its release queue survive explicit locale preparation.
 use super::{Hud, Panel, Root, controlled, pump};
 use crate::bevy::prelude::*;
-use crate::{Localization, LocalizedText, Manual, PreparationStatus};
+use crate::{Localization, Localized, Manual, PreparationStatus};
 
 #[test]
 fn new_lease_revokes_a_queued_commit_and_existing_owners_survive_publication() {
@@ -12,7 +12,7 @@ fn new_lease_revokes_a_queued_commit_and_existing_owners_survive_publication() {
 	};
 	let label = app
 		.world_mut()
-		.spawn(LocalizedText::<Hud>::new(|hud| hud.0.as_str().to_owned()))
+		.spawn(Localized::<Text, Hud>::new(|hud| hud.0.as_str().to_owned()))
 		.id();
 	pump(&mut app, |_| source.count() == 1);
 	let active = source.release::<Hud>("en", 0);

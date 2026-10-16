@@ -13,7 +13,7 @@ The unchanged common constructor now returns a Lazy plugin:
 app.add_plugins(LocalizationPlugin::<texts::Translations>::new(texts::manifest()));
 ```
 
-Inserted `LocalizedText<Scope>` components request and retain their scope until
+Inserted `Localized<Text, Scope>` components request and retain their scope until
 removed. On Bevy 0.19/0.20, ordinary `app.add_systems` registrations discover
 native `Res<Scope>` consumers, including aliases and derived parameters. No
 explicit `load` is needed. Recurring systems retain demand even when `run_if`
@@ -75,8 +75,8 @@ replacement does not provide a snapshot of a changing external source.
 
 ## Use text spans
 
-The same `LocalizedText<Scope>` binding now updates a `TextSpan` child of a UI
-or world-text root. It has the same automatic scope ownership and locale-switch
+Use `Localized<TextSpan, Scope>` for a `TextSpan` child of a UI or world-text
+root, `Localized<Text, Scope>` for UI roots and `Localized<Text2d, Scope>` for world roots. It has the same automatic scope ownership and locale-switch
 behavior as `Text`/`Text2d`; it does not create a root text component. The
 application keeps ownership of hierarchy and style. See the [span recipe](bsn.md#localize-a-text-span).
 

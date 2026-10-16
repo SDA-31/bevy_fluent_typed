@@ -1,0 +1,16 @@
+[package]
+name = "bevy_fluent_typed_macros"
+version = "0.3.1"
+edition = "2024"
+rust-version = "1.97.1"
+description = "Derive helpers for bevy_fluent_typed component adapters"
+repository = "https://github.com/SDA-31/bevy_fluent_typed"
+readme = "README.md"
+license = "MIT"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+quote = "1.0.47"
+syn = { version = "3.0.5", features = ["full"] }

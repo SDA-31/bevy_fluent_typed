@@ -12,6 +12,7 @@ use std::sync::{
 
 mod automatic;
 mod automatic_progress;
+mod cache_policy;
 mod composition;
 mod lease_preparation;
 mod progress;
@@ -460,7 +461,7 @@ fn preparation_keeps_active_tree_and_commits_all_target_leaves_together() {
 		.world_mut()
 		.spawn((
 			Text::default(),
-			crate::LocalizedText::<Presentation>::new(|presentation| {
+			crate::Localized::<Text, Presentation>::new(|presentation| {
 				format!("{}|{}", presentation.hud.0, presentation.panel.0)
 			}),
 		))

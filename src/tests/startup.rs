@@ -3,7 +3,7 @@ use crate::bevy::{
 	ecs::{self as bevy_ecs, schedule::SingleThreadedExecutor},
 	prelude::*,
 };
-use crate::{LocalizationPlugin, LocalizationStartupPlugin, LocalizedText, StartupStrategy};
+use crate::{LocalizationPlugin, LocalizationStartupPlugin, Localized, StartupStrategy};
 use std::sync::{Arc, Mutex};
 
 #[derive(Resource, Default)]
@@ -215,7 +215,7 @@ fn native_startup_can_create_bindings_without_waiting_for_catalog() {
 	.unwrap()
 	.with_startup_strategy(StartupStrategy::Native));
 	app.add_systems(Startup, |mut commands: Commands| {
-		commands.spawn(LocalizedText::<TestCatalog>::new(|catalog| {
+		commands.spawn(Localized::<Text, TestCatalog>::new(|catalog| {
 			catalog.0.clone()
 		}));
 	})
@@ -835,7 +835,7 @@ fn startup_commands_hand_off_demand_to_inserted_bindings_without_refetch() {
 		},
 	));
 	app.add_systems(Startup, |_: Res<TestCatalog>, mut commands: Commands| {
-		commands.spawn(LocalizedText::<TestCatalog>::new(|scope| scope.0.clone()));
+		commands.spawn(Localized::<Text, TestCatalog>::new(|scope| scope.0.clone()));
 	})
 	.add_systems(PostStartup, post);
 	pump(&mut app, |world| {

@@ -3,6 +3,7 @@ use crate::bevy::{ecs as bevy_ecs, prelude::*};
 use crate::{
 	FluentCatalog, Lazy, LoadingMode, Localization,
 	bytes::{self, ByteLoader, ByteSource},
+	cache_policy::{CachePolicy, ProviderCachePolicy},
 	compatibility, demand,
 	loading::reload_catalogs,
 	resources,
@@ -33,6 +34,12 @@ pub enum LocalizationSystems {
 	/// Opt-in progress tracking after publication in PreUpdate and refresh in PostUpdate.
 	Progress,
 }
+
+/// PostUpdate boundary for semantic targets, separate from the native text refresh.
+/// On Bevy 0.19/0.20 it follows UI accessibility producers and precedes export.
+/// Older backends order it after `LocalizationSystems::Refresh` only.
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct LocalizationAccessibilitySet;
 
 enum Source<C: FluentCatalog> {
 	#[cfg(feature = "manifest")]
@@ -71,12 +78,25 @@ enum Source<C: FluentCatalog> {
 /// validate, then switches automatically at publication.
 pub struct LocalizationPlugin<C: FluentCatalog, M: LoadingMode = Lazy> {
 	source: Source<C>,
+	cache_policy: CachePolicy,
 	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 	startup: Option<crate::scheduling::StartupConfiguration>,
 	marker: PhantomData<fn() -> (C, M)>,
 }
 
 impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
+	/// Select formatted-output caching for every scope owned by this provider.
+	///
+	/// The default [`CachePolicy::Rendered`] repairs targets without formatting
+	/// again. [`CachePolicy::None`] retains tracking metadata but no output String.
+	/// Built-in text and semantic targets format when needed. Custom adapters
+	/// request text lazily; apply-only adapters still format each refresh.
+	/// Loading mode and other providers are unaffected. Select before adding the plugin.
+	pub fn with_cache_policy(mut self, policy: CachePolicy) -> Self {
+		self.cache_policy = policy;
+		self
+	}
+
 	/// Select startup execution for this application. Unconfigured roots inherit
 	/// the application's choice, or `Deferred` when no root chooses explicitly.
 	/// Contradictory explicit settings across roots are rejected.
@@ -112,6 +132,7 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 	pub fn new(manifest: LocalizationManifest) -> Self {
 		Self {
 			source: Source::Manifest(manifest),
+			cache_policy: CachePolicy::default(),
 			marker: PhantomData,
 			#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 			startup: None,
@@ -183,6 +204,7 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 	{
 		Self {
 			source: Source::Bytes(ByteLoader::new(load)),
+			cache_policy: CachePolicy::default(),
 			marker: PhantomData,
 			#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 			startup: None,
@@ -221,6 +243,7 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 		}
 
 		app.init_resource::<Localization<C, M>>();
+		app.insert_resource(ProviderCachePolicy::<C>::new(self.cache_policy));
 		#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 		{
 			if !app.is_plugin_added::<crate::LocalizationStartupPlugin>() {
