@@ -59,9 +59,9 @@ see its [separate example](../bsn) for scene syntax and composition.
 
 [targets.rs](src/widgets/targets.rs) demonstrates three levels of integration:
 
-- `Badge` derives `LocalizationTarget` and marks one String field with
-  `#[localized]`. It uses the same engine as native text, without handwritten
-  query or update code.
+- `Badge` implements `LocalizationTarget` for one String field. It declares
+  required mutable data, creates a missing Default target once and uses the
+  public change-tracking and `set_text` helpers for direct query writes.
 - `Caption` uses one Query with required mutable Caption/CaptionMirror data and
   `Without<CaptionPaused>`. Its pure `needs_update` skips Idle, and a mirror-only
   edit is repaired from Caption without reading Msg. Its initializer supplies
@@ -89,7 +89,7 @@ There is no explicit load call or user refresh system.
 `LocalizationPlugin::with_cache_policy(CachePolicy::None)`, inherited by every
 scope in the provider. Without it, `Rendered` retains formatter output for
 repair. None keeps native identity/tick metadata but no extra formatted string;
-native/derived text formats again for application edits to an existing target.
+native text formats again for application edits to an existing target.
 Caption skips Idle and repairs its mirror from the existing component; the simpler
 Card field adapters read text every eligible refresh and therefore format every
 refresh under None. AccessibleLabel follows Bevy's ordinary hooks; node-only edits

@@ -19,13 +19,10 @@ Release preparation; this version has not been published. See the
   structural work. Built-in targets use this same contract.
 - Automatic `AccessibleLabel` bindings on Bevy 0.19/0.20 through Bevy's ordinary
   accessibility hooks, independently of visible text bindings.
-- Optional `LocalizationTarget` derive for mutable Default components with a
-  selected String field. The `derive` feature is included by `codegen`; its
-  implementation lives in the companion `bevy_fluent_typed_macros` package.
 - Provider-wide `CachePolicy::Rendered` (default) and `CachePolicy::None`.
   The latter retains tracking metadata without retaining formatted output.
 - Focused custom component/field examples and native BSN button-caption recipes.
-- Tracked standalone lockfiles for the runtime, macro package, examples and
+- Tracked standalone lockfiles for the runtime, examples and
   compatibility tool, with locked CI graphs.
 
 ### Changed
@@ -34,7 +31,7 @@ Release preparation; this version has not been published. See the
   compute pool. Small updates stay sequential; structural callbacks remain
   sequential after the query pass. This is not a frame-budget guarantee or an
   adaptive cost controller.
-- **Behavior change:** built-in and derived Default targets are initialized
+- **Behavior change:** built-in Default targets are initialized
   once when their binding is attached. Later target removal is respected;
   reinsert the target to resume updates or reattach the binding to initialize
   a new lifetime. Removing a binding leaves the target's last value in place.

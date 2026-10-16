@@ -59,20 +59,55 @@ impl LocalizationTarget for Caption {
 		let Some(caption) = entity.get_mut::<Self>() else {
 			return;
 		};
+
 		update.set_text(caption.map_unchanged(|caption| &mut caption.text));
 
 		let Some(mirror) = entity.get_mut::<CaptionMirror>() else {
 			return;
 		};
+
 		update.set_text(mirror.map_unchanged(|mirror| &mut mirror.0));
 	}
 }
 
-/// The short form targets one field and preserves every other field.
-#[derive(Component, Default, LocalizationTarget)]
+/// A single-field component implements the same public target contract.
+#[derive(Component, Default)]
 pub(crate) struct Badge {
-	#[localized]
 	pub text: String,
+}
+
+impl LocalizationTarget for Badge {
+	type Data = Mut<'static, Self>;
+	type Filter = ();
+
+	fn initialize(entity: &mut EntityWorldMut<'_>) {
+		if entity.contains::<Self>() {
+			return;
+		}
+
+		entity.insert(Self::default());
+	}
+
+	fn needs_update(data: &TargetItem<'_, '_, Self>, update: &LocalizationUpdate<'_>) -> bool {
+		update.is_changed() || update.component_changed(data)
+	}
+
+	fn update(
+		target: TargetItem<'_, '_, Self>,
+		update: &mut LocalizationUpdate<'_>,
+	) -> UpdateResult {
+		update.set_text(target.map_unchanged(|target| &mut target.text));
+
+		UpdateResult::Done
+	}
+
+	fn apply(entity: &mut EntityWorldMut<'_>, update: &mut LocalizationUpdate<'_>) {
+		let Some(target) = entity.get_mut::<Self>() else {
+			return;
+		};
+
+		update.set_text(target.map_unchanged(|target| &mut target.text));
+	}
 }
 
 /// This component has two independent fields and does not store any Msg.

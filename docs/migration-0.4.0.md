@@ -21,10 +21,6 @@ as in the [compatibility recipe](../README.md#supported-engines). Do not forward
 backend features to the build dependency. The existing explicit `build.rs`
 generation call and `translations!` declaration do not change.
 
-The optional derive implementation is a separate package, enabled through the
-runtime's `derive` feature and included by `codegen`. Applications do not need a
-second dependency or localization plugin to use it.
-
 ## Select the text target explicitly
 
 Before:
@@ -82,24 +78,36 @@ an ordinary component does not establish automatic ownership.
 
 ## Bind custom components through the same contract
 
-For a mutable Default component with one localized String field:
+Implement `LocalizationTarget` directly on the component or a local field marker:
 
 ```rust,ignore
-use bevy::prelude::Component;
-use bevy_fluent_typed::LocalizationTarget;
+use bevy::prelude::{Component, EntityWorldMut};
+use bevy_fluent_typed::{LocalizationTarget, LocalizationUpdate};
 
-#[derive(Component, Default, LocalizationTarget)]
+#[derive(Component, Default)]
 struct Caption {
-    #[localized]
     text: String,
 }
+
+impl LocalizationTarget for Caption {
+    type Data = &'static mut Self;
+    type Filter = ();
+
+    fn apply(entity: &mut EntityWorldMut<'_>, update: &mut LocalizationUpdate<'_>) {
+        let Some(target) = entity.get_mut::<Self>() else {
+            return;
+        };
+        update.set_text(target.map_unchanged(|target| &mut target.text));
+    }
+}
+
 ```
 
 Use `Localized<Caption, Scope>` beside the Caption. No component registration
-plugin is required. Non-Default components, immutable components and compound
-targets implement `LocalizationTarget` manually. `Data` and `Filter` describe
-one native query; default `update` requests the sequential `apply` callback.
-Override only the callbacks needed by the target. See the
+plugin is required. `Data` and `Filter` describe one native query; default `update`
+requests the sequential `apply` callback. Override only the callbacks needed by
+the target. For a custom Default component, `initialize` can create a missing
+target once; Default alone does not install this policy. See the
 [binding contract and examples](bindings.md).
 
 `Localized<AccessibleLabel, Scope>` is a separate binding on Bevy 0.19/0.20.

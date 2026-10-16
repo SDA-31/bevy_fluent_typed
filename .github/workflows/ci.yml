@@ -76,7 +76,6 @@ jobs:
           for manifest in Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml examples/bsn/Cargo.toml examples/bindings/Cargo.toml tools/compatibility/Cargo.toml; do
             cargo fmt --manifest-path "$manifest" --all -- --check
           done
-          cargo fmt --manifest-path macros/Cargo.toml --all -- --check
       - name: Apply the pinned generator to locked package graphs
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
@@ -103,7 +102,6 @@ jobs:
           cargo clippy --locked --manifest-path examples/minimal/Cargo.toml --all-targets --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path examples/no_codegen/Cargo.toml --all-targets -- -D warnings
           cargo clippy --locked --manifest-path tools/compatibility/Cargo.toml --all-targets -- -D warnings
-          cargo clippy --locked --manifest-path macros/Cargo.toml --all-targets -- -D warnings
           for manifest in examples/codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml examples/bsn/Cargo.toml examples/bindings/Cargo.toml; do
             cargo clippy --locked --manifest-path "$manifest" --all-targets --config "$generator_config" -- -D warnings
           done
@@ -112,7 +110,6 @@ jobs:
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
           cargo test --locked --no-default-features --features build --config "$generator_config"
           cargo test --locked --manifest-path tools/compatibility/Cargo.toml
-          cargo test --locked --manifest-path macros/Cargo.toml
       - name: Check minimal runtime dependency isolation
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
@@ -139,7 +136,9 @@ jobs:
       - name: Inspect library archives without uploading
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
-          cargo package --locked --list --config "$generator_config" > "$CARGO_TARGET_DIR/runtime-package.txt"
+          # Selecting the pinned generator intentionally changes Cargo.lock.
+          # This step lists archive contents only; it does not upload a package.
+          cargo package --locked --list --allow-dirty --config "$generator_config" > "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx LICENSE "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/quickstart.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/runtime.md "$CARGO_TARGET_DIR/runtime-package.txt"
@@ -149,10 +148,6 @@ jobs:
           grep -Fx docs/formatting.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/migration-0.3.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/migration-0.4.0.md "$CARGO_TARGET_DIR/runtime-package.txt"
-          cargo package --locked --list --manifest-path macros/Cargo.toml > "$CARGO_TARGET_DIR/macro-package.txt"
-          grep -Fx LICENSE "$CARGO_TARGET_DIR/macro-package.txt"
-          # The derive implementation is a separate optional archive. These
-          # checks inspect package inventories without uploading either crate.
           if grep -E '^(examples|tools/compatibility)/' "$CARGO_TARGET_DIR/runtime-package.txt"; then
             echo 'A nested package leaked into the runtime archive.' >&2
             exit 1

@@ -49,13 +49,9 @@ pub enum UpdateResult {
 /// message replacement. Removing and adding the binding starts a new lifetime.
 /// Built-in initializers preserve supplied components and their settings.
 ///
-/// With feature `derive` (also included by `codegen`), a mutable Default component
-/// can derive this trait and mark one String field with `#[localized]`. The derive
-/// supplies required query data, initialization, change detection and updates.
-/// Manual Default implementations and generic components are supported; the
-/// generated impl requires the actual component to implement Default, rather
-/// than trying to infer it from its attributes. Non-Default and compound targets
-/// use a manual adapter through the same engine.
+/// Application components implement this trait directly. Only Data/Filter and
+/// `apply` are required; override the default hooks for initialization, change
+/// tracking or direct query writes when needed.
 ///
 /// Compare before writing to preserve change ticks. Combine context invalidation
 /// with `LocalizationUpdate::component_changed` for native change tracking that
@@ -193,7 +189,7 @@ pub type TargetReadItem<'w, 's, T> = crate::bevy::ecs::query::QueryItem<
 /// the runtime does not independently manage its AccessibilityNode.
 /// The target comes first: `Localized::<Text, Scope>` or
 /// `Localized::<Text, _>::from(message)` when the scope can be inferred.
-/// Built-in and derived adapters create a missing Default component once during
+/// Built-in adapters create a missing Default component once during
 /// initialization. Later target removal is respected, including across catalog or
 /// Msg changes. Reinsert the target to resume updates, or remove and add the binding
 /// for a new initialization. Manual adapters own their initialization policy.

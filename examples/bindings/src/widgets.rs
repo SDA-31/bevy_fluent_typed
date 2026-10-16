@@ -75,7 +75,7 @@ pub(crate) fn spawn_widgets(mut commands: Commands) {
 		))
 		.id();
 
-	// A single-field component uses the derive, through the same target engine.
+	// A single-field component implements the public target trait directly.
 	let badge = commands
 		.spawn((
 			Badge::default(),

@@ -1665,19 +1665,10 @@ dependencies = [
  "bevy 0.18.1",
  "bevy 0.19.1",
  "bevy 0.20.0",
- "bevy_fluent_typed_macros",
  "fluent-syntax",
  "fluent-typed",
  "fluent_typed_codegen",
  "indexmap",
-]
-
-[[package]]
-name = "bevy_fluent_typed_macros"
-version = "0.4.0"
-dependencies = [
- "quote",
- "syn 3.0.9",
 ]
 
 [[package]]

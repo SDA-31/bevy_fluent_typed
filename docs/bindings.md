@@ -11,19 +11,29 @@ alias with the same constructors and binding conversions; use `Msg` in new code.
 
 ## Bind a custom component
 
-For one String field, derive `LocalizationTarget`. The `codegen` feature includes
-this derive; handwritten providers can enable `derive` separately. Add the normal
-source plugin from the quickstart, then spawn the component with its binding:
+Implement `LocalizationTarget` on your component. Add the normal source plugin
+from the quickstart, then spawn the component with its binding:
 
 ```rust,ignore
-use bevy::prelude::Component;
-use bevy_fluent_typed::{LocalizationTarget, Localized};
+use bevy::prelude::{Component, EntityWorldMut};
+use bevy_fluent_typed::{LocalizationTarget, LocalizationUpdate, Localized};
 use texts::presentation::Hud;
 
-#[derive(Component, Default, LocalizationTarget)]
+#[derive(Component, Default)]
 struct MyCaption {
-    #[localized]
     text: String,
+}
+
+impl LocalizationTarget for MyCaption {
+    type Data = &'static mut Self;
+    type Filter = ();
+
+    fn apply(entity: &mut EntityWorldMut<'_>, update: &mut LocalizationUpdate<'_>) {
+        let Some(target) = entity.get_mut::<Self>() else {
+            return;
+        };
+        update.set_text(target.map_unchanged(|target| &mut target.text));
+    }
 }
 
 commands.spawn((
@@ -32,24 +42,21 @@ commands.spawn((
 ));
 ```
 
-The derive generates an ordinary public-trait implementation. It uses a required
-mutable component, change tracking, equality before writes and the shared engine;
-no registration or additional plugin is needed. Exactly one String field is
-selected. The component must be mutable and implement `Default`; manual Default
-implementations and generics work, including type arguments without Default when
-the component itself provides it. A renamed runtime dependency can be selected
-with `#[localization(crate = runtime_alias)]`.
+Only Data/Filter and `apply` are required. This example uses the default sequential
+writer; no registration, additional plugin or derive helper is needed. For direct
+query writes and Idle skipping, override `update` and `needs_update` as shown by
+Badge in the [runnable example](../examples/bindings/src/widgets/targets.rs).
 
-Built-in and derived initializers create an omitted Default target once when the
-binding is attached. Supplied components keep their settings. Removing the target
-later does not recreate it, including after a language or Msg change. Reinserting
-the target resumes updates. Removing and adding the binding starts a new
-initialization; replacing its Msg does not. These rules describe creation,
-independently of whether the catalog is ready.
+Built-in initializers create an omitted Default target once when the binding is
+attached. For a custom component, implement `initialize` to opt into that creation
+policy; implementing Default alone does not install an initializer. Supplied
+components keep their settings. Removing the target later does not recreate it,
+including after a language or Msg change. Reinserting the target resumes updates.
+Removing and adding the binding starts a new initialization; replacing its Msg
+does not. Creation is independent of whether the catalog is ready.
 
-For compound components, immutable targets, non-Default components or individual
-fields, implement the same `LocalizationTarget` manually. Only Data/Filter and
-`apply` are required. The other hooks have defaults:
+Compound components, immutable targets, non-Default components and individual
+fields use this same trait. Its other hooks have defaults:
 
 | Hook | Default and purpose |
 | --- | --- |
@@ -72,12 +79,11 @@ changes while paused, resuming uses its latest value without intermediate writes
 Combine it with `update.component_changed(&component)` for relevant Ref/Mut data.
 This tracks application changes while excluding confirmed own writes. Ordinary
 Bevy `is_changed()` remains available with its normal semantics. Deliberate
-`bypass_change_detection` writes are outside the built-in/derived tracking.
+`bypass_change_detection` writes are outside the built-in tracking.
 Compare before writing to preserve target ticks. For a String field, the shared
 `update.set_text(target.map_unchanged(|target| &mut target.text))` helper performs
 that check, marks actual writes and can reuse buffers when a translation grows.
-It leaves `update.text()` available for additional outputs. The derive and built-in
-mutable text adapters use this same public helper.
+It leaves `update.text()` available for additional outputs. The built-in mutable text adapters and the Badge example use this same public helper.
 
 `matches` receives the read-only view of the same Data/Filter query and must be
 pure. Return true only when the relevant outputs equal the supplied text. The
@@ -128,8 +134,7 @@ native `QueryItem` lifetime arity. This follows Bevy's
 
 Required `&mut Caption` or `Mut<Caption>` excludes an entity without Caption,
 so updates wait while the component is absent. `Mut<'static, Caption>` additionally
-preserves a Ref in the query's read-only view, including change detection. Built-in
-and derived targets initialize separately and use required data without an Option.
+preserves a Ref in the query's read-only view, including change detection. Built-in targets and the Badge example initialize separately and use required data without an Option.
 Use optional data only when absence is part of your custom logic, such as an
 optional neighbor; it does not itself create or retain anything.
 
@@ -252,7 +257,7 @@ There is no per-binding override or runtime policy switch.
 | Policy | Retained output | Repair and Idle behavior |
 | --- | --- | --- |
 | `CachePolicy::Rendered` (default) | An additional formatted String per binding, in the same ECS metadata for all targets. | Target repair reuses that output. Unchanged native text does not reformat. |
-| `CachePolicy::None` | No formatted output retained by the runtime; identity and invalidation metadata remain. | Built-in/derived targets skip Idle and format for application edits or invalidation. Manual adapters format when they request `update.text()`. |
+| `CachePolicy::None` | No formatted output retained by the runtime; identity and invalidation metadata remain. | Built-in targets skip Idle and format for application edits or invalidation. Manual adapters format when they request `update.text()`. |
 
 Rendered and built-in targets format after catalog/Msg changes and eligibility
 reentry. An uncached custom adapter sees that invalidation through
@@ -266,7 +271,7 @@ A custom adapter can inspect query or entity data before asking for text. An
 intact caption can repair a companion from its own String without Fluent; the
 Caption/CaptionMirror example combines this with a structural pause filter.
 An apply-only adapter that always reads text formats every eligible refresh
-under None. Built-in, derived and manual targets share the same optional
+under None. Built-in and manual targets share the same optional
 post-batch confirmation for immutable/structural writes.
 
 Cache policy does not change module loading, scope lifetime, readiness, locale
@@ -317,7 +322,7 @@ adopted during App setup without target registration.
 
 ### When the automatic formatter runs
 
-The following table describes built-in and derived targets under the default
+The following table describes built-in targets under the default
 `CachePolicy::Rendered`. All use the [shared ECS state](https://github.com/SDA-31/bevy_fluent_typed/blob/main/src/target_bindings/state.rs)
 and [common engine](https://github.com/SDA-31/bevy_fluent_typed/blob/main/src/target_bindings/engine.rs).
 Manual adapters additionally decide when their callbacks read text. An eligible
@@ -342,7 +347,7 @@ owners of the same cloned Msg.
 | Existing target is edited through ordinary Bevy mutation | No additional formatting | Repair from cached output. |
 | Target is removed while Localized remains | No | Respect removal; catalog and Msg changes do not revive it. |
 | Target/query eligibility returns after an excluded refresh | Yes, when ready | Catch up to current inputs. |
-| Native/derived output is edited through `bypass_change_detection` | No | Leave the untracked edit until another observed change or invalidation. |
+| Native output is edited through `bypass_change_detection` | No | Leave the untracked edit until another observed change or invalidation. |
 | AccessibilityNode alone is edited or removed | No | Leave it to Bevy/application behavior; do not independently repair it. |
 | No relevant input or target change | No | Skip work and preserve target ticks. |
 
@@ -467,7 +472,7 @@ cargo run --locked --manifest-path examples/bindings/Cargo.toml
 | Task | Starting point |
 | --- | --- |
 | Configure the source | [main.rs](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bindings/src/main.rs): ordinary source plugin and Startup system |
-| Spawn native text, a button and independent fields | [widgets.rs](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bindings/src/widgets.rs): explicit targets, derive, styling and hierarchy |
+| Spawn native text, a button and independent fields | [widgets.rs](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bindings/src/widgets.rs): explicit targets, manual adapters, styling and hierarchy |
 | Implement component and field adapters | [targets.rs](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bindings/src/widgets/targets.rs): Caption, CardTitle and CardDetail |
 | Change arguments, switch EN/ES/RU and release demand | [scenario.rs](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bindings/src/scenario.rs): headless driver, separate from spawning |
 | Compose Scene or SceneList captions | [BSN buttons](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bsn/src/buttons.rs) and [composition recipes](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bsn.md#buttons-and-caption-slots) |

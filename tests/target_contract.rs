@@ -151,11 +151,15 @@ fn minimal_non_default_adapter_waits_for_the_application_component() {
 	);
 }
 
-#[cfg(feature = "derive")]
-mod derived {
+mod custom {
 	use super::{Catalog, app, message};
-	use bevy_fluent_typed::bevy::{ecs as bevy_ecs, prelude::Component};
-	use bevy_fluent_typed::{CachePolicy, LocalizationTarget, Localized};
+	use bevy_fluent_typed::bevy::{
+		ecs as bevy_ecs,
+		prelude::{Component, EntityWorldMut, Mut},
+	};
+	use bevy_fluent_typed::{
+		CachePolicy, LocalizationTarget, LocalizationUpdate, Localized, TargetItem, UpdateResult,
+	};
 	use std::{
 		marker::PhantomData,
 		sync::{
@@ -164,9 +168,8 @@ mod derived {
 		},
 	};
 
-	#[derive(Component, LocalizationTarget)]
+	#[derive(Component)]
 	struct Caption<T: Send + Sync + 'static> {
-		#[localized]
 		text: String,
 		style: u32,
 		marker: PhantomData<T>,
@@ -182,10 +185,44 @@ mod derived {
 		}
 	}
 
+	impl<T: Send + Sync + 'static> LocalizationTarget for Caption<T> {
+		type Data = Mut<'static, Self>;
+		type Filter = ();
+
+		fn initialize(entity: &mut EntityWorldMut<'_>) {
+			if entity.contains::<Self>() {
+				return;
+			}
+
+			entity.insert(Self::default());
+		}
+
+		fn needs_update(data: &TargetItem<'_, '_, Self>, update: &LocalizationUpdate<'_>) -> bool {
+			update.is_changed() || update.component_changed(data)
+		}
+
+		fn update(
+			target: TargetItem<'_, '_, Self>,
+			update: &mut LocalizationUpdate<'_>,
+		) -> UpdateResult {
+			update.set_text(target.map_unchanged(|target| &mut target.text));
+
+			UpdateResult::Done
+		}
+
+		fn apply(entity: &mut EntityWorldMut<'_>, update: &mut LocalizationUpdate<'_>) {
+			let Some(target) = entity.get_mut::<Self>() else {
+				return;
+			};
+
+			update.set_text(target.map_unchanged(|target| &mut target.text));
+		}
+	}
+
 	struct NoDefaultArgument;
 
 	#[test]
-	fn derive_supports_manual_default_generics_and_preserves_supplied_settings() {
+	fn manual_adapter_supports_generic_default_and_preserves_supplied_settings() {
 		let mut app = app(CachePolicy::None);
 		app.world_mut()
 			.insert_resource(Catalog("translated".into()));

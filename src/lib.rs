@@ -167,10 +167,6 @@ pub use target_bindings::{
 	TargetUpdatePhase, UpdateResult,
 };
 
-/// Derive an adapter for one `#[localized]` String field on a mutable Default component.
-#[cfg(all(feature = "runtime", feature = "derive"))]
-pub use bevy_fluent_typed_macros::LocalizationTarget;
-
 /// Compatible upstream runtime used by generated accessors; no separate dependency needed.
 #[cfg(feature = "runtime")]
 pub use fluent_typed;
