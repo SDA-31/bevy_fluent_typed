@@ -149,7 +149,7 @@ that load, then the plugin publishes its typed resource. All modes use
 Bevy's asynchronous loading; Manual lets the application choose which scopes to
 request and retain. No additional parsing is deferred until accessor use.
 
-Use the same 0.3.1 facade in both normal and build dependencies for this recipe.
+Use the same 0.4.0 facade in both normal and build dependencies for this recipe.
 Then embed only the HUD by declaring its source next to `translations!`:
 
 ```rust,ignore
@@ -544,7 +544,7 @@ Enable the default-off `diagnostics` feature only when you need individual
 module paths, attempt errors or snapshot availability:
 
 ```toml
-bevy_fluent_typed = { version = "0.3.1", features = ["codegen", "diagnostics"] }
+bevy_fluent_typed = { version = "0.4.0", features = ["codegen", "diagnostics"] }
 ```
 
 Keep the build dependency unchanged. During explicit inspection:
@@ -865,7 +865,7 @@ For Bevy 0.20, the minimal dependency is:
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.3.1", default-features = false, features = ["bevy-0-20"] }
+bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["bevy-0-20"] }
 ```
 
 There is no build-dependency, `build.rs`, `translations!`, TOML manifest or
@@ -965,7 +965,7 @@ asset configuration and event loop, as in the quickstart.
 
 ## Migration from registry 0.1.3
 
-Follow the [migration guide to 0.3.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) for dependency updates, before/after
+Follow the [migration guide to 0.4.0](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) for dependency updates, before/after
 initialization, readiness handling, optional Manual adoption and handwritten providers.
 The standard upgrade uses Lazy with inserted bindings and native resource systems;
 choose explicit Full to preserve eager loading or direct world polling.

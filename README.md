@@ -32,10 +32,10 @@ Add these dependencies to `Cargo.toml`:
 ```toml
 [dependencies]
 bevy = "0.20"
-bevy_fluent_typed = { version = "0.3.1", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.4.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.3.1", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["build"] }
 ```
 
 The normal dependency provides the plugin; the build dependency generates the
@@ -168,7 +168,7 @@ during plugin updates, so readiness checks still apply. Static source bytes stay
 its lifetime; no compressor or decompressor is involved.
 
 The macro accepts only an empty invocation or a block of constants. For the
-constant-declaration recipe, use the same 0.3.1 dependency in both Cargo sections.
+constant-declaration recipe, use the same 0.4.0 dependency in both Cargo sections.
 Declare an embedded source for just the HUD:
 
 ```rust,ignore
@@ -229,13 +229,13 @@ minimal runtime and a handwritten provider.
 | --- | --- |
 | `translations!` cannot find generated output | Add the shown build-dependency and return `bevy_fluent_typed::build()` from `build.rs`. |
 | Types or methods are missing | Add the corresponding FTL module/message in every language and rebuild. File edits at runtime cannot change the compiled schema. |
-| An `embed_manifest!` selector is rejected | Use 0.3.1 for both runtime and build dependencies and use relative schema paths; imported catalog aliases are for constructors/resources. |
+| An `embed_manifest!` selector is rejected | Use 0.4.0 for both runtime and build dependencies and use relative schema paths; imported catalog aliases are for constructors/resources. |
 | The resource is absent | On Bevy 0.19/0.20, ordinary `add_systems` with `Res<Scope>` requests the scope in Lazy and waits for readiness. World inspection is passive. Explicit Manual still needs `load`; older backends use the [registration helpers](GUIDE.md#older-bevy-backends). |
 | A bound label stays empty | Check `localization.status::<YourLeaf>()`. An inserted binding requests its scope in Lazy; check its source and validation. A root binding waits for the whole tree. Explicit Manual needs a manual request. |
 | Files are not found | The manifest origin is relative to Bevy's asset root. Do not prefix it with `assets/` when `AssetPlugin` already points there. |
 | Editing the TOML has no runtime effect | The plugin receives a parsed contract and does not reload TOML. Rebuild this quickstart or construct a new contract during application setup. |
 | Cargo reports incompatible engine APIs | Select one matching Bevy backend, on the normal dependency only. Do not enable all features. |
-| The quickstart does not compile | Match the dependencies shown in [Setup](#setup). For an existing application, follow the [migration guide](docs/migration-0.3.1.md). |
+| The quickstart does not compile | Match the dependencies shown in [Setup](#setup). For an existing application, follow the [migration guide](docs/migration-0.4.0.md). |
 
 ## Known limits
 
@@ -259,6 +259,7 @@ transports, fonts and shaping remain application responsibilities.
   and named Bevy sources.
 - [Number formatting](docs/formatting.md): application-owned ICU4X formatters.
 - [Build API](docs/build.md): explicit generation and dependency feature isolation.
+- [Migration to 0.4.0](docs/migration-0.4.0.md): explicit target bindings, Msg and cache policies.
 - [Migration to 0.3](docs/migration-0.3.md): Bevy 0.20, Rust minimum and older backends.
 - [Migration from 0.1](docs/migration-0.2.md): update an older application.
 - [Custom bindings](docs/bindings.md): custom components, fields, semantic names and provider cache policies.

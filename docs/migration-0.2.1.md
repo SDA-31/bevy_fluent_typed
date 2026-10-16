@@ -1,6 +1,8 @@
 # Adopt native resource waiting
 
-Use runtime 0.3.1 with matching normal and build dependencies. On Bevy 0.19/0.20,
+Also apply the [explicit target and Msg migration](migration-0.4.0.md) when replacing older text bindings.
+
+Use runtime 0.4.0 with matching normal and build dependencies. On Bevy 0.19/0.20,
 ordinary registrations discover catalog demand and wait for native `Res<Scope>`:
 
 ```rust,ignore
@@ -23,7 +25,7 @@ Use the generated `texts::manifest()` contract prepared by the explicit build ca
 The helper reads no files and embeds no FTL. Existing explicit manifests and
 `embed_manifest!` remain available for different runtime storage.
 
-See the [0.3.1 migration](migration-0.3.1.md) for startup strategies and the
+See the [0.4.0 migration](migration-0.3.1.md) for startup strategies and the
 [resource reference](../GUIDE.md#read-resources-and-handle-readiness) for schedule
 discovery boundaries, passive observers and older-backend registration helpers.
 

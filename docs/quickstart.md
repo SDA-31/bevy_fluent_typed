@@ -11,10 +11,10 @@ Add these dependencies to `Cargo.toml`:
 ```toml
 [dependencies]
 bevy = "0.20"
-bevy_fluent_typed = { version = "0.3.1", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.4.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.3.1", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["build"] }
 ```
 
 The normal dependency provides the plugin; the build dependency generates the
@@ -135,7 +135,7 @@ during plugin updates, so readiness checks still apply. Static source bytes stay
 its lifetime; no compressor or decompressor is involved.
 
 The macro accepts only an empty invocation or a block of constants. For the
-constant-declaration recipe, use the same 0.3.1 dependency in both Cargo sections.
+constant-declaration recipe, use the same 0.4.0 dependency in both Cargo sections.
 Declare an embedded source for just the HUD:
 
 ```rust,ignore
@@ -196,6 +196,7 @@ for a minimal runtime and a handwritten provider.
 - [BSN and text spans](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bsn.md): use the same binding on scene text and child spans.
 - [Loading progress](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md#observe-loading-progress): optional native progress subtrees and module details.
 - [Custom bindings](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bindings.md): custom components, semantic labels and provider cache policies.
+- [Migration to 0.4.0](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.4.0.md): explicit target bindings, Msg and cache policies.
 - [Native resource registration and startup](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.3.1.md): changes from 0.3.0.
 - [Migration to 0.3](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.3.md): Bevy 0.20, Rust minimum and older backends.
 - [Migration from 0.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) and [catalog path and embedding migration](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.2.md).

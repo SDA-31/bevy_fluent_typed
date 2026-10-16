@@ -5,6 +5,59 @@ Notable changes to the runtime (and its former companion bridge) are recorded he
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html);
 before 1.0, a minor release can introduce incompatible API changes.
 
+## [0.4.0]
+
+Release preparation; this version has not been published. See the
+[migration from 0.3.1](docs/migration-0.4.0.md). The generator remains
+`fluent_typed_codegen` 0.2.2.
+
+### Added
+
+- `Localized<Target, Scope>` and the public `LocalizationTarget` contract bind
+  deferred messages to native text, custom components and independent fields.
+  Adapters describe one native Bevy query, with default callbacks and optional
+  structural work. Built-in targets use this same contract.
+- Automatic `AccessibleLabel` bindings on Bevy 0.19/0.20 through Bevy's ordinary
+  accessibility hooks, independently of visible text bindings.
+- Optional `LocalizationTarget` derive for mutable Default components with a
+  selected String field. The `derive` feature is included by `codegen`; its
+  implementation lives in the companion `bevy_fluent_typed_macros` package.
+- Provider-wide `CachePolicy::Rendered` (default) and `CachePolicy::None`.
+  The latter retains tracking metadata without retaining formatted output.
+- Focused custom component/field examples and native BSN button-caption recipes.
+- Tracked standalone lockfiles for the runtime, macro package, examples and
+  compatibility tool, with locked CI graphs.
+
+### Changed
+
+- Large eligible query updates use native Bevy query batching and the existing
+  compute pool. Small updates stay sequential; structural callbacks remain
+  sequential after the query pass. This is not a frame-budget guarantee or an
+  adaptive cost controller.
+- **Behavior change:** built-in and derived Default targets are initialized
+  once when their binding is attached. Later target removal is respected;
+  reinsert the target to resume updates or reattach the binding to initialize
+  a new lifetime. Removing a binding leaves the target's last value in place.
+
+### Deprecated
+
+- `Message<Scope>` is a deprecated alias of the shorter `Msg<Scope>`.
+
+### Removed
+
+- **Breaking:** `LocalizedText<Scope>`. Select the destination explicitly with
+  `Localized<Text, Scope>`, `Localized<Text2d, Scope>` or
+  `Localized<TextSpan, Scope>`, including in BSN scenes.
+
+### Fixed
+
+- Preserve pending catalog invalidation while adapter predicates or query
+  filters suspend work, including filter changes during structural callbacks.
+- Confirm deferred writes after the whole callback batch and its hooks, without
+  hiding later application edits or acknowledging skipped callbacks.
+- Preserve native change observation in deferred `apply` contexts, so adapters
+  can skip unchanged uncached messages there as well as in query callbacks.
+
 ## [0.3.1] - 2026-10-11
 
 See the [migration from 0.3.0](docs/migration-0.3.1.md). The generator remains
@@ -279,6 +332,7 @@ This documentation release changes no public runtime API or behavior.
 Bridge 0.1.3 changes only dependency minimums and documentation.
 Earlier releases predate this changelog; their source is retained in Git tags.
 
+[0.4.0]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.3.1...release/0.4.0
 [0.3.1]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.2.1...v0.2.2

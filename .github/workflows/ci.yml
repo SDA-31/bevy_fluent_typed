@@ -148,6 +148,7 @@ jobs:
           grep -Fx docs/build.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/formatting.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/migration-0.3.md "$CARGO_TARGET_DIR/runtime-package.txt"
+          grep -Fx docs/migration-0.4.0.md "$CARGO_TARGET_DIR/runtime-package.txt"
           cargo package --locked --list --manifest-path macros/Cargo.toml > "$CARGO_TARGET_DIR/macro-package.txt"
           grep -Fx LICENSE "$CARGO_TARGET_DIR/macro-package.txt"
           # The derive implementation is a separate optional archive. These
