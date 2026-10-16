@@ -28,7 +28,6 @@ impl<'a> Fixture<'a> {
 			".rustfmt.toml",
 			"src",
 			"tests",
-			"macros",
 			"docs",
 			"examples/minimal",
 			"examples/codegen",
@@ -266,4 +265,33 @@ fn copy(source: &Path, destination: &Path) -> Result<()> {
 	}
 
 	Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::Fixture;
+	use crate::Options;
+	use std::{fs, path::PathBuf};
+
+	#[test]
+	fn current_repository_prepares_fixtures_for_every_backend() {
+		let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+			.join("../..")
+			.canonicalize()
+			.unwrap();
+		// Fixture setup only serializes this path; this check invokes no Cargo build.
+		let generator = tempfile::tempdir().unwrap();
+		let options = Options {
+			generator: generator.path().to_path_buf(),
+			target: None,
+			offline: true,
+			versions: Vec::new(),
+		};
+
+		for version in ["0.16.1", "0.17.0", "0.18.0", "0.19.0", "0.20.0"] {
+			let fixture = Fixture::new(&source, &options, version)
+				.unwrap_or_else(|error| panic!("cannot prepare Bevy {version}: {error}"));
+			fs::remove_dir_all(&fixture.path).unwrap();
+		}
+	}
 }
