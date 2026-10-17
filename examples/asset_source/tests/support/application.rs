@@ -2,7 +2,7 @@
 use crate::texts;
 use bevy_fluent_typed::{
 	CatalogUpdate, CatalogUpdateReader, FluentScope, Localization, LocalizationManifest,
-	LocalizationPlugin, LocalizationSystems, LocalizedText, PreparationStatus,
+	LocalizationPlugin, LocalizationSystems, Localized, PreparationStatus,
 	bevy::{
 		asset::io::{
 			AssetSourceBuilder,
@@ -55,11 +55,11 @@ pub(super) fn app(files: Dir) -> App {
 	.add_systems(PreUpdate, record.after(LocalizationSystems::Publish));
 	app.world_mut().spawn((
 		Text::default(),
-		LocalizedText::<texts::Translations>::new(|catalog| catalog.ui().hud().msg_title()),
+		Localized::<Text, texts::Translations>::new(|catalog| catalog.ui().hud().msg_title()),
 	));
 	app.world_mut().spawn((
 		Text2d::default(),
-		LocalizedText::<texts::Translations>::new(|catalog| catalog.ui().panel().msg_title()),
+		Localized::<Text2d, texts::Translations>::new(|catalog| catalog.ui().panel().msg_title()),
 	));
 	app.finish();
 	app.cleanup();

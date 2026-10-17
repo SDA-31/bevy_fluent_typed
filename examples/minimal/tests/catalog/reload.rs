@@ -3,7 +3,7 @@ use crate::{Locale, Translations, texts};
 use localization_runtime::bevy::{ecs as bevy_ecs, prelude::*};
 use localization_runtime::{
 	CatalogUpdate, CatalogUpdateReader, FluentCatalog, Localization, LocalizationManifest,
-	LocalizationPlugin, LocalizationSystems, LocalizedText,
+	LocalizationPlugin, LocalizationSystems, Localized,
 };
 use std::{
 	fs,
@@ -132,11 +132,13 @@ fn watched_modules_publish_independently_and_failed_locale_switch_keeps_active_s
 	.add_systems(PreUpdate, record.after(LocalizationSystems::Publish));
 	app.world_mut().spawn((
 		Text::default(),
-		LocalizedText::<Translations>::new(|catalog| catalog.presentation().hud().msg_title()),
+		Localized::<Text, Translations>::new(|catalog| catalog.presentation().hud().msg_title()),
 	));
 	app.world_mut().spawn((
 		Text2d::default(),
-		LocalizedText::<Translations>::new(|catalog| catalog.presentation().panel().msg_title()),
+		Localized::<Text2d, Translations>::new(|catalog| {
+			catalog.presentation().panel().msg_title()
+		}),
 	));
 	app.finish();
 	app.cleanup();

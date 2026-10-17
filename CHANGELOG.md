@@ -5,6 +5,90 @@ Notable changes to the runtime (and its former companion bridge) are recorded he
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html);
 before 1.0, a minor release can introduce incompatible API changes.
 
+## [0.4.0]
+
+Release preparation; this version has not been published. See the
+[migration from 0.3.1](docs/migration-0.4.0.md). The generator remains
+`fluent_typed_codegen` 0.2.2.
+
+### Added
+
+- `LocalizationPlugin::validate_registration` returns a typed
+  `LocalizationRegistrationError` for repeated root catalogs, with their schema
+  leaf paths, both plugin types and constructor locations. Ordinary `add_plugins`
+  performs the same structural check and reports the detailed conflict before
+  configuring the second provider. Sources, locales and FTL contents are not
+  compared. See [registration conflicts](docs/runtime.md#registration-conflicts).
+- `Localized<Target, Scope>` and the public `LocalizationTarget` contract bind
+  deferred messages to native text and custom components implementing
+  `Component + Default`.
+  Adapters describe one native Bevy query, with default callbacks and optional
+  structural work. Built-in targets use this same contract.
+- Automatic `AccessibleLabel` bindings on Bevy 0.19/0.20 through Bevy's ordinary
+  accessibility hooks, independently of visible text bindings. The runtime does
+  not independently repair or recreate `AccessibilityNode`.
+- Provider-wide `CachePolicy::Rendered` (default) and `CachePolicy::None`.
+  The latter retains tracking metadata without retaining formatted output.
+- Focused custom component examples and native BSN button-caption recipes.
+- A [performance reference](docs/performance.md) describing skipped work,
+  provider cache tradeoffs and benchmark results against runtime 0.3.1.
+- Tracked standalone lockfiles for the runtime, examples and
+  compatibility tool, with locked CI graphs.
+
+### Changed
+
+- Large eligible query updates use native Bevy query batching and the existing
+  compute pool. Msg formatters and direct query callbacks can run concurrently;
+  they must not depend on main-thread identity or entity order. Small updates
+  stay sequential; structural callbacks remain sequential after the query pass.
+  This is not a frame-budget guarantee or an adaptive cost controller.
+- Replacing an existing binding with a clone of its current Msg reuses rendered
+  output while the catalog, readiness and query eligibility are unchanged.
+- Built-in targets and custom adapters using `LocalizationUpdate::set_text`
+  preserve target change ticks when output is equal. Custom adapters can inspect
+  component changes before requesting text; uncached text reads are shared within
+  an update and its deferred continuation.
+- **Behavior change:** built-in text bindings restore translated output after
+  ordinary application edits even when Msg and catalog are unchanged. Repairs
+  use Bevy change ticks and reuse retained output under the default cache policy;
+  explicit `bypass_change_detection` edits remain untracked until another observed
+  change or binding invalidation. Idle preserves target ticks.
+- **Breaking behavior change:** all targets require `Component + Default`.
+  They are initialized once when their binding is attached, preserving supplied
+  components and settings.
+  Later target removal is respected, including across Msg and catalog changes;
+  reinsert the target to resume updates, or remove and add the binding to start
+  a new lifetime. Replacing Msg alone does not repeat initialization. In Lazy,
+  the binding retains its scope while the target is absent. Removing the binding
+  stops automatic writes and leaves the target's last value in place. Custom
+  components use the same automatic initialization as built-ins. The optional
+  `LocalizationTarget::initialize` hook runs afterward for neighbor setup. See the
+  [binding lifecycle](docs/bindings.md#loading-and-lifecycle).
+
+### Deprecated
+
+- `Message<Scope>` is a deprecated alias of the shorter `Msg<Scope>`.
+
+### Removed
+
+- **Breaking:** `LocalizationPlugin::with_startup_strategy` and
+  `LocalizationPlugin::with_startup_barrier` on Bevy 0.19/0.20. Configure the
+  App-wide policy through `LocalizationStartupPlugin::new` or `::barrier`;
+  source plugins inherit it. The implicit Deferred fallback and single
+  coordinator are preserved. See the [startup migration](docs/migration-0.4.0.md#configure-startup-through-the-application-plugin).
+- **Breaking:** `LocalizedText<Scope>`. Select the destination explicitly with
+  `Localized<Text, Scope>`, `Localized<Text2d, Scope>` or
+  `Localized<TextSpan, Scope>`, including in BSN scenes.
+
+### Fixed
+
+- Preserve pending catalog invalidation while adapter predicates or query
+  filters suspend work, including filter changes during structural callbacks.
+- Confirm deferred writes after the whole callback batch and its hooks, without
+  hiding later application edits or acknowledging skipped callbacks.
+- Preserve native change observation in deferred `apply` contexts, so adapters
+  can skip unchanged uncached messages there as well as in query callbacks.
+
 ## [0.3.1] - 2026-10-11
 
 See the [migration from 0.3.0](docs/migration-0.3.1.md). The generator remains
@@ -279,6 +363,7 @@ This documentation release changes no public runtime API or behavior.
 Bridge 0.1.3 changes only dependency minimums and documentation.
 Earlier releases predate this changelog; their source is retained in Git tags.
 
+[0.4.0]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.3.1...release/0.4.0
 [0.3.1]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.2.1...v0.2.2

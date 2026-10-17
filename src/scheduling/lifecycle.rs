@@ -35,7 +35,7 @@ pub(crate) fn register(app: &mut App, configuration: Option<StartupConfiguration
 			coordinator
 				.explicit
 				.is_none_or(|previous| previous == configuration),
-			"localization plugins specify conflicting startup strategies"
+			"localization startup plugins specify conflicting startup strategies"
 		);
 		coordinator.explicit = Some(configuration);
 	}

@@ -5,7 +5,7 @@ mod console;
 
 use localization_runtime::bevy::{asset::AssetPlugin, prelude::*};
 use localization_runtime::{
-	FluentCatalog, Localization, LocalizationPlugin, LocalizationSystems, LocalizedText,
+	FluentCatalog, Localization, LocalizationPlugin, LocalizationSystems, Localized,
 };
 use std::path::Path;
 use texts::Translations;
@@ -39,7 +39,7 @@ fn main() -> Result<(), String> {
 		.world_mut()
 		.spawn((
 			Text::default(),
-			LocalizedText::<texts::Ui>::new(|ui| ui.msg_example_greeting("Ada")),
+			Localized::<Text, texts::Ui>::new(|ui| ui.msg_example_greeting("Ada")),
 		))
 		.id();
 	let locale = app

@@ -8,7 +8,8 @@ use crate::bevy::prelude::{App, Plugin, SystemSet};
 /// add an implicit Deferred fallback when this plugin is absent. An explicit
 /// plugin added later replaces that fallback's policy, without adding another
 /// coordinator or replaying startup. Matching explicit choices are accepted;
-/// contradictory explicit choices, including root-plugin builders, are rejected.
+/// contradictory explicit choices are rejected. Localization source plugins
+/// inherit this App-wide policy and do not configure it themselves.
 pub struct LocalizationStartupPlugin {
 	configuration: Option<StartupConfiguration>,
 }

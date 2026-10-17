@@ -1,6 +1,8 @@
-# Migrate from bevy_fluent_typed 0.2.2 to 0.3.1
+# Migrate from bevy_fluent_typed 0.2.2 to 0.4.0
 
-Runtime 0.3.1 supports stable Bevy 0.20 and requires Rust 1.97.1 or newer.
+Also apply the [explicit target and Msg migration](migration-0.4.0.md) when replacing older text bindings.
+
+Runtime 0.4.0 supports stable Bevy 0.20 and requires Rust 1.97.1 or newer.
 The generator stays at 0.2.2. Constructor signatures, native resources and
 embedded manifest declarations remain available, but the default loading mode
 changes from eager Full to consumer-driven Lazy.
@@ -13,7 +15,7 @@ The unchanged common constructor now returns a Lazy plugin:
 app.add_plugins(LocalizationPlugin::<texts::Translations>::new(texts::manifest()));
 ```
 
-Inserted `LocalizedText<Scope>` components request and retain their scope until
+Inserted `Localized<Text, Scope>` components request and retain their scope until
 removed. On Bevy 0.19/0.20, ordinary `app.add_systems` registrations discover
 native `Res<Scope>` consumers, including aliases and derived parameters. No
 explicit `load` is needed. Recurring systems retain demand even when `run_if`
@@ -22,8 +24,8 @@ is false; their ownership ends when the system state is dropped.
 Ordinary `Startup` uses Deferred by default: each catalog consumer and its
 ordered dependents wait, execute once and release temporary demand after deferred
 commands apply. Bindings take over their demand without an unloading gap.
-Use the same plugin's startup builders for Native or a selected-set Barrier.
-See the [0.3.1 migration](migration-0.3.1.md) for these scheduling changes.
+Use `LocalizationStartupPlugin` for Native or a selected-set Barrier.
+See the [0.4.0 migration](migration-0.3.1.md) for these scheduling changes.
 
 No consumers, manual pins or leases means no module reads or parsing.
 `World::get_resource` inspection and unattached messages remain passive.
@@ -75,8 +77,8 @@ replacement does not provide a snapshot of a changing external source.
 
 ## Use text spans
 
-The same `LocalizedText<Scope>` binding now updates a `TextSpan` child of a UI
-or world-text root. It has the same automatic scope ownership and locale-switch
+Use `Localized<TextSpan, Scope>` for a `TextSpan` child of a UI or world-text
+root, `Localized<Text, Scope>` for UI roots and `Localized<Text2d, Scope>` for world roots. It has the same automatic scope ownership and locale-switch
 behavior as `Text`/`Text2d`; it does not create a root text component. The
 application keeps ownership of hierarchy and style. See the [span recipe](bsn.md#localize-a-text-span).
 
@@ -127,10 +129,10 @@ Update both facade dependencies and the application's Bevy dependency:
 ```toml
 [dependencies]
 bevy = "0.20"
-bevy_fluent_typed = { version = "0.3.1", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.4.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.3.1", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["build"] }
 ```
 
 Keep `bevy_fluent_typed::build()` in `build.rs` and your `translations!`
@@ -145,10 +147,10 @@ The default backend changed. To retain Bevy 0.19, select it explicitly:
 ```toml
 [dependencies]
 bevy = "0.19"
-bevy_fluent_typed = { version = "0.3.1", default-features = false, features = ["bevy-0-19", "codegen"] }
+bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["bevy-0-19", "codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.3.1", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["build"] }
 ```
 
 The same pattern supports `bevy-0-16` (minimum 0.16.1), `bevy-0-17` and
@@ -162,7 +164,7 @@ generator 0.2.2 if you need Rust 1.95.
 
 ## Move from the compatibility preview
 
-Replace Git dependencies on `compat/bevy-0.20` with the 0.3.1 facade entries
+Replace Git dependencies on `compat/bevy-0.20` with the 0.4.0 facade entries
 above, and replace exact Bevy RC requirements with `bevy = "0.20"`.
 The final preview snapshots are preserved as `bevy-0.20.0-rc.1` and
 `bevy-0.20.0-rc.2`. The stable backend admits compatible patches.

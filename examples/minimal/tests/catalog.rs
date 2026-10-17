@@ -1,6 +1,6 @@
 localization_runtime::translations!(pub mod texts);
 
-use localization_runtime::{FluentCatalog, Localization, LocalizationManifest, Message};
+use localization_runtime::{FluentCatalog, Localization, LocalizationManifest, Msg};
 use texts::{Locale, Translations};
 
 texts::embed_manifest! {
@@ -181,8 +181,7 @@ fn raw_upstream_output_still_loads_without_the_generated_bevy_adapter() {
 #[test]
 fn generated_accessors_and_deferred_arguments_work_for_every_discovered_locale() {
 	let name = String::from("Ada");
-	let message =
-		Message::<Translations>::new(move |catalog| catalog.ui().msg_example_greeting(&name));
+	let message = Msg::<Translations>::new(move |catalog| catalog.ui().msg_example_greeting(&name));
 
 	for &locale in Translations::locales() {
 		let source = modules(locale);

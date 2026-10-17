@@ -11,10 +11,10 @@ Add these dependencies to `Cargo.toml`:
 ```toml
 [dependencies]
 bevy = "0.20"
-bevy_fluent_typed = { version = "0.3.1", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.4.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.3.1", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["build"] }
 ```
 
 The normal dependency provides the plugin; the build dependency generates the
@@ -108,7 +108,7 @@ root to Bevy's base directory (the package directory under `cargo run`) so
 For another source layout, pass a `LocalizationManifest` with its runtime origin.
 
 On Bevy 0.19/0.20, the default **Lazy** mode loads scopes used by inserted
-`LocalizedText` bindings and ordinary `Res<Scope>` systems. Startup defaults to
+`Localized` bindings and ordinary `Res<Scope>` systems. Startup defaults to
 **Deferred**: `show_title` waits for the HUD, runs once and releases its temporary
 demand. Independent startup steps run while it waits; frame updates keep loading
 assets. Optional `load`/`unload` calls retain extra scopes independently.
@@ -135,7 +135,7 @@ during plugin updates, so readiness checks still apply. Static source bytes stay
 its lifetime; no compressor or decompressor is involved.
 
 The macro accepts only an empty invocation or a block of constants. For the
-constant-declaration recipe, use the same 0.3.1 dependency in both Cargo sections.
+constant-declaration recipe, use the same 0.4.0 dependency in both Cargo sections.
 Declare an embedded source for just the HUD:
 
 ```rust,ignore
@@ -195,7 +195,10 @@ for a minimal runtime and a handwritten provider.
 - [Loading guide](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md): automatic module lifetime, manual modes and headless applications.
 - [BSN and text spans](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bsn.md): use the same binding on scene text and child spans.
 - [Loading progress](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md#observe-loading-progress): optional native progress subtrees and module details.
-- [Native resource registration and startup](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.3.1.md): changes from 0.3.0.
-- [Migration to 0.3](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.3.md): Bevy 0.20, Rust minimum and older backends.
+- [Custom bindings](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bindings.md): custom components, semantic labels and provider cache policies.
+- [Performance](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/performance.md): skipped work, cache tradeoffs and measured costs.
+- [Migration to 0.4.0](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.4.0.md): explicit target bindings, Msg and cache policies.
+- [Upgrade from 0.3.0](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.3.1.md): native registration and startup, followed by the 0.4.0 binding changes.
+- [Upgrade from 0.2.2](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.3.md): loading defaults, Bevy 0.20, Rust minimum and older backends.
 - [Migration from 0.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) and [catalog path and embedding migration](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.2.md).
 - [Changelog](https://github.com/SDA-31/bevy_fluent_typed/blob/main/CHANGELOG.md).

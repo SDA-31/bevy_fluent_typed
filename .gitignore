@@ -1,4 +1,3 @@
-# Standalone package builds; the consuming workspace owns its own lockfile.
+# Standalone locks are tracked; a consuming workspace uses its own lockfile.
 target/
-Cargo.lock
 *~

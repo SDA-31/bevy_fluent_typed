@@ -1,6 +1,7 @@
 //! Explicit subscriptions bound to one installed provider's controller mode.
 use super::subscription::Subscription;
 use crate::bevy::{ecs as bevy_ecs, prelude::*};
+use crate::registration::RegistrationSite;
 use crate::{FluentCatalog, FluentScope, LoadingMode, LocalizationSystems};
 use std::{
 	any::TypeId,
@@ -11,6 +12,7 @@ use std::{
 /// Installed provider identity and its concrete mode's tracker installer.
 #[derive(Resource)]
 pub(crate) struct Registration<C: FluentCatalog> {
+	pub(crate) site: RegistrationSite,
 	install: fn(&mut App),
 	marker: PhantomData<fn() -> C>,
 }
@@ -30,8 +32,9 @@ impl<C: FluentCatalog> Default for Requests<C> {
 	}
 }
 
-pub(crate) fn register<C: FluentCatalog, M: LoadingMode>(app: &mut App) {
+pub(crate) fn register<C: FluentCatalog, M: LoadingMode>(app: &mut App, site: RegistrationSite) {
 	app.insert_resource(Registration::<C> {
+		site,
 		install: install::<C, M>,
 		marker: PhantomData,
 	});

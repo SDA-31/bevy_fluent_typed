@@ -16,7 +16,7 @@ pub trait LoadingMode: sealed::Sealed + Send + Sync + 'static {
 
 /// Default policy: load only scopes owned by inserted bindings and resource consumers.
 ///
-/// Inserted `LocalizedText<S>` retains its scope until removed. On Bevy 0.19/0.20,
+/// Inserted `Localized<Text, S>` retains its scope until removed. On Bevy 0.19/0.20,
 /// ordinary `Res<S>` systems retain it while their system state exists, including
 /// aliases and derived parameters. Deferred startup consumers release their
 /// demand after completion and deferred command application. On older backends,

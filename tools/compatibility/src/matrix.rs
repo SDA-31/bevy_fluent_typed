@@ -198,6 +198,7 @@ pub(crate) fn check(source: &Path, options: &Options, version: &str, host: &str)
 			"localization-asset-source-example",
 		])?;
 		fixture.success(&["run", "--locked", "-p", "localization-asset-source-example"])?;
+		fixture.success(&["test", "--locked", "-p", "localization-bindings-example"])?;
 		fixture.success(&["test", "--locked", "-p", "localization-bsn-example"])?;
 		fixture.success(&["run", "--locked", "-p", "localization-bsn-example"])?;
 		fixture.success(&[

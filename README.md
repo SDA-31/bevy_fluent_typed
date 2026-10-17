@@ -32,10 +32,10 @@ Add these dependencies to `Cargo.toml`:
 ```toml
 [dependencies]
 bevy = "0.20"
-bevy_fluent_typed = { version = "0.3.1", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.4.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.3.1", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["build"] }
 ```
 
 The normal dependency provides the plugin; the build dependency generates the
@@ -129,7 +129,7 @@ root to Bevy's base directory (the package directory under `cargo run`) so
 For another source layout, pass a `LocalizationManifest` with its runtime origin.
 
 On Bevy 0.19/0.20, the default **Lazy** mode loads scopes used by inserted
-`LocalizedText` bindings and ordinary `Res<Scope>` systems. Startup defaults to
+`Localized` bindings and ordinary `Res<Scope>` systems. Startup defaults to
 **Deferred**: `show_title` waits for the HUD, runs once and releases its temporary
 demand. Independent startup steps run while it waits; frame updates keep loading
 assets. Optional `load`/`unload` calls retain extra scopes independently.
@@ -142,15 +142,24 @@ See the [loading guide](GUIDE.md) for automatic module lifetime and optional man
 
 ## Comparison with bevy_fluent
 
-[bevy_fluent](https://github.com/kgv/bevy_fluent/blob/main/doc/en-US.md) loads
-Fluent assets, looks up messages by string identifiers, and supports locale
-fallback chains. `bevy_fluent_typed` focuses on typed message access and arguments
-through [fluent-typed](https://github.com/human-solutions/fluent-typed), native
-`Res<Scope>` catalogs, automatic scope lifetime and explicit Full/Manual loading. Its optional
-generator creates accessors in an explicit `build.rs` step and checks a shared
-message and argument contract across translations. Compatible translation text
-can reload at runtime; changes to the generated schema require rebuilding.
-This runtime does not provide automatic locale fallback.
+This compares [bevy_fluent 0.15.0](https://github.com/kgv/bevy_fluent)
+with this crate's 0.4.0 API. Both use Fluent; the difference is how applications
+access translations and connect them to Bevy data.
+
+| Concern | `bevy_fluent` 0.15.0 | `bevy_fluent_typed` 0.4.0 |
+| --- | --- | --- |
+| Messages and arguments | Runtime identifiers and `FluentArgs`. | Generated typed scope accessors and arguments; explicit `build.rs` generation checks the shared translation contract. |
+| Loading and lifetime | Asset handles; application code builds a `Localization` from loaded bundles. | Consumer-driven scopes by default; inserted bindings retain their scope. Native `Res<Scope>` discovery on Bevy 0.19/0.20, with Full/Manual modes also available. |
+| Updating components | Application code formats content and applies the resulting strings. | `Localized<Target, Scope>` updates native text, explicit accessibility labels, custom components implementing `Component + Default` through one public adapter trait. |
+| Language selection | Locale negotiation and fallback chains. | Keeps active catalogs until requested target scopes validate and publish together; no automatic locale fallback. |
+| Formatted output | Content lookup returns a formatted string. | Provider-wide retained-output caching or on-demand formatting; target components own their strings in both policies. |
+| Bevy support | Bevy 0.19. | One selected backend from Bevy 0.16.1 through 0.20; see [supported engines](#supported-engines). |
+
+Asset reloads in `bevy_fluent` require the application to refresh its stored
+bundle snapshots and component output.
+This crate validates module reloads and retains the last good values;
+compatible translation text can reload, while generated schema changes require
+a rebuild.
 
 ## Explicit embedding
 
@@ -168,7 +177,7 @@ during plugin updates, so readiness checks still apply. Static source bytes stay
 its lifetime; no compressor or decompressor is involved.
 
 The macro accepts only an empty invocation or a block of constants. For the
-constant-declaration recipe, use the same 0.3.1 dependency in both Cargo sections.
+constant-declaration recipe, use the same 0.4.0 dependency in both Cargo sections.
 Declare an embedded source for just the HUD:
 
 ```rust,ignore
@@ -229,13 +238,13 @@ minimal runtime and a handwritten provider.
 | --- | --- |
 | `translations!` cannot find generated output | Add the shown build-dependency and return `bevy_fluent_typed::build()` from `build.rs`. |
 | Types or methods are missing | Add the corresponding FTL module/message in every language and rebuild. File edits at runtime cannot change the compiled schema. |
-| An `embed_manifest!` selector is rejected | Use 0.3.1 for both runtime and build dependencies and use relative schema paths; imported catalog aliases are for constructors/resources. |
+| An `embed_manifest!` selector is rejected | Use 0.4.0 for both runtime and build dependencies and use relative schema paths; imported catalog aliases are for constructors/resources. |
 | The resource is absent | On Bevy 0.19/0.20, ordinary `add_systems` with `Res<Scope>` requests the scope in Lazy and waits for readiness. World inspection is passive. Explicit Manual still needs `load`; older backends use the [registration helpers](GUIDE.md#older-bevy-backends). |
 | A bound label stays empty | Check `localization.status::<YourLeaf>()`. An inserted binding requests its scope in Lazy; check its source and validation. A root binding waits for the whole tree. Explicit Manual needs a manual request. |
 | Files are not found | The manifest origin is relative to Bevy's asset root. Do not prefix it with `assets/` when `AssetPlugin` already points there. |
 | Editing the TOML has no runtime effect | The plugin receives a parsed contract and does not reload TOML. Rebuild this quickstart or construct a new contract during application setup. |
 | Cargo reports incompatible engine APIs | Select one matching Bevy backend, on the normal dependency only. Do not enable all features. |
-| The quickstart does not compile | Match the dependencies shown in [Setup](#setup). For an existing application, follow the [migration guide](docs/migration-0.3.1.md). |
+| The quickstart does not compile | Match the dependencies shown in [Setup](#setup). For an existing application, follow the [migration guide](docs/migration-0.4.0.md). |
 
 ## Known limits
 
@@ -259,20 +268,23 @@ transports, fonts and shaping remain application responsibilities.
   and named Bevy sources.
 - [Number formatting](docs/formatting.md): application-owned ICU4X formatters.
 - [Build API](docs/build.md): explicit generation and dependency feature isolation.
-- [Migration to 0.3](docs/migration-0.3.md): Bevy 0.20, Rust minimum and older backends.
+- [Migration to 0.4.0](docs/migration-0.4.0.md): explicit target bindings, Msg and cache policies.
+- [Upgrade from 0.2.2](docs/migration-0.3.md): loading defaults, Bevy 0.20, Rust minimum and older backends.
 - [Migration from 0.1](docs/migration-0.2.md): update an older application.
-- [Native resource setup](docs/migration-0.3.1.md): ordinary system registration
-  and startup strategies on Bevy 0.19/0.20.
+- [Custom bindings](docs/bindings.md): custom components, semantic names and provider cache policies.
+- [Performance](docs/performance.md): skipped work, cache tradeoffs and measured costs.
+- [Upgrade from 0.3.0](docs/migration-0.3.1.md): ordinary system registration
+  and startup strategies on Bevy 0.19/0.20, followed by the 0.4.0 binding changes.
 - [Changelog](CHANGELOG.md): notable changes grouped by release.
 
 Runnable headless examples live in [examples/codegen](examples/codegen),
 [examples/no_codegen](examples/no_codegen), [examples/minimal](examples/minimal),
-[examples/icu](examples/icu), [examples/asset_source](examples/asset_source) and
-[examples/bsn](examples/bsn).
+[examples/icu](examples/icu), [examples/asset_source](examples/asset_source),
+[examples/bsn](examples/bsn) and [examples/bindings](examples/bindings).
 Their README commands start from a checkout of this repository. Their local path
 dependencies test that checkout; use the registry setup above for your application.
 The [compatibility runner](tools/compatibility/README.md) is for maintainers.
-CI checks PRs and pushes to `main` or the release-preparation branch, skipping
+CI checks PRs and pushes to `main`, skipping
 changes confined to `CHANGELOG.md`. Tag pushes and manual runs still execute checks.
 
 [MIT](LICENSE) covers this library and its examples, not your application

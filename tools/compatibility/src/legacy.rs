@@ -119,10 +119,17 @@ fn compiled_modules(fixture: &Fixture<'_>, features: &str, expected: bool) -> Re
 		&dependencies,
 	)?;
 	let dependencies = dependencies.replace('\\', "/");
+	validate_dependencies(&dependencies, features, expected)
+}
 
+fn validate_dependencies(dependencies: &str, features: &str, expected: bool) -> Result<()> {
 	// These are rustc's actual source dependencies, not a scan of cfg annotations
 	// or linked symbols that optimization could remove after compilation.
-	for source in ["src/legacy_systems.rs", "src/compatibility/readiness.rs"] {
+	for source in [
+		"src/legacy_systems/mod.rs",
+		"src/legacy_systems/systems.rs",
+		"src/compatibility/readiness.rs",
+	] {
 		if dependencies.contains(source) != expected {
 			return Err(format!("unexpected compilation of {source} with {features}").into());
 		}
@@ -130,3 +137,7 @@ fn compiled_modules(fixture: &Fixture<'_>, features: &str, expected: bool) -> Re
 
 	Ok(())
 }
+
+#[cfg(test)]
+#[path = "tests/legacy.rs"]
+mod tests;
