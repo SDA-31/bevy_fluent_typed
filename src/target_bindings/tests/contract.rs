@@ -52,12 +52,6 @@ impl LocalizationTarget for Caption {
 	type Data = Ref<'static, Self>;
 	type Filter = ();
 
-	fn initialize(entity: &mut EntityWorldMut<'_>) {
-		if !entity.contains::<Self>() {
-			entity.insert(Self::default());
-		}
-	}
-
 	fn needs_update(data: &TargetItem<'_, '_, Self>, update: &LocalizationUpdate<'_>) -> bool {
 		update.is_changed() || update.component_changed(data)
 	}
@@ -203,15 +197,13 @@ fn public_immutable_adapters_confirm_the_whole_batch_without_hiding_later_hooks(
 	}
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 struct Source(String);
 
 #[derive(Component)]
 struct Mirror(String);
 
-struct Pair;
-
-impl LocalizationTarget for Pair {
+impl LocalizationTarget for Source {
 	type Data = (&'static Source, Option<&'static mut Mirror>);
 	type Filter = ();
 
@@ -246,13 +238,13 @@ fn structural_callbacks_can_use_neighbor_data_without_requesting_a_message() {
 	let owner = world
 		.spawn((
 			Source("already available".into()),
-			Localized::<Pair, Catalog>::new(|_| panic!("structural work must not force Msg")),
+			Localized::<Source, Catalog>::new(|_| panic!("structural work must not force Msg")),
 		))
 		.id();
 	world.flush();
-	<Localized<Pair, Catalog> as Binding>::refresh(world);
+	<Localized<Source, Catalog> as Binding>::refresh(world);
 	assert_eq!(world.get::<Mirror>(owner).unwrap().0, "already available");
-	<Localized<Pair, Catalog> as Binding>::refresh(world);
+	<Localized<Source, Catalog> as Binding>::refresh(world);
 	assert_eq!(world.get::<Mirror>(owner).unwrap().0, "already available");
 }
 
@@ -305,7 +297,7 @@ fn projected_uncached_updates_render_once_and_allow_later_text_reads() {
 #[derive(Component)]
 struct Enabled(bool);
 
-#[derive(Component)]
+#[derive(Component, Default)]
 struct GatedCaption(String);
 
 impl LocalizationTarget for GatedCaption {
@@ -405,7 +397,7 @@ struct ScriptHandle(Arc<FilterScript>);
 #[derive(Component)]
 struct Included;
 
-#[derive(Component)]
+#[derive(Component, Default)]
 #[component(immutable)]
 struct DeferredCaption(String);
 

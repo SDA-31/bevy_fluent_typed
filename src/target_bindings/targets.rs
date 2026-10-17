@@ -10,12 +10,6 @@ impl LocalizationTarget for Text {
 	type Data = Mut<'static, Self>;
 	type Filter = ();
 
-	fn initialize(entity: &mut EntityWorldMut<'_>) {
-		if !entity.contains::<Self>() {
-			entity.insert(Self::default());
-		}
-	}
-
 	#[inline]
 	fn needs_update(data: &TargetItem<'_, '_, Self>, update: &LocalizationUpdate<'_>) -> bool {
 		update.is_changed() || data.is_changed()
@@ -47,12 +41,6 @@ impl LocalizationTarget for Text2d {
 	type Data = Mut<'static, Self>;
 	type Filter = ();
 
-	fn initialize(entity: &mut EntityWorldMut<'_>) {
-		if !entity.contains::<Self>() {
-			entity.insert(Self::default());
-		}
-	}
-
 	#[inline]
 	fn needs_update(data: &TargetItem<'_, '_, Self>, update: &LocalizationUpdate<'_>) -> bool {
 		update.is_changed() || data.is_changed()
@@ -83,12 +71,6 @@ impl LocalizationTarget for Text2d {
 impl LocalizationTarget for TextSpan {
 	type Data = Mut<'static, Self>;
 	type Filter = ();
-
-	fn initialize(entity: &mut EntityWorldMut<'_>) {
-		if !entity.contains::<Self>() {
-			entity.insert(Self::default());
-		}
-	}
 
 	#[inline]
 	fn needs_update(data: &TargetItem<'_, '_, Self>, update: &LocalizationUpdate<'_>) -> bool {
@@ -123,12 +105,6 @@ impl LocalizationTarget for AccessibleLabel {
 	type Filter = ();
 
 	const PHASE: TargetUpdatePhase = TargetUpdatePhase::AfterLayout;
-
-	fn initialize(entity: &mut EntityWorldMut<'_>) {
-		if !entity.contains::<Self>() {
-			entity.insert(Self::default());
-		}
-	}
 
 	fn needs_update(data: &TargetItem<'_, '_, Self>, update: &LocalizationUpdate<'_>) -> bool {
 		update.is_changed() || update.component_changed(data)

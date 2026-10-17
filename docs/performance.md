@@ -42,6 +42,9 @@ refresh returns. There is no startup cost calibration, frame budget or automatic
 spreading across frames. See the [binding contract](bindings.md) for lifecycle,
 filter reentry, bypass-change-detection and accessibility limits.
 
+Parallel query execution requires Bevy's native `multi_threaded` feature.
+A multi-worker compute pool alone does not enable parallel ECS queries.
+
 ## Measured tradeoffs against runtime 0.3.1
 
 These results compare published runtime 0.3.1 (`d08269d`) with implementation
@@ -54,16 +57,22 @@ each, after warmup. Variants were interleaved; no outliers were discarded.
 Spawn, input preparation, renderer, layout, loading and validation were outside
 the refresh timer. CPU was recorded in a separate series and sums all threads.
 
-| Scenario | Stable wall p50, ms | Snapshot wall p50, ms | Stable / snapshot CPU mean, ms |
+| Scenario | Stable median elapsed time, ms | Snapshot median elapsed time, ms | Stable / snapshot mean CPU time, ms |
 | --- | ---: | ---: | ---: |
 | Refresh 100,000 texts through Fluent | 30.882 | 13.214 | 31.380 / 66.387 |
 | Refresh 1,048,576 texts through Fluent | 329.135 | 111.877 | 329.173 / 535.195 |
 | 100,000 unchanged texts | 0.309 | 0.644 | 0.346 / 0.700 |
 | Refresh 100,000 texts with a String-clone formatter | 2.047 | 2.709 | 2.122 / 12.833 |
 
-Wall p50 is the median of process medians; CPU mean is the median of process
-means. Lower latency can consume more aggregate CPU, and cheap or unchanged
-work can cost more than 0.3.1. Scheduling also depends on placement: a separate
+Elapsed time measures a refresh from start to completion, including waiting for
+worker tasks. For each process, we take the median of its 32 elapsed-time
+measurements; the table reports the median of those three process medians.
+For CPU time, we take the mean within each process, then the median of those
+three means. CPU time sums work across all threads and is not added to elapsed
+time.
+
+Lower latency can consume more aggregate CPU, and cheap or unchanged work can
+cost more than 0.3.1. Scheduling also depends on placement: a separate
 256-refresh-per-process stress test with expensive callbacks clustered in the
 last 5% of 100,000 entities measured 22.518 ms stable versus 45.126 ms with native
 batching. These finite workloads establish neither a universal speedup nor a

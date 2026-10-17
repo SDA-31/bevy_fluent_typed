@@ -21,6 +21,10 @@ impl<T: LocalizationTarget, S: FluentScope> Binding for Localized<T, S> {
 			return;
 		}
 
+		if !entity.contains::<T>() {
+			entity.insert(T::default());
+		}
+
 		T::initialize(&mut entity);
 
 		if entity.contains::<Self>() {

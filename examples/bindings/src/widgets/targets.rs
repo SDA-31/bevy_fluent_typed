@@ -20,13 +20,11 @@ impl LocalizationTarget for Caption {
 	type Filter = Without<CaptionPaused>;
 
 	fn initialize(entity: &mut EntityWorldMut<'_>) {
-		if !entity.contains::<Self>() {
-			entity.insert(Self::default());
+		if entity.contains::<CaptionMirror>() {
+			return;
 		}
 
-		if !entity.contains::<CaptionMirror>() {
-			entity.insert(CaptionMirror::default());
-		}
+		entity.insert(CaptionMirror::default());
 	}
 
 	fn needs_update(
@@ -80,14 +78,6 @@ impl LocalizationTarget for Badge {
 	type Data = Mut<'static, Self>;
 	type Filter = ();
 
-	fn initialize(entity: &mut EntityWorldMut<'_>) {
-		if entity.contains::<Self>() {
-			return;
-		}
-
-		entity.insert(Self::default());
-	}
-
 	fn needs_update(data: &TargetItem<'_, '_, Self>, update: &LocalizationUpdate<'_>) -> bool {
 		update.is_changed() || update.component_changed(data)
 	}
@@ -110,45 +100,21 @@ impl LocalizationTarget for Badge {
 	}
 }
 
-/// This component has two independent fields and does not store any Msg.
-#[derive(Component)]
-pub(crate) struct Card {
-	pub title: String,
-	pub detail: String,
+/// A minimal apply-only component uses the same default initialization.
+#[derive(Component, Default)]
+pub(crate) struct Title {
+	pub text: String,
 }
 
-pub(crate) struct CardTitle;
-
-impl LocalizationTarget for CardTitle {
-	type Data = &'static mut Card;
+impl LocalizationTarget for Title {
+	type Data = &'static mut Self;
 	type Filter = ();
 
 	fn apply(entity: &mut EntityWorldMut<'_>, update: &mut LocalizationUpdate<'_>) {
-		let Some(mut card) = entity.get_mut::<Card>() else {
+		let Some(target) = entity.get_mut::<Self>() else {
 			return;
 		};
-		let text = update.text();
 
-		if card.title != text {
-			text.clone_into(&mut card.title);
-		}
-	}
-}
-
-pub(crate) struct CardDetail;
-
-impl LocalizationTarget for CardDetail {
-	type Data = &'static mut Card;
-	type Filter = ();
-
-	fn apply(entity: &mut EntityWorldMut<'_>, update: &mut LocalizationUpdate<'_>) {
-		let Some(mut card) = entity.get_mut::<Card>() else {
-			return;
-		};
-		let text = update.text();
-
-		if card.detail != text {
-			text.clone_into(&mut card.detail);
-		}
+		update.set_text(target.map_unchanged(|target| &mut target.text));
 	}
 }

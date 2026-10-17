@@ -9,7 +9,7 @@ use bevy_fluent_typed::bevy::{
 	ui_widgets::Button,
 };
 use bevy_fluent_typed::{Localized, Msg};
-use targets::{Badge, Caption, CaptionMirror, Card, CardDetail, CardTitle};
+use targets::{Badge, Caption, CaptionMirror, Title};
 
 #[derive(Resource)]
 pub(crate) struct Widgets {
@@ -20,7 +20,7 @@ pub(crate) struct Widgets {
 	pub button_text: Entity,
 	pub caption: Entity,
 	pub badge: Entity,
-	pub card: Entity,
+	pub title: Entity,
 }
 
 pub(crate) fn spawn_widgets(mut commands: Commands) {
@@ -83,15 +83,11 @@ pub(crate) fn spawn_widgets(mut commands: Commands) {
 		))
 		.id();
 
-	// Card has no Default: the application supplies it, the bindings update fields.
-	let card = commands
+	// An apply-only component needs no custom initialization or registration.
+	let title = commands
 		.spawn((
-			Card {
-				title: String::new(),
-				detail: String::new(),
-			},
-			Localized::<CardTitle, Greeting>::new(|greeting| greeting.msg_title()),
-			Localized::<CardDetail, _>::from(message),
+			Title::default(),
+			Localized::<Title, Greeting>::new(|greeting| greeting.msg_title()),
 		))
 		.id();
 
@@ -103,7 +99,7 @@ pub(crate) fn spawn_widgets(mut commands: Commands) {
 		button_text,
 		caption,
 		badge,
-		card,
+		title,
 	});
 }
 

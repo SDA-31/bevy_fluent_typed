@@ -1,8 +1,8 @@
 # Application-defined localization bindings
 
 Use `Localized<Target, Scope>` for every automatic binding: ordinary Bevy text,
-application widgets, semantic labels and individual fields. The binding owns
-`Msg`; the target component stores its output. All targets use the same
+application widgets and semantic labels. Targets implement `Component + Default`.
+The binding owns `Msg`; the target component stores its output. All targets use the same
 provider, loading modes and entity-owned demand, without a user refresh system
 or component registration.
 
@@ -32,6 +32,7 @@ impl LocalizationTarget for MyCaption {
         let Some(target) = entity.get_mut::<Self>() else {
             return;
         };
+
         update.set_text(target.map_unchanged(|target| &mut target.text));
     }
 }
@@ -47,20 +48,19 @@ writer; no registration, additional plugin or derive helper is needed. For direc
 query writes and Idle skipping, override `update` and `needs_update` as shown by
 Badge in the [runnable example](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bindings/src/widgets/targets.rs).
 
-Built-in initializers create an omitted Default target once when the binding is
-attached. For a custom component, implement `initialize` to opt into that creation
-policy; implementing Default alone does not install an initializer. Supplied
-components keep their settings. Removing the target later does not recreate it,
+The engine creates an omitted target through `Default` once when the binding is
+attached. Custom components get this behavior without implementing `initialize`.
+Supplied components keep their settings. Removing the target later does not recreate it,
 including after a language or Msg change. Reinserting the target resumes updates.
 Removing and adding the binding starts a new initialization; replacing its Msg
 does not. Creation is independent of whether the catalog is ready.
 
-Compound components, immutable targets, non-Default components and individual
-fields use this same trait. Its other hooks have defaults:
+Compound and immutable components use this same trait. Targets without Default
+and non-component field markers are not supported. Its other hooks have defaults:
 
 | Hook | Default and purpose |
 | --- | --- |
-| `initialize(entity)` | Does nothing. Override to create missing Default targets once; refresh never calls it. |
+| `initialize(entity)` | Does nothing after the engine creates a missing target. Override for additional neighbor setup; refresh never calls it. |
 | `needs_update(&data, &update)` | Returns true. An optional pure predicate can skip Idle work and guide parallel scheduling. |
 | `update(data, &mut update)` | Returns `UpdateResult::Deferred`, requesting sequential `apply`. Override for direct query writes. |
 | `apply(entity, &mut update)` | Required writer. Read `update.text()` only when a translation is needed. |
@@ -134,7 +134,9 @@ native `QueryItem` lifetime arity. This follows Bevy's
 
 Required `&mut Caption` or `Mut<Caption>` excludes an entity without Caption,
 so updates wait while the component is absent. `Mut<'static, Caption>` additionally
-preserves a Ref in the query's read-only view, including change detection. Built-in targets and the Badge example initialize separately and use required data without an Option.
+preserves a Ref in the query's read-only view, including change detection.
+Built-in targets and the Badge example use the common initialization and required
+data without an Option.
 Use optional data only when absence is part of your custom logic, such as an
 optional neighbor; it does not itself create or retain anything.
 
@@ -145,68 +147,23 @@ output; reentry after an excluded refresh catches up to the current translation.
 A filtered-out binding still retains its catalog in Lazy. To release that demand,
 remove its binding or despawn the entity.
 
-## Bind individual fields
+## Supported targets
 
-For a foreign component or a specific field, implement `LocalizationTarget` on
-a local marker. Immutable targets can be replaced through their ordinary hooks.
-The companion binding is the same `Localized<Target, Scope>` used for whole components.
+Implement `LocalizationTarget` directly on a component with `Default`. Use one
+component type per independently bound value. Non-component field markers,
+foreign-component adapters and targets without Default are not supported.
 
-```rust,ignore
-use bevy_fluent_typed::{Localized, LocalizationTarget};
-
-#[derive(Component, Default)]
-struct Tooltip { title: String }
-
-struct TooltipTitle;
-
-impl LocalizationTarget for TooltipTitle {
-    type Data = &'static mut Tooltip;
-    type Filter = ();
-
-    fn apply(entity: &mut EntityWorldMut<'_>, update: &mut LocalizationUpdate<'_>) {
-        let Some(mut tooltip) = entity.get_mut::<Tooltip>() else {
-            return;
-        };
-        let text = update.text();
-
-        if tooltip.title == text {
-            return;
-        }
-
-        text.clone_into(&mut tooltip.title);
-    }
-}
-
-commands.spawn((
-    Tooltip::default(),
-    Localized::<TooltipTitle, Hud>::new(|hud| hud.msg_hello("Ada")),
-));
-```
-
-No target registration is needed. A field marker does not identify a component
-constructor automatically. Its optional `initialize` hook can create a missing
-Default component once; this example instead waits for the supplied Tooltip.
-Separate marker types allow multiple translated
-fields on one entity. Each field needs one localization writer; overlapping
-bindings that write the same field have no defined precedence.
-
-Field adapters can also implement `update`. Different binding types are
-processed as separate jobs, so two field adapters addressing one component do
-not receive simultaneous mutable access to it. Required Data waits for an
-application-owned component; no Option handling is needed. The runnable Card
-adapters demonstrate the minimal apply-only form on a non-Default component.
-
-`Localized::<TooltipTitle, Hud>::from(message)` accepts an existing Msg.
-Its scope can also be inferred: `Localized::<TooltipTitle, _>::from(message)`.
+`Localized::<MyCaption, Hud>::from(message)` accepts an existing Msg.
+Its scope can also be inferred: `Localized::<MyCaption, _>::from(message)`.
 Replace the companion binding when the message or its captured arguments change.
 A Msg stored elsewhere does not become a subscription: replacing that field
 does not replace the companion, even if they originally shared a clone.
 
 Built-in adapters are `Text`, `Text2d` and `TextSpan`, plus `AccessibleLabel` on
-Bevy 0.19/0.20. Their initializers create a missing Default target once;
-TextSpan still needs an application-owned text parent.
-Binding an already supplied target does not require `Default`. A custom adapter
-never receives an implicit UI Text from the library.
+Bevy 0.19/0.20. They use the same engine initialization as application components.
+TextSpan still needs an application-owned text parent. Default is required even
+when the application supplies the target. A custom target never receives an
+implicit UI Text from the library.
 
 ## Semantic labels and refresh ordering
 
@@ -342,7 +299,7 @@ owners of the same cloned Msg.
 | A new Msg identity replaces the existing binding's formatter | Yes, when ready | Recompute without running initialization again. |
 | A cloned Msg is attached to another entity or target | Yes, when ready | That binding has independent metadata and output. |
 | Existing binding is replaced by a clone of its current Msg | No, if inputs are unchanged | Reuse output without initialization. |
-| Binding removed and added again | Yes, when eligible/ready | Start a new lifetime; its initializer can create a missing Default target. |
+| Binding removed and added again | Yes, when eligible/ready | Start a new lifetime; the engine creates a missing Default target. |
 | Scope becomes unavailable | No | Clear eligible output; missing targets stay absent. |
 | Existing target is edited through ordinary Bevy mutation | No additional formatting | Repair from cached output. |
 | Target is removed while Localized remains | No | Respect removal; catalog and Msg changes do not revive it. |
@@ -400,7 +357,8 @@ removing Localized retires its metadata, while an existing target stays intact.
 Temporary query exclusion can retain cached storage and binding-owned catalog
 demand; reentry uses current inputs.
 
-Parallel work completes before this refresh returns. There is no built-in frame
+Parallel query work requires Bevy's native `multi_threaded` feature; a multi-worker
+pool alone does not enable it. Work completes before this refresh returns. There is no built-in frame
 budget or automatic spreading across frames. Formatting and component updates
 are only part of a language switch's cost: Bevy must still process changed text
 and layout. The runtime does not create a separate worker pool.
@@ -446,8 +404,8 @@ component. Its required query data is absent; reinsert the component to resume.
 The binding still owns its catalog demand until removed.
 Despawn removes the entity through Bevy. Remaining bindings, native consumers,
 pins, leases or Full can keep catalogs loaded; an unattached Msg alone does not.
-For independent fields use separate adapters. Two bindings writing the same field
-have no defined precedence. An application marker such as UserOwned does not
+Use separate component types for independent bindings. Each bound component
+should have one localization writer. An application marker such as UserOwned does not
 change these rules; ownership follows the actual binding types.
 
 ### Hidden and disabled entities
@@ -465,7 +423,7 @@ continue both refresh and demand as usual.
 ## Runnable examples
 
 The [complete binding example](https://github.com/SDA-31/bevy_fluent_typed/tree/main/examples/bindings)
-keeps native targets, custom components and field adapters in one focused package:
+keeps native targets and custom components in one focused package:
 
 ```sh
 cargo run --locked --manifest-path examples/bindings/Cargo.toml
@@ -474,8 +432,8 @@ cargo run --locked --manifest-path examples/bindings/Cargo.toml
 | Task | Starting point |
 | --- | --- |
 | Configure the source | [main.rs](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bindings/src/main.rs): ordinary source plugin and Startup system |
-| Spawn native text, a button and independent fields | [widgets.rs](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bindings/src/widgets.rs): explicit targets, manual adapters, styling and hierarchy |
-| Implement component and field adapters | [targets.rs](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bindings/src/widgets/targets.rs): Caption, CardTitle and CardDetail |
+| Spawn native text, a button and custom components | [widgets.rs](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bindings/src/widgets.rs): explicit targets, manual adapters, styling and hierarchy |
+| Implement component adapters | [targets.rs](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bindings/src/widgets/targets.rs): Title, Badge and Caption |
 | Change arguments, switch EN/ES/RU and release demand | [scenario.rs](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bindings/src/scenario.rs): headless driver, separate from spawning |
 | Compose Scene or SceneList captions | [BSN buttons](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bsn/src/buttons.rs) and [composition recipes](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bsn.md#buttons-and-caption-slots) |
 

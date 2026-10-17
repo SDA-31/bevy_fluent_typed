@@ -1,8 +1,9 @@
 use super::TestCatalog;
 use crate::Msg;
 use crate::bevy::{
+	ecs as bevy_ecs,
 	ecs::template::{FromTemplate, SceneEntityReferences, Template, TemplateContext},
-	prelude::{Text, World},
+	prelude::{Component, Text, World},
 };
 use crate::{LocalizationTarget, Localized};
 use std::sync::{
@@ -65,6 +66,7 @@ fn default_template_requires_an_explicit_message() {
 	);
 }
 
+#[derive(Component, Default)]
 struct LabelTarget;
 
 impl LocalizationTarget for LabelTarget {
@@ -79,7 +81,7 @@ impl LocalizationTarget for LabelTarget {
 }
 
 #[test]
-fn custom_target_templates_need_no_default_or_clone_target_and_reject_missing_messages() {
+fn custom_default_target_templates_need_no_clone_and_reject_missing_messages() {
 	type CustomTemplate = <Localized<LabelTarget, TestCatalog> as FromTemplate>::Template;
 	let calls = Arc::new(AtomicUsize::new(0));
 	let observed = calls.clone();

@@ -9,7 +9,7 @@ use crate::bevy::{
 	ecs as bevy_ecs,
 	prelude::{
 		App, Commands, Component, DetectChanges, Entity, EntityWorldMut, IntoScheduleConfigs,
-		Local, MinimalPlugins, PostUpdate, Resource, Text, Text2d, TextSpan, With,
+		Local, MinimalPlugins, PostUpdate, Resource, Text, With,
 	},
 };
 use crate::{Localization, LocalizationPlugin, LocalizationTarget, Localized, Manual, Msg};
@@ -666,98 +666,6 @@ fn semantic_binding_leaves_other_native_ui_producers_in_control_of_their_nodes()
 			"Japanese"
 		);
 	}
-}
-
-#[derive(Component)]
-struct Card {
-	title: String,
-	body: String,
-}
-
-struct CardTitle;
-
-struct CardBody;
-
-impl LocalizationTarget for CardTitle {
-	type Data = ();
-	type Filter = ();
-
-	fn apply(entity: &mut EntityWorldMut<'_>, update: &mut crate::LocalizationUpdate<'_>) {
-		let text = update.text();
-
-		let Some(mut card) = entity.get_mut::<Card>() else {
-			return;
-		};
-
-		if card.title == text {
-			return;
-		}
-
-		text.clone_into(&mut card.title);
-	}
-}
-
-impl LocalizationTarget for CardBody {
-	type Data = ();
-	type Filter = ();
-
-	fn apply(entity: &mut EntityWorldMut<'_>, update: &mut crate::LocalizationUpdate<'_>) {
-		let text = update.text();
-
-		let Some(mut card) = entity.get_mut::<Card>() else {
-			return;
-		};
-
-		if card.body == text {
-			return;
-		}
-
-		text.clone_into(&mut card.body);
-	}
-}
-
-#[test]
-fn field_adapters_and_explicit_text_targets_remain_independent() {
-	let mut app = App::new();
-	app.add_plugins((MinimalPlugins, plugin()));
-	let entity = app
-		.world_mut()
-		.spawn((
-			Localized::<CardTitle, TestCatalog>::new(|c| format!("title:{}", c.0)),
-			Localized::<CardBody, TestCatalog>::new(|c| format!("body:{}", c.0)),
-		))
-		.id();
-	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
-	assert!(app.world().get::<Card>(entity).is_none());
-	app.world_mut().entity_mut(entity).insert(Card {
-		title: String::new(),
-		body: String::new(),
-	});
-	app.update();
-	let world_text = app
-		.world_mut()
-		.spawn(Localized::<Text2d, TestCatalog>::new(|c| c.0.clone()))
-		.id();
-	let span = app
-		.world_mut()
-		.spawn(Localized::<TextSpan, TestCatalog>::new(|c| c.0.clone()))
-		.id();
-	pump(&mut app, |world| {
-		world.get::<Card>(entity).unwrap().body == "body:Japanese"
-	});
-	assert_eq!(
-		app.world().get::<Card>(entity).unwrap().title,
-		"title:Japanese"
-	);
-	assert_eq!(app.world().get::<Text2d>(world_text).unwrap().0, "Japanese");
-	assert_eq!(app.world().get::<TextSpan>(span).unwrap().0, "Japanese");
-	assert!(app.world().get::<Text>(world_text).is_none());
-	assert!(app.world().get::<Text>(span).is_none());
-	app.world_mut()
-		.entity_mut(entity)
-		.remove::<Localized<CardTitle, TestCatalog>>();
-	app.update();
-	assert!(app.world().contains_resource::<TestCatalog>());
 }
 
 #[test]

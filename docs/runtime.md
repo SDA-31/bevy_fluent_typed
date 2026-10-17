@@ -625,9 +625,9 @@ message uses: a `Localized<Text, Translations>` would wait for the entire tree.
 Bindings can be cloned and used in native Bevy 0.19/0.20 scenes; see the
 [BSN recipe](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bsn.md) for the syntax of each backend and child text spans.
 Use `Localized<TextSpan, Scope>` for spans and `Localized<Text2d, Scope>` for world
-labels. Built-in targets can create a missing component through `Default`; custom
-adapters own that creation step, and targets without `Default` must be supplied
-by the application. See [target bindings](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bindings.md).
+labels. Every target implements `Component + Default`. The engine creates a missing
+component through `Default` once when its binding is attached, including custom
+components; supplied components keep their settings. See [target bindings](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bindings.md).
 A span binding owns its scope just like a root binding in Lazy. Its parent
 `Text`/`Text2d`, hierarchy and styles belong to the application; refreshing a
 span does not insert a root `Text`. All three targets keep their active-language

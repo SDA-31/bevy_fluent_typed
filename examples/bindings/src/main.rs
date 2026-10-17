@@ -1,4 +1,4 @@
-//! Native text, a custom component and independent fields use the same binding.
+//! Native text and application components use the same default-initialized binding.
 mod scenario;
 mod widgets;
 

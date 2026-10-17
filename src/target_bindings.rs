@@ -34,3 +34,7 @@ mod cache_policy_tests;
 #[cfg(test)]
 #[path = "target_bindings/tests/query.rs"]
 mod query_tests;
+
+#[cfg(test)]
+#[path = "target_bindings/tests/initialization.rs"]
+mod initialization_tests;

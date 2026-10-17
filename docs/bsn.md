@@ -207,12 +207,12 @@ caption preserves language switching.
 [Feathers button source](https://github.com/bevyengine/bevy/blob/v0.20.0/crates/bevy_feathers/src/controls/button.rs)
 and [native BSN migration](https://bevy.org/learn/migration-guides/0-19-to-0-20/#bsn-syntax-improvements).
 
-For application-defined or multiple-field components, see
+For application-defined components, see
 [custom bindings](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bindings.md).
-`Localized<Target, Scope>` names the target first. Its built-in adapters can
-create an omitted Default target once at binding initialization; later removal
-is respected. Without a default constructor, the application supplies the target.
-Custom adapters own their initialization step. A binding always needs its formatting closure or Msg.
+`Localized<Target, Scope>` names the target first. Every target implements
+`Component + Default`; the engine creates an omitted target once at binding
+initialization, including custom components. Later removal is respected.
+A binding always needs its formatting closure or Msg.
 The runnable BSN example includes typed button and caption-slot helpers and
 checks EN/ES/RU visible/semantic labels and release after despawning.
 

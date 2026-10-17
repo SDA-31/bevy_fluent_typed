@@ -7,7 +7,7 @@ const PROCESS_TIMEOUT: Duration = Duration::from_secs(15);
 const POLL_INTERVAL: Duration = Duration::from_millis(10);
 
 #[test]
-fn custom_component_and_field_bindings_switch_update_and_release_their_scope() {
+fn custom_component_bindings_switch_update_and_release_their_scope() {
 	for arguments in [&[][..], &["--no-cache"][..]] {
 		let stdout = run(
 			env!("CARGO_BIN_EXE_localization-bindings-example"),

@@ -110,7 +110,7 @@ fn default_initializes_once_and_does_not_revive_an_application_removed_target() 
 	}
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 struct ApplicationCaption(String);
 
 impl LocalizationTarget for ApplicationCaption {
@@ -130,7 +130,7 @@ impl LocalizationTarget for ApplicationCaption {
 }
 
 #[test]
-fn minimal_non_default_adapter_waits_for_the_application_component() {
+fn minimal_custom_adapter_initializes_default_without_an_override() {
 	let mut app = app(CachePolicy::None);
 	let calls = Arc::new(AtomicUsize::new(0));
 	app.world_mut().insert_resource(Catalog("ready".into()));
@@ -139,12 +139,7 @@ fn minimal_non_default_adapter_waits_for_the_application_component() {
 		.spawn(Localized::<ApplicationCaption, _>::from(message(&calls)))
 		.id();
 	app.update();
-	assert!(app.world().get::<ApplicationCaption>(entity).is_none());
-	assert_eq!(calls.load(Ordering::Relaxed), 0);
-	app.world_mut()
-		.entity_mut(entity)
-		.insert(ApplicationCaption(String::new()));
-	app.update();
+	assert_eq!(calls.load(Ordering::Relaxed), 1);
 	assert_eq!(
 		app.world().get::<ApplicationCaption>(entity).unwrap().0,
 		"ready"
@@ -190,11 +185,10 @@ mod custom {
 		type Filter = ();
 
 		fn initialize(entity: &mut EntityWorldMut<'_>) {
-			if entity.contains::<Self>() {
-				return;
-			}
-
-			entity.insert(Self::default());
+			assert!(
+				entity.contains::<Self>(),
+				"the engine initializes Default before custom setup"
+			);
 		}
 
 		fn needs_update(data: &TargetItem<'_, '_, Self>, update: &LocalizationUpdate<'_>) -> bool {
@@ -222,7 +216,7 @@ mod custom {
 	struct NoDefaultArgument;
 
 	#[test]
-	fn manual_adapter_supports_generic_default_and_preserves_supplied_settings() {
+	fn generic_default_initialization_preserves_supplied_settings() {
 		let mut app = app(CachePolicy::None);
 		app.world_mut()
 			.insert_resource(Catalog("translated".into()));

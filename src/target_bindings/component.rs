@@ -31,8 +31,10 @@ pub enum UpdateResult {
 
 /// Apply translated text through one native Bevy query and optional structural work.
 ///
-/// Implement on a local component, or a local marker for foreign components and
-/// individual fields. Built-in and application adapters use this same contract.
+/// Implement on a local component that implements [`Default`]. Built-in and
+/// application adapters use this same contract. Field markers and targets without
+/// Default are not supported.
+///
 /// `Data` and `Filter` describe components on the binding's entity; the engine
 /// adds `Entity`, `Localized<Self, _>` and private tracking metadata. Do not request
 /// the binding itself or whole-entity mutable access in `Data`.
@@ -44,10 +46,10 @@ pub enum UpdateResult {
 /// Neither callback may change its binding; `apply` must not despawn the entity.
 ///
 /// Use required data to wait while an application-owned target is absent. The
-/// `initialize` hook runs once when the binding is attached and may construct
-/// missing Default components; it does not run again after target removal or
-/// message replacement. Removing and adding the binding starts a new lifetime.
-/// Built-in initializers preserve supplied components and their settings.
+/// binding creates a missing target through Default when attached, then calls
+/// `initialize` once for any additional setup. This does not run again after
+/// target removal or message replacement. Removing and adding the binding starts a new lifetime.
+/// Supplied components keep their settings.
 ///
 /// Application components implement this trait directly. Only Data/Filter and
 /// `apply` are required; override the default hooks for initialization, change
@@ -61,7 +63,41 @@ pub enum UpdateResult {
 /// occurs after the whole batch and its hooks, and is available to every adapter.
 /// AccessibleLabel uses its normal immutable insertion hooks; the runtime does
 /// not independently own, repair or recreate AccessibilityNode.
-pub trait LocalizationTarget: Sized + Send + Sync + 'static {
+///
+/// A non-Default component cannot be a target, even when supplied explicitly:
+///
+/// ```compile_fail,E0277
+/// use bevy_fluent_typed::bevy::{ecs as bevy_ecs, prelude::{Component, EntityWorldMut}};
+/// use bevy_fluent_typed::{LocalizationTarget, LocalizationUpdate};
+///
+/// #[derive(Component)]
+/// struct NoDefault(String);
+///
+/// impl LocalizationTarget for NoDefault {
+///     type Data = &'static mut Self;
+///     type Filter = ();
+///
+///     fn apply(_: &mut EntityWorldMut<'_>, _: &mut LocalizationUpdate<'_>) {}
+/// }
+/// ```
+///
+/// A non-component field marker cannot be a target:
+///
+/// ```compile_fail,E0277
+/// use bevy_fluent_typed::bevy::prelude::EntityWorldMut;
+/// use bevy_fluent_typed::{LocalizationTarget, LocalizationUpdate};
+///
+/// #[derive(Default)]
+/// struct FieldMarker;
+///
+/// impl LocalizationTarget for FieldMarker {
+///     type Data = ();
+///     type Filter = ();
+///
+///     fn apply(_: &mut EntityWorldMut<'_>, _: &mut LocalizationUpdate<'_>) {}
+/// }
+/// ```
+pub trait LocalizationTarget: Component + Default {
 	/// Components on the binding's entity, using native Bevy query syntax.
 	///
 	/// Reference lifetimes in this description are `'static`; actual items borrow
@@ -77,9 +113,10 @@ pub trait LocalizationTarget: Sized + Send + Sync + 'static {
 	/// the binding still retains its scope in Lazy, regardless of this filter.
 	///
 	/// ```compile_fail
-	/// use bevy_fluent_typed::bevy::prelude::{Changed, EntityWorldMut, Text};
+	/// use bevy_fluent_typed::bevy::{ecs as bevy_ecs, prelude::{Changed, Component, EntityWorldMut, Text}};
 	/// use bevy_fluent_typed::LocalizationTarget;
 	///
+	/// #[derive(Component, Default)]
 	/// struct ChangedOnly;
 	/// impl LocalizationTarget for ChangedOnly {
 	///     type Data = Option<&'static mut Text>;
@@ -93,11 +130,12 @@ pub trait LocalizationTarget: Sized + Send + Sync + 'static {
 	/// Text layout is the default; semantic accessibility labels run after layout.
 	const PHASE: TargetUpdatePhase = TargetUpdatePhase::BeforeLayout;
 
-	/// Initialize an attached binding once, before ordinary refresh.
+	/// Perform additional setup once, after the target's default initialization.
 	///
-	/// May create a missing target through `Default`. Existing components keep
-	/// their settings. Replacing the message does not repeat initialization;
-	/// removing and adding the binding does. Refresh never calls this method.
+	/// The engine creates a missing Self through Default before calling this hook.
+	/// Existing components keep their settings. This hook is empty by default and
+	/// can initialize neighboring components. Replacing the message does not repeat
+	/// initialization; removing and adding the binding does. Refresh never calls this method.
 	fn initialize(_entity: &mut EntityWorldMut<'_>) {}
 
 	/// Cheap optional eligibility check for work scheduling and Idle skipping.
@@ -182,18 +220,19 @@ pub type TargetReadItem<'w, 's, T> = crate::bevy::ecs::query::QueryItem<
 /// The provider's [`crate::CachePolicy`] can disable output retention; native
 /// target repair then formats again, and custom adapters request text lazily.
 /// Replace the binding
-/// when captured arguments change. Different marker types allow independent fields
-/// on the same entity. Each field should have exactly one localization writer.
+/// when captured arguments change. Each target should have exactly one
+/// localization writer.
 /// Built-in text targets update their selected component only. Custom adapters
 /// can synchronize neighbors declared in Data. AccessibleLabel uses Bevy hooks;
 /// the runtime does not independently manage its AccessibilityNode.
 /// The target comes first: `Localized::<Text, Scope>` or
 /// `Localized::<Text, _>::from(message)` when the scope can be inferred.
-/// Built-in adapters create a missing Default component once during
-/// initialization. Later target removal is respected, including across catalog or
+/// Targets implement Component + Default. The engine creates a missing component
+/// once during initialization. Later target removal is respected, including across catalog or
 /// Msg changes. Reinsert the target to resume updates, or remove and add the binding
-/// for a new initialization. Manual adapters own their initialization policy.
-/// A target without Default must be supplied by the application.
+/// for a new initialization. Custom adapters use the same initialization and may
+/// initialize additional neighbors through their optional initialize hook.
+/// Field markers and targets without Default are not supported.
 /// A `TextSpan` binding requires an application-owned parent text hierarchy; it
 /// never creates a root `Text`. Each clone owns its own demand and refreshes
 /// independently, sharing the formatter and owned arguments through `Arc`.

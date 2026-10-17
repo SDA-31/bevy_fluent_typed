@@ -48,8 +48,9 @@ commands.spawn((
 
 The first argument is the target. Bindings update `Text`, `Text2d`, `TextSpan`
 and `AccessibleLabel` independently; `Localized<Text, _>` never adds an
-accessibility label. Built-in targets implement `Default`, allowing a binding
-to create a missing target. Explicit components preserve your styling and layout.
+accessibility label. All targets implement `Component + Default`; a binding
+creates a missing target once without a custom initializer. Explicit components
+preserve your styling and layout.
 The span belongs to a text hierarchy supplied by the application.
 
 The ordinary button has a `Node`, `AccessibleLabel` and its binding on the root,
@@ -59,17 +60,15 @@ see its [separate example](../bsn) for scene syntax and composition.
 
 [targets.rs](src/widgets/targets.rs) demonstrates three levels of integration:
 
-- `Badge` implements `LocalizationTarget` for one String field. It declares
-  required mutable data, creates a missing Default target once and uses the
-  public change-tracking and `set_text` helpers for direct query writes.
+- `Title` implements only Data/Filter and `apply` for its String field. The engine
+  supplies default initialization; the default update requests sequential apply.
+- `Badge` adds direct query writes, native change tracking and `set_text` to skip
+  unchanged work. It inherits the same default initialization as Title and Text.
 - `Caption` uses one Query with required mutable Caption/CaptionMirror data and
   `Without<CaptionPaused>`. Its pure `needs_update` skips Idle, and a mirror-only
-  edit is repaired from Caption without reading Msg. Its initializer supplies
-  missing Default components once; removing either component later is respected.
-- `Card` has two fields and no Default. The application constructs it explicitly.
-  CardTitle/CardDetail declare required Card data and implement only `apply`;
-  the default update requests that sequential writer. They wait while Card is
-  absent and compare before writing to preserve equal-output ticks.
+  edit is repaired from Caption without reading Msg. Its initialize hook only
+  supplies the neighboring mirror, after the engine has initialized Caption.
+  Removing either component later is respected.
 
 Custom targets need no registration or extra plugin; see
 [custom component bindings](../../docs/bindings.md#bind-a-custom-component).
@@ -78,7 +77,7 @@ post-batch confirmation. All targets share the same metadata and executor;
 there are no auxiliary user Query parameters or arbitrary SystemParam hook.
 
 The headless [driver](src/scenario.rs) switches languages without recreating
-entities, replaces the Caption and CardDetail messages with owned `Grace`
+entities, replaces the Caption and Badge messages with owned `Grace`
 arguments, and leaves the other bindings alone. It also pauses Caption, replaces
 its Msg while excluded, then verifies that reentry catches up. It removes consumers separately,
 leaving the existing Caption intact after removing its binding, then verifies
@@ -91,7 +90,7 @@ scope in the provider. Without it, `Rendered` retains formatter output for
 repair. None keeps native identity/tick metadata but no extra formatted string;
 native text formats again for application edits to an existing target.
 Caption skips Idle and repairs its mirror from the existing component; the simpler
-Card field adapters read text every eligible refresh and therefore format every
+Title's apply-only adapter reads text every eligible refresh and therefore formats every
 refresh under None. AccessibleLabel follows Bevy's ordinary hooks; node-only edits
 and removal do not trigger a separate localization repair. Loading and language-switch behavior are identical. See
 [cache policy tradeoffs](../../docs/bindings.md#choose-a-providers-cache-policy).

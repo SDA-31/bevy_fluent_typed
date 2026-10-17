@@ -139,7 +139,7 @@ fn custom_updates_keep_cache_repairs_and_structural_fallbacks() {
 			world.flush();
 			refresh(world);
 			assert_eq!(trace.updates.load(Ordering::Relaxed), count);
-			let initial_fallbacks = if supplied { 0 } else { count };
+			let initial_fallbacks = 0;
 			assert_eq!(trace.fallbacks.load(Ordering::Relaxed), initial_fallbacks);
 			assert_eq!(trace.insertions.load(Ordering::Relaxed), count);
 			assert_eq!(calls.load(Ordering::Relaxed), count);
@@ -299,66 +299,29 @@ fn custom_defaults_precede_catalog_readiness_and_last_removal_retires_the_cache(
 	assert!(weak.upgrade().is_none());
 }
 
-#[derive(Component)]
+#[derive(Component, Default)]
 struct Card {
 	title: String,
-	detail: String,
-	application_value: usize,
 }
 
-struct Title;
-
-impl LocalizationTarget for Title {
-	type Data = Option<&'static mut Card>;
+impl LocalizationTarget for Card {
+	type Data = Option<&'static mut Self>;
 	type Filter = ();
 
 	fn update(
 		card: TargetItem<'_, '_, Self>,
 		update: &mut LocalizationUpdate<'_>,
 	) -> crate::UpdateResult {
-		let Some(mut card) = card else {
+		let Some(card) = card else {
 			return crate::UpdateResult::Done;
 		};
 
-		let text = update.text();
-
-		if card.title != text {
-			text.clone_into(&mut card.title);
-		}
-
+		update.set_text(card.map_unchanged(|card| &mut card.title));
 		crate::UpdateResult::Done
 	}
 
-	fn apply(_: &mut EntityWorldMut<'_>, _update: &mut crate::LocalizationUpdate<'_>) {
-		panic!("field adapter should wait without structural fallback");
-	}
-}
-
-struct Detail;
-
-impl LocalizationTarget for Detail {
-	type Data = Option<&'static mut Card>;
-	type Filter = ();
-
-	fn update(
-		card: TargetItem<'_, '_, Self>,
-		update: &mut LocalizationUpdate<'_>,
-	) -> crate::UpdateResult {
-		let Some(mut card) = card else {
-			return crate::UpdateResult::Done;
-		};
-
-		let text = update.text();
-
-		if card.detail != text {
-			text.clone_into(&mut card.detail);
-		}
-
-		crate::UpdateResult::Done
-	}
-
-	fn apply(_: &mut EntityWorldMut<'_>, _update: &mut crate::LocalizationUpdate<'_>) {
-		panic!("field adapter should wait without structural fallback");
+	fn apply(_: &mut EntityWorldMut<'_>, _update: &mut LocalizationUpdate<'_>) {
+		panic!("component adapter should wait without structural fallback");
 	}
 }
 
@@ -372,65 +335,25 @@ fn replacing_a_message_releases_its_captures_before_the_next_refresh() {
 	let weak = Arc::downgrade(&capture);
 	let owner = world
 		.spawn((
-			Localized::<Title, Catalog>::new(move |catalog| {
+			Localized::<Card, Catalog>::new(move |catalog| {
 				let _keep_alive = &capture;
 				catalog.0.clone()
 			}),
 			Card {
 				title: String::new(),
-				detail: String::new(),
-				application_value: 0,
 			},
 		))
 		.id();
 	world.flush();
-	<Localized<Title, Catalog> as Binding>::refresh(world);
+	<Localized<Card, Catalog> as Binding>::refresh(world);
 	assert_eq!(world.get::<Card>(owner).unwrap().title, "first");
 	world
 		.entity_mut(owner)
-		.insert(Localized::<Title, Catalog>::new(|_| "replacement".into()));
+		.insert(Localized::<Card, Catalog>::new(|_| "replacement".into()));
 	assert!(weak.upgrade().is_none());
 	assert_eq!(world.get::<Card>(owner).unwrap().title, "first");
-	<Localized<Title, Catalog> as Binding>::refresh(world);
+	<Localized<Card, Catalog> as Binding>::refresh(world);
 	assert_eq!(world.get::<Card>(owner).unwrap().title, "replacement");
-}
-
-#[test]
-fn parallel_field_adapters_share_a_component_without_overlapping_borrows() {
-	let mut app = App::new();
-	app.add_plugins(MinimalPlugins);
-	let world = app.world_mut();
-	world.insert_resource(Catalog("translated".into()));
-	let owners: Vec<_> = world
-		.spawn_batch((0..8192).map(|_| {
-			(
-				Localized::<Title, Catalog>::new(|catalog| format!("{} title", catalog.0)),
-				Localized::<Detail, Catalog>::new(|catalog| format!("{} detail", catalog.0)),
-			)
-		}))
-		.collect();
-	world.flush();
-	<Localized<Title, Catalog> as Binding>::refresh(world);
-	<Localized<Detail, Catalog> as Binding>::refresh(world);
-
-	for owner in &owners {
-		assert!(!world.entity(*owner).contains::<Card>());
-		world.entity_mut(*owner).insert(Card {
-			title: String::new(),
-			detail: String::new(),
-			application_value: 42,
-		});
-	}
-
-	<Localized<Title, Catalog> as Binding>::refresh(world);
-	<Localized<Detail, Catalog> as Binding>::refresh(world);
-
-	for owner in owners {
-		let card = world.get::<Card>(owner).unwrap();
-		assert_eq!(card.title, "translated title");
-		assert_eq!(card.detail, "translated detail");
-		assert_eq!(card.application_value, 42);
-	}
 }
 
 #[test]

@@ -3,7 +3,7 @@ use crate::{
 	texts::{self, ui::Greeting},
 	widgets::{
 		Widgets, pilot,
-		targets::{Badge, Caption, CaptionMirror, CaptionPaused, Card, CardDetail},
+		targets::{Badge, Caption, CaptionMirror, CaptionPaused, Title},
 	},
 };
 use bevy_fluent_typed::bevy::{
@@ -46,7 +46,8 @@ pub(super) fn run(mut app: App) -> Result<(), String> {
 
 	let widgets = app.world().resource::<Widgets>();
 	let caption = widgets.caption;
-	let card = widgets.card;
+	let title = widgets.title;
+	let badge = widgets.badge;
 	let native = [widgets.ui, widgets.world, widgets.button, widgets.badge];
 	let original = app.world().get::<Text>(widgets.ui).unwrap().0.clone();
 	let message = pilot("Grace");
@@ -54,8 +55,8 @@ pub(super) fn run(mut app: App) -> Result<(), String> {
 		.entity_mut(caption)
 		.insert(Localized::<Caption, _>::from(message.clone()));
 	app.world_mut()
-		.entity_mut(card)
-		.insert(Localized::<CardDetail, _>::from(message));
+		.entity_mut(badge)
+		.insert(Localized::<Badge, _>::from(message));
 	app.update();
 	assert_eq!(app.world().get::<Text>(native[0]).unwrap().0, original);
 	print!("updated: ");
@@ -77,7 +78,7 @@ pub(super) fn run(mut app: App) -> Result<(), String> {
 		app.world().resource::<Greeting>().msg_detail("Lin"),
 	);
 
-	// Only CardTitle remains as a consumer after these independent removals.
+	// Only Title remains as a consumer after these independent removals.
 	for entity in native {
 		app.world_mut().despawn(entity);
 	}
@@ -85,16 +86,13 @@ pub(super) fn run(mut app: App) -> Result<(), String> {
 	app.world_mut()
 		.entity_mut(caption)
 		.remove::<Localized<Caption, Greeting>>();
-	app.world_mut()
-		.entity_mut(card)
-		.remove::<Localized<CardDetail, Greeting>>();
 	app.update();
 	assert!(app.world().get::<Caption>(caption).is_some());
 	println!(
 		"remaining: {}",
 		app.world().resource::<Greeting>().msg_title()
 	);
-	app.world_mut().despawn(card);
+	app.world_mut().despawn(title);
 	wait(&mut app, |world| !world.contains_resource::<Greeting>())?;
 	println!("unloaded");
 	Ok(())
@@ -141,8 +139,9 @@ fn verify_native_targets(world: &World) {
 fn report(world: &World) {
 	let widgets = world.resource::<Widgets>();
 	let caption = world.get::<Caption>(widgets.caption).unwrap();
-	let card = world.get::<Card>(widgets.card).unwrap();
-	println!("{} | {} | {}", caption.text, card.title, card.detail);
+	let title = world.get::<Title>(widgets.title).unwrap();
+	let badge = world.get::<Badge>(widgets.badge).unwrap();
+	println!("{} | {} | {}", caption.text, title.text, badge.text);
 }
 
 fn wait(app: &mut App, ready: impl Fn(&World) -> bool) -> Result<(), String> {

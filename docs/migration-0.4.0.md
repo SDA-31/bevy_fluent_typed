@@ -49,15 +49,15 @@ Use `Localized<Text2d, Scope>` for a world-text root and
 and styles in the spawn bundle. The old `LocalizedText` type is removed;
 the engine no longer infers the destination from neighboring text components.
 
-Built-in targets with Default are created once if absent when the binding is
-attached. Existing targets and their settings are preserved. Removing a target
+All targets must implement `Component + Default`. The engine creates a missing
+target once when the binding is attached. Existing targets and their settings are preserved. Removing a target
 later leaves it absent even after message or locale changes. Reinsert the target
 to resume, or remove and add the binding for a new initialization.
 
 Removing only the binding stops automatic writes and releases its scope demand;
 the target keeps its last value. Other bindings and resource consumers can
-still retain the scope. A target without Default must be supplied by the
-application unless its manual adapter implements an initialization policy.
+still retain the scope. Targets without Default and non-component field markers
+are not supported; implement `LocalizationTarget` on a `Component + Default` type.
 
 Ordinary edits to an existing bound Text, Text2d or TextSpan are now restored to
 the translation, even when Msg and catalog are unchanged. The default cache
@@ -84,7 +84,7 @@ an ordinary component does not establish automatic ownership.
 
 ## Bind custom components through the same contract
 
-Implement `LocalizationTarget` directly on the component or a local field marker:
+Implement `LocalizationTarget` directly on a component with `Default`:
 
 ```rust,ignore
 use bevy::prelude::{Component, EntityWorldMut};
@@ -103,6 +103,7 @@ impl LocalizationTarget for Caption {
         let Some(target) = entity.get_mut::<Self>() else {
             return;
         };
+
         update.set_text(target.map_unchanged(|target| &mut target.text));
     }
 }
@@ -112,8 +113,9 @@ impl LocalizationTarget for Caption {
 Use `Localized<Caption, Scope>` beside the Caption. No component registration
 plugin is required. `Data` and `Filter` describe one native query; default `update`
 requests the sequential `apply` callback. Override only the callbacks needed by
-the target. For a custom Default component, `initialize` can create a missing
-target once; Default alone does not install this policy. See the
+the target. The engine creates an omitted custom target through `Default` once;
+no initializer override or registration is needed. The optional `initialize` hook
+runs afterward for additional neighbor setup. See the
 [binding contract and examples](bindings.md).
 
 `Localized<AccessibleLabel, Scope>` is a separate binding on Bevy 0.19/0.20.

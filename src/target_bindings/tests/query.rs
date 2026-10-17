@@ -15,7 +15,7 @@ use std::sync::{
 };
 
 #[derive(Component, Default)]
-struct Caption(String);
+struct Paired(String);
 
 #[derive(Component, Default)]
 struct Mirror(String);
@@ -32,10 +32,8 @@ struct Menu;
 #[derive(Component)]
 struct Overlay;
 
-struct Paired;
-
 impl LocalizationTarget for Paired {
-	type Data = (Option<&'static mut Caption>, Option<&'static mut Mirror>);
+	type Data = (Option<&'static mut Paired>, Option<&'static mut Mirror>);
 	type Filter = (
 		With<Enabled>,
 		Without<Paused>,
@@ -76,12 +74,12 @@ impl LocalizationTarget for Paired {
 	fn apply(entity: &mut EntityWorldMut<'_>, update: &mut crate::LocalizationUpdate<'_>) {
 		let text = update.text();
 
-		if let Some(mut caption) = entity.get_mut::<Caption>() {
+		if let Some(mut caption) = entity.get_mut::<Paired>() {
 			if caption.0 != text {
 				text.clone_into(&mut caption.0);
 			}
 		} else {
-			let mut caption = Caption::default();
+			let mut caption = Paired::default();
 			text.clone_into(&mut caption.0);
 			entity.insert(caption);
 		}
@@ -133,7 +131,7 @@ fn typed_pairs_use_native_filters_and_lazy_message_reads() {
 					(
 						Enabled,
 						Menu,
-						Caption::default(),
+						Paired::default(),
 						Mirror::default(),
 						Localized::<Paired, Catalog>::from(message.clone()),
 					)
@@ -151,7 +149,7 @@ fn typed_pairs_use_native_filters_and_lazy_message_reads() {
 			assert_eq!(calls.load(Ordering::Relaxed), count);
 			refresh::<Paired>(world);
 			assert_eq!(calls.load(Ordering::Relaxed), count);
-			assert!(!world.entity(excluded).contains::<Caption>());
+			assert!(world.get::<Paired>(excluded).unwrap().0.is_empty());
 
 			world.increment_change_tick();
 			world.get_mut::<Mirror>(owners[0]).unwrap().0 = "external".into();
@@ -159,36 +157,36 @@ fn typed_pairs_use_native_filters_and_lazy_message_reads() {
 			assert_eq!(calls.load(Ordering::Relaxed), count);
 			assert_eq!(world.get::<Mirror>(owners[0]).unwrap().0, "first");
 			world.increment_change_tick();
-			world.get_mut::<Caption>(owners[0]).unwrap().0 = "external".into();
+			world.get_mut::<Paired>(owners[0]).unwrap().0 = "external".into();
 			refresh::<Paired>(world);
 			let repairs = usize::from(matches!(policy, CachePolicy::None));
 			assert_eq!(calls.load(Ordering::Relaxed), count + repairs);
-			assert_eq!(world.get::<Caption>(owners[0]).unwrap().0, "first");
+			assert_eq!(world.get::<Paired>(owners[0]).unwrap().0, "first");
 
 			world.entity_mut(owners[0]).insert(Paused);
 			world.insert_resource(Catalog("second".into()));
 			refresh::<Paired>(world);
-			assert_eq!(world.get::<Caption>(owners[0]).unwrap().0, "first");
+			assert_eq!(world.get::<Paired>(owners[0]).unwrap().0, "first");
 			world.entity_mut(owners[0]).remove::<Paused>();
 			world.entity_mut(excluded).remove::<Paused>();
 			refresh::<Paired>(world);
-			assert_eq!(world.get::<Caption>(owners[0]).unwrap().0, "second");
-			assert_eq!(world.get::<Caption>(excluded).unwrap().0, "second");
+			assert_eq!(world.get::<Paired>(owners[0]).unwrap().0, "second");
+			assert_eq!(world.get::<Paired>(excluded).unwrap().0, "second");
 
 			world.entity_mut(owners[0]).remove::<Menu>();
 			world.insert_resource(Catalog("third".into()));
 			refresh::<Paired>(world);
-			assert_eq!(world.get::<Caption>(owners[0]).unwrap().0, "second");
+			assert_eq!(world.get::<Paired>(owners[0]).unwrap().0, "second");
 			world.entity_mut(owners[0]).insert(Overlay);
 			refresh::<Paired>(world);
 			assert_eq!(world.get::<Mirror>(owners[0]).unwrap().0, "third");
 			world.entity_mut(owners[0]).remove::<Enabled>();
 			world.insert_resource(Catalog("fourth".into()));
 			refresh::<Paired>(world);
-			assert_eq!(world.get::<Caption>(owners[0]).unwrap().0, "third");
+			assert_eq!(world.get::<Paired>(owners[0]).unwrap().0, "third");
 			world.entity_mut(owners[0]).insert(Enabled);
 			refresh::<Paired>(world);
-			assert_eq!(world.get::<Caption>(owners[0]).unwrap().0, "fourth");
+			assert_eq!(world.get::<Paired>(owners[0]).unwrap().0, "fourth");
 
 			world
 				.entity_mut(owners[0])
@@ -200,16 +198,17 @@ fn typed_pairs_use_native_filters_and_lazy_message_reads() {
 			assert_eq!(world.get::<Mirror>(owners[0]).unwrap().0, "replacement");
 			world.remove_resource::<Catalog>();
 			refresh::<Paired>(world);
-			assert!(world.get::<Caption>(owners[0]).unwrap().0.is_empty());
+			assert!(world.get::<Paired>(owners[0]).unwrap().0.is_empty());
 			<Localized<Paired, Catalog> as Binding>::unregister(world);
 		}
 	}
 }
 
-struct Required;
+#[derive(Component, Default)]
+struct Required(String);
 
 impl LocalizationTarget for Required {
-	type Data = &'static mut Caption;
+	type Data = &'static mut Required;
 	type Filter = ();
 
 	fn update(
@@ -231,7 +230,7 @@ impl LocalizationTarget for Required {
 }
 
 #[test]
-fn required_data_waits_for_insertion_and_reenters_after_removal() {
+fn required_data_reenters_after_explicit_target_removal() {
 	for policy in [CachePolicy::Rendered, CachePolicy::None] {
 		let mut app = app(policy);
 		let world = app.world_mut();
@@ -240,24 +239,27 @@ fn required_data_waits_for_insertion_and_reenters_after_removal() {
 		let owner = world
 			.spawn(Localized::<Required, Catalog>::from(message(&calls)))
 			.id();
+		world.flush();
+		world.entity_mut(owner).remove::<Required>();
 		refresh::<Required>(world);
 		assert_eq!(calls.load(Ordering::Relaxed), 0);
-		world.entity_mut(owner).insert(Caption::default());
+		world.entity_mut(owner).insert(Required::default());
 		refresh::<Required>(world);
-		assert_eq!(world.get::<Caption>(owner).unwrap().0, "first");
-		world.entity_mut(owner).remove::<Caption>();
+		assert_eq!(world.get::<Required>(owner).unwrap().0, "first");
+		world.entity_mut(owner).remove::<Required>();
 		world.insert_resource(Catalog("second".into()));
 		refresh::<Required>(world);
-		world.entity_mut(owner).insert(Caption::default());
+		world.entity_mut(owner).insert(Required::default());
 		refresh::<Required>(world);
-		assert_eq!(world.get::<Caption>(owner).unwrap().0, "second");
+		assert_eq!(world.get::<Required>(owner).unwrap().0, "second");
 	}
 }
 
-struct Waiting;
+#[derive(Component, Default)]
+struct Waiting(String);
 
 impl LocalizationTarget for Waiting {
-	type Data = Option<&'static mut Caption>;
+	type Data = Option<&'static mut Waiting>;
 	type Filter = ();
 
 	fn update(
@@ -286,6 +288,8 @@ fn unread_uncached_invalidations_remain_pending_without_formatting() {
 	let owner = world
 		.spawn(Localized::<Waiting, Catalog>::from(message(&calls)))
 		.id();
+	world.flush();
+	world.entity_mut(owner).remove::<Waiting>();
 	refresh::<Waiting>(world);
 	world.insert_resource(Catalog("first".into()));
 	refresh::<Waiting>(world);
@@ -293,18 +297,19 @@ fn unread_uncached_invalidations_remain_pending_without_formatting() {
 	refresh::<Waiting>(world);
 	refresh::<Waiting>(world);
 	assert_eq!(calls.load(Ordering::Relaxed), 0);
-	world.entity_mut(owner).insert(Caption::default());
+	world.entity_mut(owner).insert(Waiting::default());
 	refresh::<Waiting>(world);
 	assert_eq!(calls.load(Ordering::Relaxed), 1);
-	assert_eq!(world.get::<Caption>(owner).unwrap().0, "second");
+	assert_eq!(world.get::<Waiting>(owner).unwrap().0, "second");
 }
 
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
-struct ResourceTarget;
+#[derive(Component, Default)]
+struct ResourceTarget(String);
 
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 impl LocalizationTarget for ResourceTarget {
-	type Data = (&'static mut Catalog, &'static mut Caption);
+	type Data = (&'static mut Catalog, &'static mut ResourceTarget);
 	type Filter = ();
 
 	fn update(
@@ -333,110 +338,19 @@ fn typed_data_can_borrow_the_scope_resource_entity_after_snapshotting() {
 			.get(world.component_id::<Catalog>().unwrap())
 			.unwrap();
 		world.entity_mut(owner).insert((
-			Caption::default(),
+			ResourceTarget::default(),
 			Localized::<ResourceTarget, Catalog>::new(|catalog| catalog.0.clone()),
 		));
 		refresh::<ResourceTarget>(world);
-		assert_eq!(world.get::<Caption>(owner).unwrap().0, "ready");
-	}
-}
-
-#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
-struct Semantic;
-
-#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
-impl LocalizationTarget for Semantic {
-	type Data = (
-		Option<crate::bevy::prelude::Ref<'static, crate::bevy::prelude::AccessibleLabel>>,
-		Option<&'static mut crate::bevy::a11y::AccessibilityNode>,
-	);
-	type Filter = ();
-
-	fn update(
-		(label, node): TargetItem<'_, '_, Self>,
-		update: &mut LocalizationUpdate<'_>,
-	) -> crate::UpdateResult {
-		let (Some(label), Some(mut node)) = (label, node) else {
-			return crate::UpdateResult::Deferred;
-		};
-
-		let text = if update.is_changed() || label.is_changed() {
-			update.text()
-		} else {
-			&label.0
-		};
-
-		if label.0 != text {
-			return crate::UpdateResult::Deferred;
-		}
-
-		if node.label() != Some(text) {
-			node.set_label(text);
-		}
-
-		crate::UpdateResult::Done
-	}
-
-	fn apply(entity: &mut EntityWorldMut<'_>, update: &mut crate::LocalizationUpdate<'_>) {
-		let text = update.text();
-
-		let mut label = crate::bevy::prelude::AccessibleLabel::default();
-		text.clone_into(&mut label.0);
-		entity.insert(label);
-	}
-}
-
-#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
-#[test]
-fn a_user_marker_can_pair_an_immutable_foreign_label_with_its_mutable_node() {
-	use crate::bevy::{a11y::AccessibilityNode, prelude::AccessibleLabel};
-
-	for policy in [CachePolicy::Rendered, CachePolicy::None] {
-		for count in [1, 4 << 10] {
-			let mut app = app(policy);
-			let world = app.world_mut();
-			world.insert_resource(Catalog("translated".into()));
-			let calls = Arc::new(AtomicUsize::new(0));
-			let message = message(&calls);
-			let owners: Vec<_> = world
-				.spawn_batch(
-					(0..count).map(|_| Localized::<Semantic, Catalog>::from(message.clone())),
-				)
-				.collect();
-			refresh::<Semantic>(world);
-			refresh::<Semantic>(world);
-			refresh::<Semantic>(world);
-			let stable = calls.load(Ordering::Relaxed);
-
-			for &owner in &owners {
-				world
-					.get_mut::<AccessibilityNode>(owner)
-					.unwrap()
-					.set_label("external");
-			}
-
-			refresh::<Semantic>(world);
-			assert_eq!(calls.load(Ordering::Relaxed), stable);
-
-			for &owner in &owners {
-				assert_eq!(world.get::<AccessibleLabel>(owner).unwrap().0, "translated");
-				assert_eq!(
-					world.get::<AccessibilityNode>(owner).unwrap().label(),
-					Some("translated")
-				);
-			}
-
-			world.insert_resource(Catalog("next".into()));
-			refresh::<Semantic>(world);
-			assert_eq!(world.get::<AccessibleLabel>(owners[0]).unwrap().0, "next");
-		}
+		assert_eq!(world.get::<ResourceTarget>(owner).unwrap().0, "ready");
 	}
 }
 
 #[derive(Component)]
 struct Skip;
 
-struct DeferredTarget;
+#[derive(Component, Default)]
+struct DeferredTarget(String);
 
 #[derive(Resource, Clone, Copy)]
 enum Invalidate {
@@ -446,7 +360,7 @@ enum Invalidate {
 }
 
 impl LocalizationTarget for DeferredTarget {
-	type Data = Option<&'static Caption>;
+	type Data = Option<&'static DeferredTarget>;
 	type Filter = Without<Skip>;
 
 	fn apply(entity: &mut EntityWorldMut<'_>, update: &mut crate::LocalizationUpdate<'_>) {
@@ -477,7 +391,7 @@ impl LocalizationTarget for DeferredTarget {
 				}
 			}
 		});
-		let mut caption = Caption::default();
+		let mut caption = DeferredTarget::default();
 		text.clone_into(&mut caption.0);
 		entity.insert(caption);
 	}
@@ -495,7 +409,11 @@ fn deferred_batches_recheck_filters_identity_and_despawns_after_prior_callbacks(
 				(0..3).map(|_| Localized::<DeferredTarget, Catalog>::new(|c| c.0.clone())),
 			);
 			refresh::<DeferredTarget>(world);
-			let applied = world.query::<&Caption>().iter(world).count();
+			let applied = world
+				.query::<&DeferredTarget>()
+				.iter(world)
+				.filter(|target| target.0 == "old")
+				.count();
 			assert_eq!(
 				applied, 1,
 				"an earlier callback invalidated the remaining work"
