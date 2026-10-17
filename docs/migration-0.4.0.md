@@ -3,6 +3,7 @@
 This migration replaces implicit text targets with explicit bindings. Loading
 modes, generated catalogs, startup strategies, supported Bevy families and the
 Rust 1.97.1 minimum remain unchanged. The generator stays at 0.2.2.
+Startup configuration now belongs exclusively to `LocalizationStartupPlugin`.
 The [changelog](../CHANGELOG.md#040) records this version's release status.
 
 ## Update both dependency entries
@@ -20,6 +21,39 @@ Select another Bevy backend on the normal dependency with defaults disabled,
 as in the [compatibility recipe](../README.md#supported-engines). Do not forward
 backend features to the build dependency. The existing explicit `build.rs`
 generation call and `translations!` declaration do not change.
+
+## Configure startup through the application plugin
+
+On Bevy 0.19/0.20, replace the removed startup builders on `LocalizationPlugin`
+with the App-wide `LocalizationStartupPlugin`. Source plugins inherit its policy.
+
+Before:
+
+```rust,ignore
+app.add_plugins(
+    LocalizationPlugin::<texts::Translations>::new(texts::manifest())
+        .with_startup_strategy(StartupStrategy::Native),
+);
+```
+
+After:
+
+```rust,ignore
+use bevy_fluent_typed::{LocalizationPlugin, LocalizationStartupPlugin, StartupStrategy};
+
+app.add_plugins(LocalizationPlugin::<texts::Translations>::new(texts::manifest()));
+app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Native));
+```
+
+Replace `.with_startup_barrier(AppStartup)` with
+`app.add_plugins(LocalizationStartupPlugin::barrier(AppStartup))` instead.
+Keep the selected systems in `.in_set(AppStartup)`.
+
+The startup plugin can precede or follow source plugins, before the first App
+update. With no explicit startup plugin, the existing Deferred fallback remains.
+All roots share one coordinator. Matching explicit startup plugins are accepted;
+contradictory choices and changes after startup begins are rejected. Loading modes
+and execution policies are unchanged. See [startup strategies](runtime.md#startup-strategies).
 
 ## Select the text target explicitly
 

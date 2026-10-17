@@ -339,23 +339,9 @@ Put asset-source/bootstrap setup before consumers: a `PreStartup` catalog consum
 cannot wait for a loader that the application starts only in a later startup phase.
 Failed loads remain observable through `status` and wait until explicitly retried.
 
-Select another policy on the same localization plugin:
-
-```rust,ignore
-use bevy_fluent_typed::StartupStrategy;
-
-app.add_plugins(
-    LocalizationPlugin::<texts::Translations>::new(texts::manifest())
-        .with_startup_strategy(StartupStrategy::Native),
-);
-```
-
-**Native** preserves ordinary one-shot startup and native missing-resource
-validation. Startup catalog reads do not request or wait automatically in this
-policy; use already-ready catalogs or create bindings without reading one.
-Recurring consumers and inserted bindings remain automatic in Lazy.
-
-To configure startup in a separate application module, add the public plugin:
+Startup policy belongs to the whole App and is configured through
+`LocalizationStartupPlugin`. Localization source plugins inherit that policy.
+Select **Native** to preserve ordinary one-shot startup:
 
 ```rust,ignore
 use bevy_fluent_typed::{LocalizationStartupPlugin, StartupStrategy};
@@ -363,37 +349,36 @@ use bevy_fluent_typed::{LocalizationStartupPlugin, StartupStrategy};
 app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Native));
 ```
 
-Register it before or after `LocalizationPlugin`, before the first App update.
-If absent, `LocalizationPlugin` adds an implicit Deferred fallback. An explicit
-startup plugin added later selects the policy without installing a second
-coordinator or executing startup twice. The existing root-plugin builders remain
-available and configure the same policy.
+**Native** preserves ordinary one-shot startup and native missing-resource
+validation. Startup catalog reads do not request or wait automatically in this
+policy; use already-ready catalogs or create bindings without reading one.
+Recurring consumers and inserted bindings remain automatic in Lazy.
 
-**Barrier** waits for the selected set's combined catalog requirements:
+Register the startup plugin before or after `LocalizationPlugin`, before the
+first App update. If absent, `LocalizationPlugin` adds an implicit Deferred
+fallback. An explicit startup plugin added later selects the policy without
+installing a second coordinator or executing startup twice.
+
+Alternatively, **Barrier** waits for the selected set's combined catalog
+requirements:
 
 ```rust,ignore
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct AppStartup;
 
-app.add_plugins(
-    LocalizationPlugin::<texts::Translations>::new(texts::manifest())
-        .with_startup_barrier(AppStartup),
-);
+app.add_plugins(LocalizationStartupPlugin::barrier(AppStartup));
 app.add_systems(Startup, (setup_hud, setup_buttons).in_set(AppStartup));
 ```
 
-The separate plugin can select the same barrier with
-`LocalizationStartupPlugin::barrier(AppStartup)`.
-
 Startup outside the set may proceed while its catalogs load, subject to ordinary
-ordering. Use the barrier builder to select the set; passing `StartupStrategy::Barrier`
-to `with_startup_strategy` is rejected. Loading mode and startup strategy are
-independent: a Manual barrier still needs application-owned requests.
+ordering. Use `LocalizationStartupPlugin::barrier` to select the set; passing
+`StartupStrategy::Barrier` to `LocalizationStartupPlugin::new` is rejected.
+Loading mode and startup strategy are independent: a Manual barrier still needs
+application-owned requests.
 
-Startup policy belongs to the App. Unconfigured roots inherit the explicit choice
-from startup plugins or root builders regardless of registration order. Without
-an explicit choice, the App uses Deferred. Matching explicit choices are accepted;
-contradictory choices and changes after startup begins are rejected.
+All roots share the explicit choice regardless of registration order. Without
+an explicit choice, the App uses Deferred. Matching explicit startup plugins are
+accepted; contradictory choices and changes after startup begins are rejected.
 
 ### Older Bevy backends
 

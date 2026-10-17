@@ -65,6 +65,11 @@ Release preparation; this version has not been published. See the
 
 ### Removed
 
+- **Breaking:** `LocalizationPlugin::with_startup_strategy` and
+  `LocalizationPlugin::with_startup_barrier` on Bevy 0.19/0.20. Configure the
+  App-wide policy through `LocalizationStartupPlugin::new` or `::barrier`;
+  source plugins inherit it. The implicit Deferred fallback and single
+  coordinator are preserved. See the [startup migration](docs/migration-0.4.0.md#configure-startup-through-the-application-plugin).
 - **Breaking:** `LocalizedText<Scope>`. Select the destination explicitly with
   `Localized<Text, Scope>`, `Localized<Text2d, Scope>` or
   `Localized<TextSpan, Scope>`, including in BSN scenes.

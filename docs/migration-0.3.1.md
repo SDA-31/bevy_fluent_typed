@@ -57,25 +57,8 @@ non-catalog resources produced by unfinished startup steps, and initialize asset
 sources/loaders before their catalog consumers. Failed catalog loads remain pending
 until explicitly retried. OnEnter and custom one-shot schedules do not gain retries.
 
-Choose **Native** on the existing plugin to retain ordinary one-shot startup:
-
-```rust,ignore
-use bevy_fluent_typed::StartupStrategy;
-
-app.add_plugins(
-    LocalizationPlugin::<texts::Translations>::new(texts::manifest())
-        .with_startup_strategy(StartupStrategy::Native),
-);
-```
-
-Native does not automatically request or await startup catalog reads.
-Use already-ready catalogs or startup code that only inserts bindings; ordinary
-recurring consumers and inserted bindings remain automatic in Lazy.
-For an explicit group that waits for all its catalog requirements, use
-`.with_startup_barrier(AppStartup)` and place its systems in that `SystemSet`.
-See [startup strategies](../GUIDE.md#startup-strategies).
-
-Startup configuration may instead live in another application module:
+Configure the App's startup policy through `LocalizationStartupPlugin`.
+Choose **Native** to retain ordinary one-shot startup:
 
 ```rust,ignore
 use bevy_fluent_typed::{LocalizationStartupPlugin, StartupStrategy};
@@ -83,11 +66,17 @@ use bevy_fluent_typed::{LocalizationStartupPlugin, StartupStrategy};
 app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Native));
 ```
 
-Register it before or after the root plugin, before the first App update.
-`LocalizationStartupPlugin::barrier(AppStartup)` selects a grouped barrier.
-An absent startup plugin is added as an implicit Deferred fallback; an explicit
-plugin added later selects the policy without a second coordinator. All root
-builders and startup plugins share the App's policy. Matching explicit choices
+Native does not automatically request or await startup catalog reads.
+Use already-ready catalogs or startup code that only inserts bindings; ordinary
+recurring consumers and inserted bindings remain automatic in Lazy.
+For an explicit group that waits for all its catalog requirements, instead add
+`LocalizationStartupPlugin::barrier(AppStartup)` and place its systems in that
+`SystemSet`. See [startup strategies](../GUIDE.md#startup-strategies).
+
+Register the startup plugin before or after the root plugin, before the first
+App update. An absent startup plugin is added as an implicit Deferred fallback;
+an explicit plugin added later selects the policy without a second coordinator.
+All root plugins inherit the App's policy. Matching explicit startup plugins
 are accepted; contradictory choices and changes after startup begins are rejected.
 
 ## Keep optional observers passive when needed
@@ -111,5 +100,5 @@ bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["
 ```
 
 To retain Bevy 0.19, disable normal-dependency defaults and enable `bevy-0-19`
-alongside `codegen`. Leave the build-only dependency unchanged. No second plugin
-or new generator dependency is needed.
+alongside `codegen`. Leave the build-only dependency unchanged. The default
+Deferred policy needs no explicit startup plugin or new generator dependency.

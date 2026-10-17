@@ -79,8 +79,6 @@ enum Source<C: FluentCatalog> {
 pub struct LocalizationPlugin<C: FluentCatalog, M: LoadingMode = Lazy> {
 	source: Source<C>,
 	cache_policy: CachePolicy,
-	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
-	startup: Option<crate::scheduling::StartupConfiguration>,
 	marker: PhantomData<fn() -> (C, M)>,
 }
 
@@ -97,30 +95,6 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 		self
 	}
 
-	/// Select startup execution for this application. Unconfigured roots inherit
-	/// the application's choice, or `Deferred` when no root chooses explicitly.
-	/// Contradictory explicit settings across roots are rejected.
-	/// The same App policy can be selected independently with `LocalizationStartupPlugin`.
-	/// Available on Bevy 0.19/0.20. For `Barrier`, use
-	/// [`Self::with_startup_barrier`] to provide the selected set.
-	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
-	pub fn with_startup_strategy(mut self, strategy: crate::StartupStrategy) -> Self {
-		self.startup = Some(crate::scheduling::StartupConfiguration::new(strategy));
-		self
-	}
-
-	/// Wait for all catalog requirements of a selected startup set together.
-	/// Startup systems outside this set can execute while its catalogs load,
-	/// subject to declared ordering. Available on Bevy 0.19/0.20; loading mode
-	/// is unchanged, so Manual still needs explicit requests.
-	#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
-	pub fn with_startup_barrier(mut self, set: impl SystemSet) -> Self {
-		self.startup = Some(crate::scheduling::StartupConfiguration::barrier(
-			set.intern(),
-		));
-		self
-	}
-
 	/// Configure the selected loading mode from a ready source contract.
 	/// File origins are Bevy asset addresses; named sources are preserved.
 	/// Generated consumers can pass `texts::manifest()` for their build-configured
@@ -134,8 +108,6 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 			source: Source::Manifest(manifest),
 			cache_policy: CachePolicy::default(),
 			marker: PhantomData,
-			#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
-			startup: None,
 		}
 	}
 
@@ -206,8 +178,6 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 			source: Source::Bytes(ByteLoader::new(load)),
 			cache_policy: CachePolicy::default(),
 			marker: PhantomData,
-			#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
-			startup: None,
 		}
 	}
 }
@@ -249,8 +219,6 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 			if !app.is_plugin_added::<crate::LocalizationStartupPlugin>() {
 				app.add_plugins(crate::LocalizationStartupPlugin::fallback());
 			}
-
-			crate::scheduling::register(app, self.startup);
 		}
 		compatibility::register_notifications::<C>(app);
 		crate::progress::register::<C, M>(app);

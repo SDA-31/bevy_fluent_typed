@@ -188,8 +188,9 @@ struct AppStartup;
 #[test]
 fn barrier_holds_selected_independent_steps_but_runs_outside_services() {
 	let allow = Arc::new(Gate::default());
-	let mut app = app(delayed_plugin(allow.clone()).with_startup_barrier(AppStartup));
-	app.add_systems(Startup, services)
+	let mut app = app(delayed_plugin(allow.clone()));
+	app.add_plugins(LocalizationStartupPlugin::barrier(AppStartup))
+		.add_systems(Startup, services)
 		.add_systems(Startup, (hud, finish).chain().in_set(AppStartup))
 		.add_systems(PostStartup, post);
 	app.update();
@@ -212,14 +213,14 @@ fn native_startup_can_create_bindings_without_waiting_for_catalog() {
 		"ui.ftl",
 		b"Japanese".as_slice(),
 	)])
-	.unwrap()
-	.with_startup_strategy(StartupStrategy::Native));
-	app.add_systems(Startup, |mut commands: Commands| {
-		commands.spawn(Localized::<Text, TestCatalog>::new(|catalog| {
-			catalog.0.clone()
-		}));
-	})
-	.add_systems(PostStartup, post);
+	.unwrap());
+	app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Native))
+		.add_systems(Startup, |mut commands: Commands| {
+			commands.spawn(Localized::<Text, TestCatalog>::new(|catalog| {
+				catalog.0.clone()
+			}));
+		})
+		.add_systems(PostStartup, post);
 	app.update();
 	assert_eq!(app.world().resource::<Steps>().0, ["post"]);
 	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
@@ -449,60 +450,49 @@ fn full_mode_waits_for_preloaded_catalogs_in_ordinary_startup() {
 }
 
 #[test]
-fn explicit_policy_is_inherited_by_unconfigured_roots_in_both_registration_orders() {
+fn startup_policy_is_shared_by_multiple_roots_in_both_registration_orders() {
 	use super::native_resources::FtlCatalog;
+
+	fn optional_catalog(_: Option<Res<TestCatalog>>, mut steps: ResMut<Steps>) {
+		steps.0.push("optional");
+	}
+
 	for explicit_first in [false, true] {
 		let mut app = App::new();
 		app.add_plugins(MinimalPlugins).init_resource::<Steps>();
-		let default = LocalizationPlugin::<TestCatalog>::from_bytes([(
-			"ja",
-			"ui.ftl",
-			b"Japanese".as_slice(),
-		)])
-		.unwrap();
-		let explicit = LocalizationPlugin::<FtlCatalog>::from_bytes([(
+		let first = delayed_plugin(Arc::new(Gate::default()));
+		let second = LocalizationPlugin::<FtlCatalog>::from_bytes([(
 			"en",
 			"hud.ftl",
 			b"greeting = Hello\n".as_slice(),
 		)])
-		.unwrap()
-		.with_startup_strategy(StartupStrategy::Native);
+		.unwrap();
+		let startup = LocalizationStartupPlugin::new(StartupStrategy::Native);
+
 		if explicit_first {
-			app.add_plugins(explicit).add_plugins(default);
+			app.add_plugins(startup).add_plugins((first, second));
 		} else {
-			app.add_plugins(default).add_plugins(explicit);
+			app.add_plugins((first, second)).add_plugins(startup);
 		}
-		app.add_systems(Startup, services)
+
+		app.add_systems(Startup, (services, optional_catalog).chain())
 			.add_systems(PostStartup, post);
 		app.update();
-		assert_eq!(app.world().resource::<Steps>().0, ["services", "post"]);
+		app.update();
+		assert_eq!(
+			app.world().resource::<Steps>().0,
+			["services", "optional", "post"]
+		);
+		assert!(!app.world().contains_resource::<TestCatalog>());
 	}
 }
 
 #[test]
 #[should_panic(expected = "conflicting startup strategies")]
-fn contradictory_explicit_root_policies_are_rejected() {
-	use super::native_resources::FtlCatalog;
+fn contradictory_explicit_startup_plugins_are_rejected() {
 	let mut app = App::new();
-	app.add_plugins(MinimalPlugins)
-		.add_plugins(
-			LocalizationPlugin::<TestCatalog>::from_bytes([(
-				"ja",
-				"ui.ftl",
-				b"Japanese".as_slice(),
-			)])
-			.unwrap()
-			.with_startup_strategy(StartupStrategy::Native),
-		)
-		.add_plugins(
-			LocalizationPlugin::<FtlCatalog>::from_bytes([(
-				"en",
-				"hud.ftl",
-				b"greeting = Hello\n".as_slice(),
-			)])
-			.unwrap()
-			.with_startup_strategy(StartupStrategy::Deferred),
-		);
+	app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Native));
+	app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Deferred));
 }
 
 #[test]
@@ -541,7 +531,8 @@ fn public_startup_plugin_overrides_fallback_in_both_registration_orders() {
 }
 
 #[test]
-fn fallback_and_matching_explicit_plugins_install_one_main_driver() {
+fn multiple_roots_and_matching_startup_plugins_install_one_main_driver() {
+	use super::native_resources::FtlCatalog;
 	use crate::bevy::app::Main;
 
 	let mut app = app(delayed_plugin(Arc::new(Gate::default())));
@@ -557,6 +548,19 @@ fn fallback_and_matching_explicit_plugins_install_one_main_driver() {
 		.graph()
 		.systems
 		.len();
+
+	app.add_plugins(
+		LocalizationPlugin::<FtlCatalog>::from_bytes([(
+			"en",
+			"hud.ftl",
+			b"greeting = Hello\n".as_slice(),
+		)])
+		.unwrap(),
+	);
+	assert_eq!(
+		app.get_added_plugins::<LocalizationStartupPlugin>().len(),
+		1
+	);
 
 	app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Deferred));
 	app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Deferred));
@@ -641,21 +645,18 @@ fn public_startup_plugin_can_run_without_localization_roots() {
 
 #[test]
 #[should_panic(expected = "conflicting startup strategies")]
-fn public_startup_plugin_rejects_a_conflicting_root_builder() {
+fn a_startup_barrier_rejects_a_conflicting_explicit_strategy() {
 	let mut app = App::new();
+	app.add_plugins(LocalizationStartupPlugin::barrier(AppStartup));
 	app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Native));
-	app.add_plugins(
-		delayed_plugin(Arc::new(Gate::default())).with_startup_strategy(StartupStrategy::Deferred),
-	);
 }
 
 #[test]
 #[should_panic(expected = "conflicting startup strategies")]
-fn root_builder_rejects_a_conflicting_public_startup_plugin() {
-	let mut app =
-		app(delayed_plugin(Arc::new(Gate::default()))
-			.with_startup_strategy(StartupStrategy::Deferred));
-	app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Native));
+fn an_explicit_strategy_rejects_a_conflicting_startup_barrier() {
+	let mut app = App::new();
+	app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Deferred));
+	app.add_plugins(LocalizationStartupPlugin::barrier(AppStartup));
 }
 
 #[test]
@@ -756,11 +757,11 @@ fn native_startup_also_initializes_update_locals_after_startup_commands() {
 		"ui.ftl",
 		b"Japanese".as_slice(),
 	)])
-	.unwrap()
-	.with_startup_strategy(StartupStrategy::Native));
-	app.add_systems(Startup, |mut commands: Commands| {
-		commands.insert_resource(StartupInput)
-	});
+	.unwrap());
+	app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Native))
+		.add_systems(Startup, |mut commands: Commands| {
+			commands.insert_resource(StartupInput)
+		});
 	app.add_systems(Update, |_: Local<InitializedLocal>| {});
 	app.update();
 }
@@ -768,8 +769,9 @@ fn native_startup_also_initializes_update_locals_after_startup_commands() {
 #[test]
 fn barrier_holds_an_independent_selected_system_until_catalogs_are_ready() {
 	let allow = Arc::new(Gate::default());
-	let mut app = app(delayed_plugin(allow.clone()).with_startup_barrier(AppStartup));
-	app.add_systems(Startup, services)
+	let mut app = app(delayed_plugin(allow.clone()));
+	app.add_plugins(LocalizationStartupPlugin::barrier(AppStartup))
+		.add_systems(Startup, services)
 		.add_systems(
 			Startup,
 			(hud, |mut steps: ResMut<Steps>| steps.0.push("selected")).in_set(AppStartup),
@@ -899,8 +901,8 @@ fn barrier_retains_its_catalog_while_a_selected_dependent_waits_on_an_outside_st
 		"ui.ftl",
 		b"Japanese".as_slice(),
 	)])
-	.unwrap()
-	.with_startup_barrier(AppStartup));
+	.unwrap());
+	app.add_plugins(LocalizationStartupPlugin::barrier(AppStartup));
 	app.add_plugins(LocalizationPlugin::<FtlCatalog>::from_loader(
 		move |_, _| {
 			let gate = gate.clone();
@@ -1008,8 +1010,9 @@ fn delayed_ftl_plugin(gate: Arc<Gate>) -> LocalizationPlugin<super::native_resou
 fn a_new_barrier_member_updates_the_wait_of_existing_unfinished_members() {
 	let first = Arc::new(Gate::default());
 	let second = Arc::new(Gate::default());
-	let mut app = app(delayed_plugin(first.clone()).with_startup_barrier(AppStartup));
-	app.add_plugins(delayed_ftl_plugin(second.clone()))
+	let mut app = app(delayed_plugin(first.clone()));
+	app.add_plugins(LocalizationStartupPlugin::barrier(AppStartup))
+		.add_plugins(delayed_ftl_plugin(second.clone()))
 		.add_systems(Startup, hud.in_set(AppStartup))
 		.add_systems(PostStartup, post);
 	app.update();

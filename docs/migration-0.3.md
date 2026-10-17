@@ -24,7 +24,7 @@ is false; their ownership ends when the system state is dropped.
 Ordinary `Startup` uses Deferred by default: each catalog consumer and its
 ordered dependents wait, execute once and release temporary demand after deferred
 commands apply. Bindings take over their demand without an unloading gap.
-Use the same plugin's startup builders for Native or a selected-set Barrier.
+Use `LocalizationStartupPlugin` for Native or a selected-set Barrier.
 See the [0.4.0 migration](migration-0.3.1.md) for these scheduling changes.
 
 No consumers, manual pins or leases means no module reads or parsing.
