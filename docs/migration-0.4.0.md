@@ -55,6 +55,21 @@ All roots share one coordinator. Matching explicit startup plugins are accepted;
 contradictory choices and changes after startup begins are rejected. Loading modes
 and execution policies are unchanged. See [startup strategies](runtime.md#startup-strategies).
 
+## Check duplicate catalog registration during setup
+
+The one-plugin-per-root rule remains. A repeated root now produces a detailed
+structural diagnostic through ordinary `add_plugins`, including when both
+plugins have the same type. The diagnostic includes the root name, all declared
+FTL leaf paths, plugin types and constructor locations. Sources, languages and
+translation bytes are not compared; disjoint source subsets still claim the same
+complete root.
+
+For a typed `Result` before Bevy registration, call
+`plugin.validate_registration(&app)?` and handle `LocalizationRegistrationError`.
+This check does not reserve or install anything. `add_plugins` repeats it before
+installing the second provider's localization resources or systems. See
+[registration conflicts](runtime.md#registration-conflicts).
+
 ## Select the text target explicitly
 
 Before:

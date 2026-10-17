@@ -16,6 +16,7 @@ mod cache_policy;
 mod composition;
 mod lease_preparation;
 mod progress;
+mod registration;
 mod scope_progress;
 mod switching;
 

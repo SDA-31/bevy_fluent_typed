@@ -85,6 +85,8 @@ mod preparation;
 #[cfg(feature = "runtime")]
 mod progress;
 #[cfg(feature = "runtime")]
+mod registration;
+#[cfg(feature = "runtime")]
 mod resources;
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 mod scheduling;
@@ -153,6 +155,8 @@ pub use preparation::{CommitLocaleError, PreparationStatus};
 pub use progress::ModuleDiagnostic;
 #[cfg(feature = "runtime")]
 pub use progress::{LoadingProgress, LocalizationProgress, LocalizationProgressPlugin};
+#[cfg(feature = "runtime")]
+pub use registration::LocalizationRegistrationError;
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 pub use scheduling::{LocalizationStartupPlugin, StartupStrategy};
 #[cfg(feature = "runtime")]

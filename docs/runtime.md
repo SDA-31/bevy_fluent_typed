@@ -17,6 +17,40 @@ unattached `Msg` or binding, inspecting the world, or navigating a controller
 view is passive. Lazy also supports optional manual pins; Full has no
 `load` or `unload` methods.
 
+### Registration conflicts
+
+Install one `LocalizationPlugin` per root catalog type. Every plugin claims its
+complete root schema, including leaves absent from its source. Repeating that
+root is a configuration error even with disjoint embedded subsets, different
+languages, source kinds or loading modes. Branches are represented by their FTL
+leaf paths; only schema structure participates in this check.
+
+Ordinary `app.add_plugins(plugin)` checks this during plugin setup. A conflict
+panics with the root catalog name, sorted leaf paths, both concrete plugin types
+and the locations where the plugin values were constructed. The second provider's
+localization resources and systems are not installed. The check does not read
+translation files, invoke loaders or compare FTL contents.
+
+To handle the typed error before calling Bevy registration:
+
+```rust,ignore
+use bevy_fluent_typed::{LocalizationPlugin, LocalizationRegistrationError};
+
+fn install_localization(app: &mut App) -> Result<(), LocalizationRegistrationError> {
+    let plugin = LocalizationPlugin::<texts::Translations>::new(texts::manifest());
+    plugin.validate_registration(app)?;
+    app.add_plugins(plugin);
+    Ok(())
+}
+```
+
+This preliminary check does not reserve the catalog; `add_plugins` checks again.
+The error exposes the catalog's `TypeId` and readable name, its leaf paths, both
+plugin types and constructor locations. Distinct root Rust types remain independent
+namespaces, even when their leaf paths match. Declare `translations!` once for a
+shared catalog and import or re-export that module: separate declarations create
+separate types rather than a shared provider.
+
 ## Automatic module lifetime
 
 Insert a binding and let the plugin manage its scope:

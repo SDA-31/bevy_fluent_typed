@@ -593,7 +593,7 @@ fn manual_constructors_wait_for_explicit_demand_and_clear_bindings_on_unload() {
 }
 
 #[test]
-#[should_panic(expected = "one localization plugin per root provider")]
+#[should_panic(expected = "conflicting localization plugin registrations")]
 fn two_loading_modes_cannot_race_for_the_same_resources() {
 	let mut app = App::new();
 	app.add_plugins((

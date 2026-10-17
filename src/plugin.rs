@@ -6,6 +6,7 @@ use crate::{
 	cache_policy::{CachePolicy, ProviderCachePolicy},
 	compatibility, demand,
 	loading::reload_catalogs,
+	registration::{self, RegistrationSite},
 	resources,
 };
 #[cfg(feature = "manifest")]
@@ -17,10 +18,12 @@ use crate::{
 	loading::{CatalogSource, reconcile, report_failures},
 };
 use std::{
+	any::type_name,
 	collections::{HashMap, HashSet},
 	fmt::Display,
 	future::Future,
 	marker::PhantomData,
+	panic::Location,
 	sync::Arc,
 };
 
@@ -74,15 +77,47 @@ enum Source<C: FluentCatalog> {
 /// before their first manual execution. Already initialized systems retain their
 /// previous behavior; newly added systems are discovered on later updates.
 /// Only one plugin/controller mode may own a given root provider in an App.
+/// A repeated root is rejected with its declared leaf paths, both plugin types
+/// and their constructor locations before configuring the second source.
+/// [`Self::validate_registration`] returns the typed conflict without adding a plugin.
 /// `Localization::set_locale` retains active resources until desired target scopes
 /// validate, then switches automatically at publication.
 pub struct LocalizationPlugin<C: FluentCatalog, M: LoadingMode = Lazy> {
 	source: Source<C>,
 	cache_policy: CachePolicy,
+	created_at: &'static Location<'static>,
 	marker: PhantomData<fn() -> (C, M)>,
 }
 
 impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
+	/// Check whether another plugin already owns this root catalog type.
+	///
+	/// This uses only schema metadata. It does not inspect sources, read bytes,
+	/// compare languages, initialize resources or install systems. Every plugin
+	/// claims its complete root, including leaves absent from its source.
+	/// Distinct root Rust types remain independent namespaces.
+	///
+	/// This is a non-mutating check, not a reservation: adding another plugin
+	/// afterward can change the result. Ordinary Bevy `add_plugins` repeats the
+	/// same check automatically and panics with the formatted error on conflict.
+	///
+	/// # Errors
+	/// Returns [`crate::LocalizationRegistrationError`] when this root is already
+	/// registered, including when loading modes differ.
+	pub fn validate_registration(
+		&self,
+		app: &App,
+	) -> Result<(), crate::LocalizationRegistrationError> {
+		registration::validate::<C>(app, self.registration_site())
+	}
+
+	fn registration_site(&self) -> RegistrationSite {
+		RegistrationSite {
+			plugin: type_name::<Self>(),
+			created_at: self.created_at,
+		}
+	}
+
 	/// Select formatted-output caching for every scope owned by this provider.
 	///
 	/// The default [`CachePolicy::Rendered`] repairs targets without formatting
@@ -103,10 +138,12 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 	/// `texts::embed_manifest! { const SOURCE = Translations; }` for explicit embedding.
 	/// Pass that constant directly to `new(SOURCE)`; no conversion is needed.
 	#[cfg(feature = "manifest")]
+	#[track_caller]
 	pub fn new(manifest: LocalizationManifest) -> Self {
 		Self {
 			source: Source::Manifest(manifest),
 			cache_policy: CachePolicy::default(),
+			created_at: Location::caller(),
 			marker: PhantomData,
 		}
 	}
@@ -120,6 +157,7 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 	///
 	/// # Errors
 	/// Rejects unknown locales, unknown leaf paths and duplicate `(locale, path)` keys.
+	#[track_caller]
 	pub fn from_bytes<B>(
 		modules: impl IntoIterator<Item = (C::Locale, &'static str, B)>,
 	) -> Result<Self, String>
@@ -167,6 +205,7 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 	/// Requests are serialized per active leaf, retries coalesce, and a failed
 	/// reload retains the last good same-locale snapshot. There is no source cache,
 	/// automatic retry or fallback. Handwritten providers own their parser checks.
+	#[track_caller]
 	pub fn from_loader<L, F, B, E>(load: L) -> Self
 	where
 		L: Fn(C::Locale, &'static str) -> F + Send + Sync + 'static,
@@ -177,6 +216,7 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 		Self {
 			source: Source::Bytes(ByteLoader::new(load)),
 			cache_policy: CachePolicy::default(),
+			created_at: Location::caller(),
 			marker: PhantomData,
 		}
 	}
@@ -185,6 +225,7 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 #[cfg(feature = "manifest")]
 impl<C: FluentCatalog> LocalizationPlugin<C, Lazy> {
 	/// Short form of `LocalizationPlugin::<C, Manual>::new(manifest)`.
+	#[track_caller]
 	pub fn new_manual(manifest: LocalizationManifest) -> LocalizationPlugin<C, Manual> {
 		LocalizationPlugin::new(manifest)
 	}
@@ -192,11 +233,10 @@ impl<C: FluentCatalog> LocalizationPlugin<C, Lazy> {
 
 impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 	fn build(&self, app: &mut App) {
-		assert!(
-			!app.world()
-				.contains_resource::<crate::progress::Registration<C>>(),
-			"one localization plugin per root provider is allowed"
-		);
+		if let Err(error) = self.validate_registration(app) {
+			panic!("{error}");
+		}
+
 		let startup = match &self.source {
 			#[cfg(feature = "manifest")]
 			Source::Manifest(manifest) => C::locales()
@@ -221,7 +261,7 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 			}
 		}
 		compatibility::register_notifications::<C>(app);
-		crate::progress::register::<C, M>(app);
+		crate::progress::register::<C, M>(app, self.registration_site());
 
 		for scope in C::scopes() {
 			#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17", feature = "bevy-0-18"))]
@@ -317,5 +357,10 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 				);
 			}
 		}
+	}
+
+	fn is_unique(&self) -> bool {
+		// Report structural conflicts ourselves instead of Bevy's name-only error.
+		false
 	}
 }

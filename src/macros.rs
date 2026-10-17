@@ -5,6 +5,9 @@
 /// and feature `build`. This macro includes prepared output and resolves its
 /// runtime path hygienically, including when the Cargo dependency is renamed.
 /// Module attributes and Rust visibility (`pub`, `pub(crate)`, etc.) are supported.
+/// Declare one tree and import or re-export its module where needed. Repeating
+/// this declaration in different modules creates distinct Rust catalog types,
+/// even though both declarations include the same build output.
 /// With Cargo resolver 2/3, generation stays
 /// in the build-script dependency graph rather than the application runtime.
 /// Declaration alone embeds no FTL, including in unoptimized builds.

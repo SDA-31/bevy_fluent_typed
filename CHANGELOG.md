@@ -13,6 +13,12 @@ Release preparation; this version has not been published. See the
 
 ### Added
 
+- `LocalizationPlugin::validate_registration` returns a typed
+  `LocalizationRegistrationError` for repeated root catalogs, with their schema
+  leaf paths, both plugin types and constructor locations. Ordinary `add_plugins`
+  performs the same structural check and reports the detailed conflict before
+  configuring the second provider. Sources, locales and FTL contents are not
+  compared. See [registration conflicts](docs/runtime.md#registration-conflicts).
 - `Localized<Target, Scope>` and the public `LocalizationTarget` contract bind
   deferred messages to native text and custom components implementing
   `Component + Default`.

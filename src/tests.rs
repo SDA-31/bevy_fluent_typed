@@ -26,6 +26,7 @@ mod native_resources;
 mod preparation;
 mod progress;
 mod progress_registration;
+mod registration;
 #[cfg(feature = "manifest")]
 mod scheduling;
 mod spans;

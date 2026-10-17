@@ -142,7 +142,7 @@ See the [loading guide](GUIDE.md) for automatic module lifetime and optional man
 
 ## Comparison with bevy_fluent
 
-This compares [bevy_fluent 0.15.0](https://docs.rs/bevy_fluent/0.15.0/bevy_fluent/)
+This compares [bevy_fluent 0.15.0](https://github.com/kgv/bevy_fluent)
 with this crate's 0.4.0 API. Both use Fluent; the difference is how applications
 access translations and connect them to Bevy data.
 
@@ -155,11 +155,8 @@ access translations and connect them to Bevy data.
 | Formatted output | Content lookup returns a formatted string. | Provider-wide retained-output caching or on-demand formatting; target components own their strings in both policies. |
 | Bevy support | Bevy 0.19. | One selected backend from Bevy 0.16.1 through 0.20; see [supported engines](#supported-engines). |
 
-The upstream [plugin](https://github.com/kgv/bevy_fluent/blob/4dad540061da05db0fa52b09c500be61d90f4407/src/plugins/mod.rs),
-[content API](https://github.com/kgv/bevy_fluent/blob/4dad540061da05db0fa52b09c500be61d90f4407/src/resources/localization.rs)
-and [locale negotiation](https://github.com/kgv/bevy_fluent/blob/4dad540061da05db0fa52b09c500be61d90f4407/src/resources/locale.rs)
-define the compared behavior. Asset reloads in `bevy_fluent` require the
-application to refresh its stored bundle snapshots and component output.
+Asset reloads in `bevy_fluent` require the application to refresh its stored
+bundle snapshots and component output.
 This crate validates module reloads and retains the last good values;
 compatible translation text can reload, while generated schema changes require
 a rebuild.
