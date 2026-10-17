@@ -45,7 +45,7 @@ commands.spawn((
 Only Data/Filter and `apply` are required. This example uses the default sequential
 writer; no registration, additional plugin or derive helper is needed. For direct
 query writes and Idle skipping, override `update` and `needs_update` as shown by
-Badge in the [runnable example](../examples/bindings/src/widgets/targets.rs).
+Badge in the [runnable example](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bindings/src/widgets/targets.rs).
 
 Built-in initializers create an omitted Default target once when the binding is
 attached. For a custom component, implement `initialize` to opt into that creation
@@ -277,7 +277,7 @@ post-batch confirmation for immutable/structural writes.
 Cache policy does not change module loading, scope lifetime, readiness, locale
 publication or `Msg::render`, which always invokes the formatter immediately.
 Native text mutations through `bypass_change_detection` remain deliberately
-untracked under both policies. The [binding example](../examples/bindings)
+untracked under both policies. The [binding example](https://github.com/SDA-31/bevy_fluent_typed/tree/main/examples/bindings)
 can run the same scenario with and without retained results.
 
 ## Loading and lifecycle
@@ -404,6 +404,8 @@ Parallel work completes before this refresh returns. There is no built-in frame
 budget or automatic spreading across frames. Formatting and component updates
 are only part of a language switch's cost: Bevy must still process changed text
 and layout. The runtime does not create a separate worker pool.
+See the [performance reference](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/performance.md)
+for formatter counts, cache tradeoffs and scoped measurements against 0.3.1.
 
 BeforeLayout targets run in `LocalizationSystems::Refresh`. AfterLayout targets
 run in `LocalizationAccessibilitySet`; the AccessibleLabel adapter uses that

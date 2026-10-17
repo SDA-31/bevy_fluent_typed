@@ -59,6 +59,12 @@ the target keeps its last value. Other bindings and resource consumers can
 still retain the scope. A target without Default must be supplied by the
 application unless its manual adapter implements an initialization policy.
 
+Ordinary edits to an existing bound Text, Text2d or TextSpan are now restored to
+the translation, even when Msg and catalog are unchanged. The default cache
+reuses the rendered result; `CachePolicy::None` formats again. Remove the binding
+before taking over its text manually. Native `bypass_change_detection` writes
+remain untracked; equal translated output preserves the target's change ticks.
+
 ## Prefer Msg for deferred values
 
 `Msg<Scope>` is the primary formatter type. `Message<Scope>` remains a deprecated
@@ -128,6 +134,10 @@ including in deferred `apply`. See the [cache policy tradeoffs](bindings.md#choo
 Large eligible updates use Bevy's native query batching. The runtime does not
 calibrate during startup or learn callback costs. A lower wall time can consume
 more aggregate CPU; profile the application's frame budget before tuning.
+Automatic Msg formatters and direct query callbacks may now execute concurrently
+on compute workers. Keep them independent of main-thread identity and entity
+iteration order; structural `apply` callbacks remain sequential. See the
+[performance reference](performance.md) for skipped work and measured tradeoffs.
 
 ## Verify the migration
 

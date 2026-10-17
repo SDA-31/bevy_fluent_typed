@@ -142,15 +142,29 @@ See the [loading guide](GUIDE.md) for automatic module lifetime and optional man
 
 ## Comparison with bevy_fluent
 
-[bevy_fluent](https://github.com/kgv/bevy_fluent/blob/main/doc/en-US.md) loads
-Fluent assets, looks up messages by string identifiers, and supports locale
-fallback chains. `bevy_fluent_typed` focuses on typed message access and arguments
-through [fluent-typed](https://github.com/human-solutions/fluent-typed), native
-`Res<Scope>` catalogs, automatic scope lifetime and explicit Full/Manual loading. Its optional
-generator creates accessors in an explicit `build.rs` step and checks a shared
-message and argument contract across translations. Compatible translation text
-can reload at runtime; changes to the generated schema require rebuilding.
-This runtime does not provide automatic locale fallback.
+This compares [bevy_fluent 0.15.0](https://docs.rs/bevy_fluent/0.15.0/bevy_fluent/)
+with this crate's 0.4.0 API. Both use Fluent; the difference is how applications
+access translations and connect them to Bevy data.
+
+| Concern | `bevy_fluent` 0.15.0 | `bevy_fluent_typed` 0.4.0 |
+| --- | --- | --- |
+| Messages and arguments | Runtime identifiers and `FluentArgs`. | Generated typed scope accessors and arguments; explicit `build.rs` generation checks the shared translation contract. |
+| Loading and lifetime | Asset handles; application code builds a `Localization` from loaded bundles. | Consumer-driven scopes by default; inserted bindings retain their scope. Native `Res<Scope>` discovery on Bevy 0.19/0.20, with Full/Manual modes also available. |
+| Updating components | Application code formats content and applies the resulting strings. | `Localized<Target, Scope>` updates native text, explicit accessibility labels, custom components and individual fields through one public adapter trait. |
+| Language selection | Locale negotiation and fallback chains. | Keeps active catalogs until requested target scopes validate and publish together; no automatic locale fallback. |
+| Formatted output | Content lookup returns a formatted string. | Provider-wide retained-output caching or on-demand formatting; target components own their strings in both policies. |
+| Bevy support | Bevy 0.19. | One selected backend from Bevy 0.16.1 through 0.20; see [supported engines](#supported-engines). |
+
+The upstream [plugin](https://github.com/kgv/bevy_fluent/blob/4dad540061da05db0fa52b09c500be61d90f4407/src/plugins/mod.rs),
+[content API](https://github.com/kgv/bevy_fluent/blob/4dad540061da05db0fa52b09c500be61d90f4407/src/resources/localization.rs)
+and [locale negotiation](https://github.com/kgv/bevy_fluent/blob/4dad540061da05db0fa52b09c500be61d90f4407/src/resources/locale.rs)
+define the compared behavior. Asset reloads in `bevy_fluent` require the
+application to refresh its stored bundle snapshots and component output.
+This crate validates module reloads and retains the last good values;
+compatible translation text can reload, while generated schema changes require
+a rebuild. This is a feature comparison: the
+[performance measurements](docs/performance.md) compare this crate with its own
+0.3.1 release, not with `bevy_fluent`.
 
 ## Explicit embedding
 
@@ -260,11 +274,12 @@ transports, fonts and shaping remain application responsibilities.
 - [Number formatting](docs/formatting.md): application-owned ICU4X formatters.
 - [Build API](docs/build.md): explicit generation and dependency feature isolation.
 - [Migration to 0.4.0](docs/migration-0.4.0.md): explicit target bindings, Msg and cache policies.
-- [Migration to 0.3](docs/migration-0.3.md): Bevy 0.20, Rust minimum and older backends.
+- [Upgrade from 0.2.2](docs/migration-0.3.md): loading defaults, Bevy 0.20, Rust minimum and older backends.
 - [Migration from 0.1](docs/migration-0.2.md): update an older application.
 - [Custom bindings](docs/bindings.md): custom components, fields, semantic names and provider cache policies.
-- [Native resource setup](docs/migration-0.3.1.md): ordinary system registration
-  and startup strategies on Bevy 0.19/0.20.
+- [Performance](docs/performance.md): skipped work, cache tradeoffs and measured costs.
+- [Upgrade from 0.3.0](docs/migration-0.3.1.md): ordinary system registration
+  and startup strategies on Bevy 0.19/0.20, followed by the 0.4.0 binding changes.
 - [Changelog](CHANGELOG.md): notable changes grouped by release.
 
 Runnable headless examples live in [examples/codegen](examples/codegen),

@@ -18,23 +18,44 @@ Release preparation; this version has not been published. See the
   Adapters describe one native Bevy query, with default callbacks and optional
   structural work. Built-in targets use this same contract.
 - Automatic `AccessibleLabel` bindings on Bevy 0.19/0.20 through Bevy's ordinary
-  accessibility hooks, independently of visible text bindings.
+  accessibility hooks, independently of visible text bindings. The runtime does
+  not independently repair or recreate `AccessibilityNode`.
 - Provider-wide `CachePolicy::Rendered` (default) and `CachePolicy::None`.
   The latter retains tracking metadata without retaining formatted output.
 - Focused custom component/field examples and native BSN button-caption recipes.
+- A [performance reference](docs/performance.md) describing skipped work,
+  provider cache tradeoffs and benchmark results against runtime 0.3.1.
 - Tracked standalone lockfiles for the runtime, examples and
   compatibility tool, with locked CI graphs.
 
 ### Changed
 
 - Large eligible query updates use native Bevy query batching and the existing
-  compute pool. Small updates stay sequential; structural callbacks remain
-  sequential after the query pass. This is not a frame-budget guarantee or an
-  adaptive cost controller.
-- **Behavior change:** built-in Default targets are initialized
-  once when their binding is attached. Later target removal is respected;
-  reinsert the target to resume updates or reattach the binding to initialize
-  a new lifetime. Removing a binding leaves the target's last value in place.
+  compute pool. Msg formatters and direct query callbacks can run concurrently;
+  they must not depend on main-thread identity or entity order. Small updates
+  stay sequential; structural callbacks remain sequential after the query pass.
+  This is not a frame-budget guarantee or an adaptive cost controller.
+- Replacing an existing binding with a clone of its current Msg reuses rendered
+  output while the catalog, readiness and query eligibility are unchanged.
+- Built-in targets and custom adapters using `LocalizationUpdate::set_text`
+  preserve target change ticks when output is equal. Custom adapters can inspect
+  component changes before requesting text; uncached text reads are shared within
+  an update and its deferred continuation.
+- **Behavior change:** built-in text bindings restore translated output after
+  ordinary application edits even when Msg and catalog are unchanged. Repairs
+  use Bevy change ticks and reuse retained output under the default cache policy;
+  explicit `bypass_change_detection` edits remain untracked until another observed
+  change or binding invalidation. Idle preserves target ticks.
+- **Breaking behavior change:** built-in Default targets are initialized once
+  when their binding is attached, preserving supplied components and settings.
+  Later target removal is respected, including across Msg and catalog changes;
+  reinsert the target to resume updates, or remove and add the binding to start
+  a new lifetime. Replacing Msg alone does not repeat initialization. In Lazy,
+  the binding retains its scope while the target is absent. Removing the binding
+  stops automatic writes and leaves the target's last value in place. Custom
+  adapters opt into initialization through `LocalizationTarget::initialize`;
+  implementing Default alone does not install that policy. See the
+  [binding lifecycle](docs/bindings.md#loading-and-lifecycle).
 
 ### Deprecated
 

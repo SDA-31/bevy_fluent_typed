@@ -196,8 +196,9 @@ for a minimal runtime and a handwritten provider.
 - [BSN and text spans](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bsn.md): use the same binding on scene text and child spans.
 - [Loading progress](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md#observe-loading-progress): optional native progress subtrees and module details.
 - [Custom bindings](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bindings.md): custom components, semantic labels and provider cache policies.
+- [Performance](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/performance.md): skipped work, cache tradeoffs and measured costs.
 - [Migration to 0.4.0](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.4.0.md): explicit target bindings, Msg and cache policies.
-- [Native resource registration and startup](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.3.1.md): changes from 0.3.0.
-- [Migration to 0.3](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.3.md): Bevy 0.20, Rust minimum and older backends.
+- [Upgrade from 0.3.0](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.3.1.md): native registration and startup, followed by the 0.4.0 binding changes.
+- [Upgrade from 0.2.2](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.3.md): loading defaults, Bevy 0.20, Rust minimum and older backends.
 - [Migration from 0.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) and [catalog path and embedding migration](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.2.md).
 - [Changelog](https://github.com/SDA-31/bevy_fluent_typed/blob/main/CHANGELOG.md).

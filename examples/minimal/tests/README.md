@@ -6,7 +6,7 @@ For application setup, follow the
 [quickstart](../../../README.md#setup).
 
 ```sh
-cargo test --manifest-path examples/minimal/Cargo.toml
+cargo test --locked --manifest-path examples/minimal/Cargo.toml
 ```
 
 Application usage is documented in the [example README](../README.md). The tests
@@ -34,9 +34,10 @@ are separate Cargo integration targets; no test assertions run in the examples.
 - [typed_resources.rs](typed_resources.rs): executable output from the
   [typed-resource walkthrough](../src/bin/typed_resources.rs).
 
-
 The separate [binding example](../../bindings) covers custom component bindings,
-native targets and application-owned text updates.
+native targets, Msg replacement, query-filter reentry and binding-owned scope
+release. The [ownership reference](../../../docs/bindings.md#cases-that-do-not-establish-automatic-ownership)
+explains how to keep application-owned strings outside automatic updates.
 
 Watcher tests modify disposable copied assets, never the example sources.
 They allow up to 15 seconds for convergence. Separate valid edits may publish
