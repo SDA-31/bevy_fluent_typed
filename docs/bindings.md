@@ -39,7 +39,7 @@ impl LocalizationTarget for MyCaption {
 
 commands.spawn((
     MyCaption::default(),
-    Localized::<MyCaption, Hud>::new(|hud| hud.msg_hello("Ada")),
+    Localized::<MyCaption, Hud>::new(|hud| hud.msg_title()),
 ));
 ```
 
@@ -47,6 +47,10 @@ Only Data/Filter and `apply` are required. This example uses the default sequent
 writer; no registration, additional plugin or derive helper is needed. For direct
 query writes and Idle skipping, override `update` and `needs_update` as shown by
 Badge in the [runnable example](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bindings/src/widgets/targets.rs).
+
+Implementing the trait alone does not opt entities into automatic updates.
+Each entity needs its own `Localized<Target, Scope>` binding; native text uses
+the same rule as application components.
 
 The engine creates an omitted target through `Default` once when the binding is
 attached. Custom components get this behavior without implementing `initialize`.
@@ -168,7 +172,7 @@ implicit UI Text from the library.
 ## Semantic labels and refresh ordering
 
 ```rust,ignore
-let name = Msg::<Hud>::new(|hud| hud.msg_hello("Ada"));
+let name = Msg::<Hud>::new(|hud| hud.msg_title());
 commands.spawn((
     AccessibleLabel::default(),
     Localized::<AccessibleLabel, Hud>::from(name),
@@ -214,7 +218,7 @@ There is no per-binding override or runtime policy switch.
 | Policy | Retained output | Repair and Idle behavior |
 | --- | --- | --- |
 | `CachePolicy::Rendered` (default) | An additional formatted String per binding, in the same ECS metadata for all targets. | Target repair reuses that output. Unchanged native text does not reformat. |
-| `CachePolicy::None` | No formatted output retained by the runtime; identity and invalidation metadata remain. | Built-in targets skip Idle and format for application edits or invalidation. Manual adapters format when they request `update.text()`. |
+| `CachePolicy::None` | No formatted output retained by the runtime; identity and invalidation metadata remain. | Built-in targets skip Idle and format for application edits or invalidation. Custom adapters format when they request `update.text()`. |
 
 Rendered and built-in targets format after catalog/Msg changes and eligibility
 reentry. An uncached custom adapter sees that invalidation through
@@ -282,7 +286,7 @@ adopted during App setup without target registration.
 The following table describes built-in targets under the default
 `CachePolicy::Rendered`. All use the [shared ECS state](https://github.com/SDA-31/bevy_fluent_typed/blob/main/src/target_bindings/state.rs)
 and [common engine](https://github.com/SDA-31/bevy_fluent_typed/blob/main/src/target_bindings/engine.rs).
-Manual adapters additionally decide when their callbacks read text. An eligible
+Custom adapters additionally decide when their callbacks read text. An eligible
 row needs its required target data; removed components receive no refresh.
 A ready scope is required to call Msg; otherwise the supplied output is empty.
 Caches are separate per World, binding type and entity, without deduplicating
@@ -432,7 +436,7 @@ cargo run --locked --manifest-path examples/bindings/Cargo.toml
 | Task | Starting point |
 | --- | --- |
 | Configure the source | [main.rs](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bindings/src/main.rs): ordinary source plugin and Startup system |
-| Spawn native text, a button and custom components | [widgets.rs](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bindings/src/widgets.rs): explicit targets, manual adapters, styling and hierarchy |
+| Spawn native text, a button and custom components | [widgets.rs](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bindings/src/widgets.rs): explicit targets, custom adapters, styling and hierarchy |
 | Implement component adapters | [targets.rs](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bindings/src/widgets/targets.rs): Title, Badge and Caption |
 | Change arguments, switch EN/ES/RU and release demand | [scenario.rs](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bindings/src/scenario.rs): headless driver, separate from spawning |
 | Compose Scene or SceneList captions | [BSN buttons](https://github.com/SDA-31/bevy_fluent_typed/blob/main/examples/bsn/src/buttons.rs) and [composition recipes](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bsn.md#buttons-and-caption-slots) |

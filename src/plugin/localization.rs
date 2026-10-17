@@ -123,7 +123,8 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 	/// The default [`CachePolicy::Rendered`] repairs targets without formatting
 	/// again. [`CachePolicy::None`] retains tracking metadata but no output String.
 	/// Built-in text and semantic targets format when needed. Custom adapters
-	/// request text lazily; apply-only adapters still format each refresh.
+	/// request text lazily; under None, apply-only adapters format each refresh
+	/// when they read text.
 	/// Loading mode and other providers are unaffected. Select before adding the plugin.
 	pub fn with_cache_policy(mut self, policy: CachePolicy) -> Self {
 		self.cache_policy = policy;

@@ -1039,7 +1039,7 @@ impl LoadingMode for Other { const FULL: bool = false; }
 ## Custom components and semantic labels
 
 See [application-defined bindings](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bindings.md)
-for `Localized<Target, Scope>` on custom components and separate fields.
+for `Localized<Target, Scope>` on custom components and their String fields.
 Bindings retain scope demand by entity presence in Lazy, without registration
 or a user refresh system. The same interface
 updates immutable AccessibleLabel on Bevy 0.19/0.20 after UI accessibility producers.

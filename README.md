@@ -271,7 +271,7 @@ transports, fonts and shaping remain application responsibilities.
 - [Migration to 0.4.0](docs/migration-0.4.0.md): explicit target bindings, Msg and cache policies.
 - [Upgrade from 0.2.2](docs/migration-0.3.md): loading defaults, Bevy 0.20, Rust minimum and older backends.
 - [Migration from 0.1](docs/migration-0.2.md): update an older application.
-- [Custom bindings](docs/bindings.md): custom components, fields, semantic names and provider cache policies.
+- [Custom bindings](docs/bindings.md): custom components, semantic names and provider cache policies.
 - [Performance](docs/performance.md): skipped work, cache tradeoffs and measured costs.
 - [Upgrade from 0.3.0](docs/migration-0.3.1.md): ordinary system registration
   and startup strategies on Bevy 0.19/0.20, followed by the 0.4.0 binding changes.
@@ -279,12 +279,12 @@ transports, fonts and shaping remain application responsibilities.
 
 Runnable headless examples live in [examples/codegen](examples/codegen),
 [examples/no_codegen](examples/no_codegen), [examples/minimal](examples/minimal),
-[examples/icu](examples/icu), [examples/asset_source](examples/asset_source) and
-[examples/bsn](examples/bsn).
+[examples/icu](examples/icu), [examples/asset_source](examples/asset_source),
+[examples/bsn](examples/bsn) and [examples/bindings](examples/bindings).
 Their README commands start from a checkout of this repository. Their local path
 dependencies test that checkout; use the registry setup above for your application.
 The [compatibility runner](tools/compatibility/README.md) is for maintainers.
-CI checks PRs and pushes to `main` or the release-preparation branch, skipping
+CI checks PRs and pushes to `main`, skipping
 changes confined to `CHANGELOG.md`. Tag pushes and manual runs still execute checks.
 
 [MIT](LICENSE) covers this library and its examples, not your application
