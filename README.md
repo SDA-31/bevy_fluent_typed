@@ -162,9 +162,7 @@ define the compared behavior. Asset reloads in `bevy_fluent` require the
 application to refresh its stored bundle snapshots and component output.
 This crate validates module reloads and retains the last good values;
 compatible translation text can reload, while generated schema changes require
-a rebuild. This is a feature comparison: the
-[performance measurements](docs/performance.md) compare this crate with its own
-0.3.1 release, not with `bevy_fluent`.
+a rebuild.
 
 ## Explicit embedding
 

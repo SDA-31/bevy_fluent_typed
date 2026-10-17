@@ -45,8 +45,7 @@ filter reentry, bypass-change-detection and accessibility limits.
 ## Measured tradeoffs against runtime 0.3.1
 
 These results compare published runtime 0.3.1 (`d08269d`) with implementation
-snapshot `8a14049`. They do not compare against `bevy_fluent`, and are not a
-measurement of a complete game or a later source revision.
+snapshot `8a14049`, using the same benchmark scenarios.
 
 The October 17, 2026 scale series used a Ryzen 5 4600H, Rust 1.99, Bevy 0.20,
 release opt-level 3, Rendered caching and a pool of six workers. Three independent
