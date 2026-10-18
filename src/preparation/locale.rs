@@ -1,5 +1,7 @@
 //! Private locale staging for automatic switching and manual publication control.
-use crate::bevy::prelude::*;
+#[cfg(feature = "manifest")]
+use crate::bevy::prelude::{AssetServer, Handle};
+use crate::bevy::prelude::{Mut, World};
 use crate::{FluentCatalog, LoadingMode, Localization, ModuleError, ModuleStatus};
 use std::fmt;
 #[cfg(feature = "manifest")]
@@ -242,43 +244,9 @@ pub(crate) fn commit<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
 			return;
 		}
 
-		// Target leaf revisions start at zero. Rebase them above every active
-		// revision so native resources and deferred binding signatures cannot alias.
-		let offset = localization.store.revision + 1;
-		preparation.store.revision += offset;
-
-		for value in preparation.store.values.values_mut() {
-			value.revision += offset;
-
-			for (_, revision) in &mut value.signature {
-				*revision += offset;
-			}
-		}
-
+		rebase_revisions(&mut preparation.store, localization.store.revision);
 		#[cfg(feature = "manifest")]
-		if let Some(source) = world.get_resource::<crate::loading::CatalogSource<C>>()
-			&& let Some(server) = world.get_resource::<AssetServer>()
-		{
-			for (&path, entry) in &mut preparation.entries {
-				if entry.preparation_handle.is_some()
-					&& let Ok(address) = crate::loading::asset_address(
-						&source.manifest,
-						preparation.store.locale.as_ref(),
-						path,
-					) {
-					// Return to the normal asset namespace for watching. Abandoned
-					// preparation assets cannot affect these active handles.
-					entry.handle = Some(server.load(address));
-					// Serialize explicit reloads behind this read as well, while
-					// keeping the committed snapshot available to consumers.
-					entry.pending = true;
-					preparation.pending += 1;
-					entry.preparation_handle = None;
-					entry.preparation_request = None;
-					entry.preparation_attempt = None;
-				}
-			}
-		}
+		activate_file_handles(world, &mut preparation);
 
 		localization.store = preparation.store;
 		localization.entries = preparation.entries;
@@ -298,6 +266,59 @@ pub(crate) fn commit<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
 	// Keep the controller locale and native scope resources coherent even for
 	// another PreUpdate system scheduled immediately after this exclusive step.
 	crate::resources::synchronize::<C, M>(world);
+}
+
+/// Keep committed signatures distinct from every snapshot of the previous locale.
+fn rebase_revisions<C: FluentCatalog>(store: &mut crate::ModuleStore<C>, active_revision: u64) {
+	// Target leaf revisions start at zero. Rebase them above every active
+	// revision so native resources and deferred binding signatures cannot alias.
+	let offset = active_revision + 1;
+	store.revision += offset;
+
+	for value in store.values.values_mut() {
+		value.revision += offset;
+
+		for (_, revision) in &mut value.signature {
+			*revision += offset;
+		}
+	}
+}
+
+/// Resume normal file watching without exposing abandoned preparation assets.
+#[cfg(feature = "manifest")]
+fn activate_file_handles<C: FluentCatalog, M: LoadingMode>(
+	world: &World,
+	preparation: &mut Localization<C, M>,
+) {
+	let Some(source) = world.get_resource::<crate::loading::CatalogSource<C>>() else {
+		return;
+	};
+	let Some(server) = world.get_resource::<AssetServer>() else {
+		return;
+	};
+
+	for (&path, entry) in &mut preparation.entries {
+		if entry.preparation_handle.is_none() {
+			continue;
+		}
+
+		let Ok(address) = crate::loading::asset_address(
+			&source.manifest,
+			preparation.store.locale.as_ref(),
+			path,
+		) else {
+			continue;
+		};
+
+		entry.handle = Some(server.load(address));
+		// Serialize explicit reloads behind this read while consumers keep the
+		// committed snapshot. Prepared handles cannot update the active namespace.
+		entry.pending = true;
+		preparation.pending += 1;
+		entry.preparation_handle = None;
+		entry.preparation_request = None;
+		entry.preparation_attempt = None;
+	}
 }
 
 #[cfg(feature = "manifest")]

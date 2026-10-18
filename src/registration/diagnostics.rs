@@ -56,6 +56,7 @@ impl fmt::Display for LocalizationRegistrationError {
 
 impl std::error::Error for LocalizationRegistrationError {}
 
+/// Constructor provenance retained for structural duplicate-provider diagnostics.
 #[derive(Clone, Copy)]
 pub(crate) struct RegistrationSite {
 	pub(crate) plugin: &'static str,

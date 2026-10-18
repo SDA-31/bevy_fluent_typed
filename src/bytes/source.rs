@@ -11,10 +11,12 @@ use crate::state::RequestedModule;
 use crate::{CatalogUpdate, FluentCatalog, LoadingMode, Localization, Module, ModuleStatus};
 use std::{collections::HashMap, fmt::Display, future::Future, pin::Pin, sync::Arc};
 
+/// Async acquisition ending in checked parsing, rather than unvalidated source bytes.
 type LoadFuture = Pin<Box<dyn Future<Output = Result<SharedScope, String>> + Send>>;
 
 type Load<C> = dyn Fn(<C as FluentCatalog>::Locale, &Module<C>) -> LoadFuture + Send + Sync;
 
+/// Shared acquisition/parser closure; sharing the loader does not cache its results.
 #[derive(Clone)]
 pub(crate) struct ByteLoader<C: FluentCatalog>(Arc<Load<C>>);
 
@@ -44,6 +46,7 @@ impl<C: FluentCatalog> ByteLoader<C> {
 	}
 }
 
+/// One provider's byte loader and compiled leaf descriptors, independent of asset paths.
 #[derive(Resource)]
 pub(crate) struct ByteSource<C: FluentCatalog> {
 	pub(crate) loader: ByteLoader<C>,

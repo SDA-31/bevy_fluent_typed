@@ -13,12 +13,18 @@ use std::borrow::Cow;
 /// If the catalog is unavailable, the value is empty and no formatter is called.
 pub struct LocalizationUpdate<'a> {
 	changed: bool,
+	/// Value obtained for this invocation when a retained cache is not borrowed.
 	text: Option<Cow<'a, str>>,
+	/// On-demand formatter used when output retention is disabled.
 	render: Option<&'a dyn Fn() -> String>,
+	/// Borrowed retained output owned by the binding's ECS state.
 	cache: Option<&'a mut String>,
+	/// New output awaiting installation into the retained cache or target buffer.
 	fresh: Option<String>,
+	/// Last confirmed adapter tick, used to exclude its own writes.
 	observed: Option<u32>,
 	this_run: u32,
+	/// Whether this invocation consumed the translation, including an empty value.
 	read: bool,
 }
 

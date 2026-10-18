@@ -8,6 +8,7 @@ use crate::bevy::prelude::*;
 use crate::{FluentCatalog, LoadingMode, Localization, PreparationStatus};
 use std::collections::BTreeSet;
 
+/// One scope's visible progress and private invalidation stamp prepared for typed publication.
 pub(super) struct Snapshot<C: FluentCatalog> {
 	pub(super) active: LoadingProgress<C::Locale>,
 	pub(super) preparation: Option<LoadingProgress<C::Locale>>,

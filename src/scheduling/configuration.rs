@@ -17,6 +17,7 @@ pub enum StartupStrategy {
 	Barrier,
 }
 
+/// Validated App-wide strategy; only Barrier carries an interned startup set.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct StartupConfiguration {
 	pub(crate) strategy: StartupStrategy,

@@ -1,9 +1,11 @@
 //! Typed resource publication erased only at the shared provider dispatcher.
 use super::{LocalizationProgress, publication::Snapshot, version::Version};
-use crate::bevy::prelude::*;
+use crate::bevy::prelude::{DetectChangesMut, World};
 use crate::{FluentCatalog, FluentScope};
 use std::{any::TypeId, collections::BTreeSet};
 
+/// Type-erased publication hooks for one typed progress resource.
+/// None paths follows the root's dynamic demand; Some paths fixes the group/leaf schema.
 pub(crate) struct Subscription<C: FluentCatalog> {
 	pub(super) paths: Option<BTreeSet<&'static str>>,
 	pub(super) current: fn(&World, &Version<'_, C::Locale>) -> bool,
@@ -38,13 +40,15 @@ fn publish<S: FluentScope>(world: &mut World, next: Snapshot<S::Catalog>) {
 		stamp: next.stamp,
 	};
 
-	if let Some(mut progress) = world.get_resource_mut::<LocalizationProgress<S>>() {
-		if progress.same_visible_state(&next) {
-			progress.bypass_change_detection().stamp = next.stamp;
-		} else {
-			*progress = next;
-		}
-	} else {
+	let Some(mut progress) = world.get_resource_mut::<LocalizationProgress<S>>() else {
 		world.insert_resource(next);
+		return;
+	};
+
+	if progress.same_visible_state(&next) {
+		progress.bypass_change_detection().stamp = next.stamp;
+		return;
 	}
+
+	*progress = next;
 }

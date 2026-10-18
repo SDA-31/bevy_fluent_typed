@@ -1,8 +1,11 @@
 //! Explicit subscriptions bound to one installed provider's controller mode.
 use super::subscription::Subscription;
-use crate::bevy::{ecs as bevy_ecs, prelude::*};
+use crate::bevy::{
+	ecs as bevy_ecs,
+	prelude::{App, IntoScheduleConfigs, PostUpdate, PreUpdate, Resource},
+};
 use crate::registration::RegistrationSite;
-use crate::{FluentCatalog, FluentScope, LoadingMode, LocalizationSystems};
+use crate::{FluentCatalog, FluentScope, LoadingMode, LocalizationSystems, ScopeRegistration};
 use std::{
 	any::TypeId,
 	collections::{BTreeMap, BTreeSet, btree_map::Entry},
@@ -17,6 +20,7 @@ pub(crate) struct Registration<C: FluentCatalog> {
 	marker: PhantomData<fn() -> C>,
 }
 
+/// Provider-shared subscription registry; installs one progress dispatcher for all its scopes.
 #[derive(Resource)]
 pub(super) struct Requests<C: FluentCatalog> {
 	pub(super) subscriptions: BTreeMap<TypeId, Subscription<C>>,
@@ -48,25 +52,7 @@ pub(super) fn request<S: FluentScope>(app: &mut App) {
 	let root = TypeId::of::<S::Catalog>();
 	let selected = TypeId::of::<S>();
 	let scopes = S::Catalog::scopes();
-	let mut descendants = BTreeSet::from([selected]);
-
-	if selected == root {
-		descendants.extend(scopes.iter().map(|scope| scope.id));
-	} else {
-		loop {
-			let before = descendants.len();
-
-			for scope in &scopes {
-				if scope.id != root && descendants.contains(&scope.parent.unwrap_or(root)) {
-					descendants.insert(scope.id);
-				}
-			}
-
-			if descendants.len() == before {
-				break;
-			}
-		}
-	}
+	let descendants = descendant_scopes(selected, root, &scopes);
 
 	app.init_resource::<Requests<S::Catalog>>();
 	let mut requests = app.world_mut().resource_mut::<Requests<S::Catalog>>();
@@ -97,6 +83,36 @@ pub(super) fn request<S: FluentScope>(app: &mut App) {
 	{
 		install(app);
 	}
+}
+
+/// Include every descendant even when schema metadata lists children before parents.
+fn descendant_scopes<C: FluentCatalog>(
+	selected: TypeId,
+	root: TypeId,
+	scopes: &[ScopeRegistration<C>],
+) -> BTreeSet<TypeId> {
+	let mut descendants = BTreeSet::from([selected]);
+
+	if selected == root {
+		descendants.extend(scopes.iter().map(|scope| scope.id));
+		return descendants;
+	}
+
+	loop {
+		let before = descendants.len();
+
+		for scope in scopes {
+			if scope.id != root && descendants.contains(&scope.parent.unwrap_or(root)) {
+				descendants.insert(scope.id);
+			}
+		}
+
+		if descendants.len() == before {
+			break;
+		}
+	}
+
+	descendants
 }
 
 fn install<C: FluentCatalog, M: LoadingMode>(app: &mut App) {

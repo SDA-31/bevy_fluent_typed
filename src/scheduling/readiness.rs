@@ -17,6 +17,8 @@ use crate::bevy::{
 use crate::{FluentCatalog, LoadingMode, Localization, ScopeRegistration, demand::Consumer};
 use std::{any::TypeId, collections::HashMap, sync::Arc};
 
+/// Type-erased checked resource read and publication-revision readiness test.
+/// Only automatic loading modes supply a consumer-acquisition callback.
 pub(super) struct Probe {
 	pub(super) scope: TypeId,
 	pub(super) access: Box<dyn Fn(&mut FilteredResourcesBuilder) + Send + Sync>,
@@ -24,6 +26,7 @@ pub(super) struct Probe {
 	pub(super) consumer: Option<fn(&mut World) -> Arc<Consumer>>,
 }
 
+/// World-owned scope index consulted while native system resource access is discovered.
 #[derive(Resource, Default)]
 pub(crate) struct CatalogReadiness(pub(super) HashMap<TypeId, Arc<Probe>>);
 

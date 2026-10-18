@@ -1,5 +1,10 @@
 //! Public mode selection and scheduling for independently loaded scopes.
-use crate::bevy::{ecs as bevy_ecs, prelude::*};
+#[cfg(feature = "manifest")]
+use crate::bevy::prelude::AssetApp;
+use crate::bevy::{
+	ecs as bevy_ecs,
+	prelude::{App, IntoScheduleConfigs, Plugin, PostUpdate, PreUpdate, SystemSet},
+};
 use crate::{
 	FluentCatalog, Lazy, LoadingMode, Localization,
 	bytes::{self, ByteLoader, ByteSource},
@@ -44,6 +49,7 @@ pub enum LocalizationSystems {
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct LocalizationAccessibilitySet;
 
+/// Configured acquisition source; constructing it performs no I/O.
 enum Source<C: FluentCatalog> {
 	#[cfg(feature = "manifest")]
 	Manifest(LocalizationManifest),
@@ -273,90 +279,9 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 		}
 
 		match &self.source {
-			Source::Bytes(loader) => {
-				app.insert_resource(ByteSource::<C> {
-					loader: loader.clone(),
-					modules: C::modules()
-						.into_iter()
-						.map(|module| (module.path, module))
-						.collect(),
-				})
-				.add_systems(
-					PreUpdate,
-					(
-						demand::synchronize::<C, M>,
-						reload_catalogs::<C, M>,
-						bytes::reconcile::<C, M>,
-						crate::preparation::commit::<C, M>,
-						resources::synchronize::<C, M>,
-					)
-						.chain()
-						.in_set(LocalizationSystems::Publish),
-				)
-				.add_systems(
-					PostUpdate,
-					(
-						demand::synchronize::<C, M>,
-						bytes::reconcile::<C, M>,
-						resources::synchronize::<C, M>,
-					)
-						.chain()
-						.before(LocalizationSystems::Refresh),
-				);
-			}
+			Source::Bytes(loader) => configure_bytes::<C, M>(app, loader),
 			#[cfg(feature = "manifest")]
-			Source::Manifest(manifest) => {
-				let error = if manifest.config().source_language != C::source_locale().as_ref() {
-					Some("manifest source-language differs from the compiled schema".into())
-				} else if startup.is_none() {
-					Some("manifest default-language is not a compiled locale".into())
-				} else {
-					None
-				};
-
-				let attempts = PreparationAttempts::<C>::default();
-				app.insert_resource(CatalogSource::<C> {
-					attempts: attempts.clone(),
-					manifest: manifest.clone(),
-					modules: C::modules()
-						.into_iter()
-						.map(|module| (module.path, module))
-						.collect(),
-					error,
-					marker: PhantomData,
-				})
-				.init_asset::<ModuleAsset<C>>()
-				.init_asset::<PreparedModuleAsset<C>>()
-				.register_asset_loader(ModuleLoader::<C>::new(manifest))
-				.register_asset_loader(PreparedModuleLoader {
-					loader: ModuleLoader::<C>::new(manifest),
-					attempts,
-				});
-
-				app.add_systems(
-					PreUpdate,
-					(
-						demand::synchronize::<C, M>,
-						reload_catalogs::<C, M>,
-						report_failures::<C, M>,
-						reconcile::<C, M>,
-						crate::preparation::commit::<C, M>,
-						resources::synchronize::<C, M>,
-					)
-						.chain()
-						.in_set(LocalizationSystems::Publish),
-				)
-				.add_systems(
-					PostUpdate,
-					(
-						demand::synchronize::<C, M>,
-						reconcile::<C, M>,
-						resources::synchronize::<C, M>,
-					)
-						.chain()
-						.before(LocalizationSystems::Refresh),
-				);
-			}
+			Source::Manifest(manifest) => configure_manifest::<C, M>(app, manifest, startup),
 		}
 	}
 
@@ -364,4 +289,94 @@ impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
 		// Report structural conflicts ourselves instead of Bevy's name-only error.
 		false
 	}
+}
+
+fn configure_bytes<C: FluentCatalog, M: LoadingMode>(app: &mut App, loader: &ByteLoader<C>) {
+	app.insert_resource(ByteSource::<C> {
+		loader: loader.clone(),
+		modules: C::modules()
+			.into_iter()
+			.map(|module| (module.path, module))
+			.collect(),
+	})
+	.add_systems(
+		PreUpdate,
+		(
+			demand::synchronize::<C, M>,
+			reload_catalogs::<C, M>,
+			bytes::reconcile::<C, M>,
+			crate::preparation::commit::<C, M>,
+			resources::synchronize::<C, M>,
+		)
+			.chain()
+			.in_set(LocalizationSystems::Publish),
+	)
+	.add_systems(
+		PostUpdate,
+		(
+			demand::synchronize::<C, M>,
+			bytes::reconcile::<C, M>,
+			resources::synchronize::<C, M>,
+		)
+			.chain()
+			.before(LocalizationSystems::Refresh),
+	);
+}
+
+#[cfg(feature = "manifest")]
+fn configure_manifest<C: FluentCatalog, M: LoadingMode>(
+	app: &mut App,
+	manifest: &LocalizationManifest,
+	startup: Option<C::Locale>,
+) {
+	let error = if manifest.config().source_language != C::source_locale().as_ref() {
+		Some("manifest source-language differs from the compiled schema".into())
+	} else if startup.is_none() {
+		Some("manifest default-language is not a compiled locale".into())
+	} else {
+		None
+	};
+
+	let attempts = PreparationAttempts::<C>::default();
+	app.insert_resource(CatalogSource::<C> {
+		attempts: attempts.clone(),
+		manifest: manifest.clone(),
+		modules: C::modules()
+			.into_iter()
+			.map(|module| (module.path, module))
+			.collect(),
+		error,
+		marker: PhantomData,
+	})
+	.init_asset::<ModuleAsset<C>>()
+	.init_asset::<PreparedModuleAsset<C>>()
+	.register_asset_loader(ModuleLoader::<C>::new(manifest))
+	.register_asset_loader(PreparedModuleLoader {
+		loader: ModuleLoader::<C>::new(manifest),
+		attempts,
+	});
+
+	app.add_systems(
+		PreUpdate,
+		(
+			demand::synchronize::<C, M>,
+			reload_catalogs::<C, M>,
+			report_failures::<C, M>,
+			reconcile::<C, M>,
+			crate::preparation::commit::<C, M>,
+			resources::synchronize::<C, M>,
+		)
+			.chain()
+			.in_set(LocalizationSystems::Publish),
+	)
+	.add_systems(
+		PostUpdate,
+		(
+			demand::synchronize::<C, M>,
+			reconcile::<C, M>,
+			resources::synchronize::<C, M>,
+		)
+			.chain()
+			.before(LocalizationSystems::Refresh),
+	);
 }

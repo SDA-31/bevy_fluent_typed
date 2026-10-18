@@ -31,6 +31,8 @@ pub struct Msg<C: FluentScope>(Arc<dyn Fn(&C) -> String + Send + Sync>);
 #[deprecated(note = "use `Msg` instead")]
 pub type Message<C> = Msg<C>;
 
+/// Weak formatter identity used to invalidate bindings without retaining captures.
+/// Its control block prevents allocation-address reuse until the identity retires.
 pub(crate) struct MsgIdentity<C: FluentScope>(Weak<dyn Fn(&C) -> String + Send + Sync>);
 
 impl<C: FluentScope> MsgIdentity<C> {

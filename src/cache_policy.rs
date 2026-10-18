@@ -23,6 +23,8 @@ pub enum CachePolicy {
 	None,
 }
 
+/// One root provider's policy, inherited by leaf and group bindings via S::Catalog.
+/// The retained output itself belongs to each binding, not to this resource.
 #[derive(Resource)]
 pub(crate) struct ProviderCachePolicy<C: FluentCatalog> {
 	pub(crate) policy: CachePolicy,

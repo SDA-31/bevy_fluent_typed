@@ -17,20 +17,27 @@ use std::{
 
 type RetryRequests = crate::progress::ObservedSet;
 
+/// One leaf's acquisition state for a specific locale.
+/// Byte tasks and asset handles use the same pending accounting; finish_request clears
+/// that flag and decrements the controller count only once.
 pub(crate) struct RequestedModule<C: FluentCatalog> {
 	pub(crate) locale: C::Locale,
+	/// Owned byte-source task; dropping the entry makes its result unreachable.
 	pub(crate) task: Option<Task<Result<crate::catalog::SharedScope, String>>>,
 	#[cfg(feature = "manifest")]
 	pub(crate) handle: Option<Handle<ModuleAsset<C>>>,
 	#[cfg(feature = "manifest")]
+	/// Newest accepted loader-entry revision, independent of I/O completion order.
 	pub(crate) accepted: Option<u64>,
 	#[cfg(feature = "manifest")]
+	/// Identity of this staged file attempt, checked before accepting its asset.
 	pub(crate) preparation_request: Option<u64>,
 	#[cfg(feature = "manifest")]
+	/// Handle in the private typed namespace, isolated from published file assets.
 	pub(crate) preparation_handle: Option<Handle<crate::assets::PreparedModuleAsset<C>>>,
 	#[cfg(feature = "manifest")]
 	pub(crate) preparation_attempt: Option<Arc<crate::assets::AssetAttempt>>,
-	// Tracks our request before AssetServer's detached task changes load state.
+	/// Tracks our request before AssetServer's detached task changes load state.
 	pub(crate) pending: bool,
 }
 
@@ -67,23 +74,34 @@ impl<C: FluentCatalog> RequestedModule<C> {
 #[derive(Resource)]
 pub struct Localization<C: FluentCatalog, M: LoadingMode = Lazy> {
 	pub(crate) store: ModuleStore<C>,
+	/// Explicit scope pins; independent of leases and automatically discovered consumers.
 	pub(crate) requested: HashMap<TypeId, &'static [&'static str]>,
 	pub(crate) entries: BTreeMap<&'static str, RequestedModule<C>>,
 	pub(crate) retry: RetryRequests,
+	/// Store revision last published as each native scope resource.
 	pub(crate) published: HashMap<TypeId, u64>,
 	leases: LeaseRequests,
+	/// Union of explicit pins, leases and automatically retained leaves.
 	pub(crate) desired: Arc<BTreeSet<&'static str>>,
 	automatic: Arc<BTreeSet<&'static str>>,
+	/// Last applied revision of the World-owned consumer demand registry.
 	pub(crate) automatic_revision: u64,
+	/// Store revision last processed by resource synchronization.
 	pub(crate) synchronized: u64,
 	pub(crate) requests_changed: bool,
+	/// Number of outstanding acquisition entries, not the number of requested leaves.
 	pub(crate) pending: usize,
 	marker: PhantomData<fn() -> M>,
+	/// Private target-locale controller; active resources stay available until commit.
 	pub(crate) preparation: Option<Box<Self>>,
+	/// This controller stages candidates instead of publishing them directly.
 	pub(crate) staged: bool,
+	/// An explicit commit is queued for the next safe publication boundary.
 	pub(crate) commit_requested: bool,
+	/// Automatically commit the current target once all desired leaves are ready.
 	pub(crate) switch_when_ready: bool,
 	#[cfg(feature = "manifest")]
+	/// Target file paths still waiting for old active handles to retire.
 	pub(crate) handoff_pending: BTreeSet<&'static str>,
 }
 
@@ -336,16 +354,20 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			}
 		}
 
-		if let Some(preparation) = self.preparation.as_mut() {
-			for &path in S::module_paths() {
-				if matches!(
-					preparation.store.states.get(path),
-					Some(ModuleStatus::Failed(_))
-				) {
-					preparation.retry.insert(path);
-					self.commit_requested = false;
-				}
+		let Some(preparation) = self.preparation.as_mut() else {
+			return;
+		};
+
+		for &path in S::module_paths() {
+			if !matches!(
+				preparation.store.states.get(path),
+				Some(ModuleStatus::Failed(_))
+			) {
+				continue;
 			}
+
+			preparation.retry.insert(path);
+			self.commit_requested = false;
 		}
 	}
 

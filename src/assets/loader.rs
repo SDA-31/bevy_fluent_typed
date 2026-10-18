@@ -14,6 +14,8 @@ use std::{
 
 static NEXT_REVISION: AtomicU64 = AtomicU64::new(1);
 
+/// A checked leaf candidate, which may contain a parse/validation error.
+/// Revision orders entry into the loader, not asynchronous read completion.
 #[derive(Asset)]
 pub(crate) struct ModuleAsset<C: FluentCatalog> {
 	pub(crate) locale: C::Locale,
@@ -32,6 +34,8 @@ impl<C: FluentCatalog> TypePath for ModuleAsset<C> {
 	}
 }
 
+/// Checked parser dispatch indexed by full asset address, locale and logical module.
+/// Named asset sources remain part of the address identity.
 pub(crate) struct ModuleLoader<C: FluentCatalog> {
 	modules: Vec<Module<C>>,
 	addresses: HashMap<crate::bevy::asset::AssetPath<'static>, (C::Locale, usize)>,

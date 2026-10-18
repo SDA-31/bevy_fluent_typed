@@ -1,6 +1,8 @@
 //! Loading identities and mutation stamps for cheap publication guards.
 use std::{collections::BTreeSet, ops::Deref, sync::Arc};
 
+/// Opt-in progress clock with an allocation identity distinguishing replacement stores.
+/// Without a progress subscription, mutations do not allocate or advance this clock.
 #[derive(Default)]
 pub(crate) struct StoreVersion {
 	pub(crate) identity: Option<Arc<()>>,
@@ -25,6 +27,7 @@ impl StoreVersion {
 	}
 }
 
+/// Retry paths with opt-in mutation tracking, independent of the store's ready-value revision.
 #[derive(Default)]
 pub(crate) struct ObservedSet {
 	paths: BTreeSet<&'static str>,

@@ -7,6 +7,8 @@ use fluent_typed_codegen::{
 };
 use std::{path::Path, process::ExitCode};
 
+/// Build-time typed-syntax adapter emitting Bevy providers and borrowed navigation.
+/// Generation remains an explicit build.rs operation, separate from translations macro expansion.
 struct BevyExtension;
 
 impl Extension for BevyExtension {

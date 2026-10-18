@@ -19,6 +19,7 @@ use std::{
 	},
 };
 
+/// Legacy direct-parameter index supplying checked catalog reads and optional Lazy ownership.
 #[derive(Resource, Default)]
 pub(crate) struct CatalogReadiness(pub(crate) HashMap<TypeId, Arc<Probe>>);
 
@@ -150,6 +151,7 @@ pub struct FunctionMarker;
 #[doc(hidden)]
 pub struct TupleMarker;
 
+/// Legacy one-shot function wrapper releasing inferred demand after its body returns.
 struct Tracked<F, M> {
 	function: F,
 	completed: Arc<AtomicBool>,
@@ -216,6 +218,7 @@ where
 	}
 }
 
+/// Direct tuple-parameter identities used by the legacy helper; nested parameters are not inspected.
 pub(crate) trait ParameterTypes {
 	fn types() -> Vec<TypeId>;
 }

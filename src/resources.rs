@@ -1,7 +1,7 @@
 //! Assemble complete scopes from ready leaves and synchronize only changed resources.
-use crate::bevy::prelude::*;
+use crate::bevy::prelude::{Mut, World};
 use crate::scope::ReadyScope;
-use crate::{FluentCatalog, LoadingMode, Localization};
+use crate::{FluentCatalog, LoadingMode, Localization, ScopeRegistration};
 
 pub(crate) fn synchronize<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
 	// Bevy 0.19 reinserts a scoped resource with the current change tick even
@@ -14,52 +14,60 @@ pub(crate) fn synchronize<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
 		let scopes = localization.store.scopes.clone();
 
 		for scope in scopes.iter().rev() {
-			let Some(signature) = localization.store.signature(scope.paths) else {
-				if localization.store.values.contains_key(&scope.id) {
-					localization.store.values.remove(&scope.id);
-				}
-
-				if localization.published.contains_key(&scope.id) {
-					localization.published.remove(&scope.id);
-				}
-				(scope.remove)(world);
-				continue;
-			};
-			let changed = localization
-				.store
-				.values
-				.get(&scope.id)
-				.is_none_or(|value| value.signature != signature);
-
-			if changed {
-				let Some(value) = (scope.assemble)(&localization.store) else {
-					continue;
-				};
-				localization.store.revision += 1;
-				let revision = localization.store.revision;
-				localization.store.values.insert(
-					scope.id,
-					ReadyScope {
-						value,
-						signature,
-						revision,
-					},
-				);
-			}
-
-			let Some(value) = localization.store.values.get(&scope.id) else {
-				continue;
-			};
-			let revision = value.revision;
-
-			if localization.published.get(&scope.id) != Some(&revision) || !(scope.exists)(world) {
-				(scope.publish)(&value.value, world);
-				localization.published.insert(scope.id, revision);
-			}
+			synchronize_scope(world, &mut localization, scope);
 		}
 
 		localization.synchronized = localization.store.revision;
 	});
+}
+
+fn synchronize_scope<C: FluentCatalog, M: LoadingMode>(
+	world: &mut World,
+	localization: &mut Localization<C, M>,
+	scope: &ScopeRegistration<C>,
+) {
+	let Some(signature) = localization.store.signature(scope.paths) else {
+		if localization.store.values.contains_key(&scope.id) {
+			localization.store.values.remove(&scope.id);
+		}
+
+		if localization.published.contains_key(&scope.id) {
+			localization.published.remove(&scope.id);
+		}
+		(scope.remove)(world);
+		return;
+	};
+	let changed = localization
+		.store
+		.values
+		.get(&scope.id)
+		.is_none_or(|value| value.signature != signature);
+
+	if changed {
+		let Some(value) = (scope.assemble)(&localization.store) else {
+			return;
+		};
+		localization.store.revision += 1;
+		let revision = localization.store.revision;
+		localization.store.values.insert(
+			scope.id,
+			ReadyScope {
+				value,
+				signature,
+				revision,
+			},
+		);
+	}
+
+	let Some(value) = localization.store.values.get(&scope.id) else {
+		return;
+	};
+	let revision = value.revision;
+
+	if localization.published.get(&scope.id) != Some(&revision) || !(scope.exists)(world) {
+		(scope.publish)(&value.value, world);
+		localization.published.insert(scope.id, revision);
+	}
 }
 
 fn needs_sync<C: FluentCatalog, M: LoadingMode>(world: &World) -> bool {

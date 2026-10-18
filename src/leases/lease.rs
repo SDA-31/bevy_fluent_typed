@@ -44,17 +44,21 @@ impl<S: FluentScope> Drop for ModuleLease<S> {
 	}
 }
 
+/// Dropped lease notifications accepted from any thread.
+/// Writers set pending while holding dropped's mutex so draining cannot lose a notification.
 #[derive(Debug, Default)]
 struct ReleaseQueue {
 	pending: AtomicBool,
 	dropped: Mutex<Vec<TypeId>>,
 }
 
+/// Controller-local owner count and leaf paths for one leased scope.
 struct Demand {
 	paths: &'static [&'static str],
 	owners: usize,
 }
 
+/// Controller-owned lease counts and release queue; tokens hold only weak queue links.
 #[derive(Default)]
 pub(crate) struct LeaseRequests {
 	demands: HashMap<TypeId, Demand>,

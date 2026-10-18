@@ -6,7 +6,10 @@ use std::{
 	sync::Arc,
 };
 
+/// Type-erased immutable scope snapshot; typed descriptors restore its concrete resource type.
 pub(crate) type SharedScope = Arc<dyn Any + Send + Sync>;
+
+/// Checked parser for one compiled leaf, retaining validation errors as ordinary failures.
 type Parser<C> =
 	dyn Fn(<C as FluentCatalog>::Locale, &[u8]) -> Result<SharedScope, String> + Send + Sync;
 

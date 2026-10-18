@@ -10,6 +10,8 @@ use std::{
 	},
 };
 
+/// Lifetime token for one automatically retained scope.
+/// Release and Drop are idempotent; a shared dirty flag invalidates provider unions.
 pub(crate) struct Consumer {
 	root: TypeId,
 	paths: &'static [&'static str],
@@ -31,6 +33,9 @@ impl Drop for Consumer {
 	}
 }
 
+/// World-owned weak registry of active consumer tokens.
+/// Cached per-provider leaf unions rebuild only after ownership changes, without
+/// extending system or entity lifetimes.
 #[derive(Resource, Default)]
 struct Demands {
 	consumers: Vec<Weak<Consumer>>,

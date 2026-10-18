@@ -3,7 +3,11 @@ use crate::message::MsgIdentity;
 use crate::{FluentScope, LocalizationTarget, Msg};
 use std::marker::PhantomData;
 
-/// Per-binding metadata lives beside every target, regardless of its type.
+/// Invalidation and observation state owned by one entity's (scope, target) binding.
+///
+/// Query-pass counters track eligibility reentry; Bevy change ticks distinguish
+/// application edits from confirmed adapter writes. Output retention is optional,
+/// but identity and unread invalidations survive with either cache policy.
 #[derive(Component)]
 #[component(storage = "SparseSet")]
 pub(super) struct State<S: FluentScope, T: LocalizationTarget> {
@@ -12,10 +16,15 @@ pub(super) struct State<S: FluentScope, T: LocalizationTarget> {
 		clippy::box_collection,
 		reason = "Keep uncached per-binding metadata compact; allocate only for Rendered"
 	)]
+	/// Last rendered output; absent under CachePolicy::None.
 	pub(super) text: Option<Box<String>>,
+	/// Last acknowledged query pass, independent of Bevy's change ticks.
 	pub(super) pass: u64,
+	/// Last confirmed adapter write/observation tick, valid only when confirmed.
 	observed: u32,
+	/// Whether an observed tick has been established for this binding lifetime.
 	confirmed: bool,
+	/// Invalidation remains pending until an applicable callback consumes its text.
 	pub(super) pending: bool,
 	marker: PhantomData<fn() -> T>,
 }

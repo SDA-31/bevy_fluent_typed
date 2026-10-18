@@ -16,6 +16,8 @@ use std::{
 
 type Refresh = fn(&mut World);
 
+/// Typed lifecycle bridge erased into the App-wide binding dispatcher.
+/// Implementations provide one query refresh per (scope, target) binding type.
 pub(crate) trait Binding: Component {
 	type Scope: FluentScope;
 
@@ -30,16 +32,22 @@ pub(crate) trait Binding: Component {
 	fn retire(_world: &mut World, _entity: Entity) {}
 }
 
+/// One binding type's callbacks, live instance count and optional automatic demand owner.
 struct BindingEntry {
 	scope: TypeId,
+	/// Number of attached binding components of this concrete type.
 	users: usize,
 	refresh: Refresh,
 	unregister: Refresh,
 	phase: TargetUpdatePhase,
+	/// Lazy demand shared by every live instance of this binding type.
 	consumer: Option<Arc<Consumer>>,
 	acquire: fn(&mut World) -> Arc<Consumer>,
 }
 
+/// App-wide registry of binding types and their enabled/automatic scope policies.
+/// The immutable active snapshot lets callbacks mutate registrations while dispatching;
+/// dirty rebuilds it before the next dispatch.
 #[derive(Resource, Default)]
 struct BindingRegistry {
 	enabled: HashSet<TypeId>,
@@ -61,6 +69,7 @@ impl BindingRegistry {
 	}
 }
 
+/// Marker ensuring the shared before/after-layout dispatchers are installed once per App.
 #[derive(Resource)]
 struct Installed;
 
