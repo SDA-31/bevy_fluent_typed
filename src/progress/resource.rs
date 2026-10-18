@@ -15,8 +15,10 @@ use crate::{FluentCatalog, FluentScope, PreparationStatus};
 /// pins and independent leases; Full counts every module; Manual counts pins and
 /// leases. Group/leaf snapshots count their fixed
 /// unique schema paths, including unrequested files, without starting I/O.
-/// Preparation readiness describes the entire provider's demand, independently
-/// of this view's counters, because a locale commit applies to the provider.
+/// Active root counters include fixed requests for the active language. Preparation
+/// root counters and readiness follow the consumers moving with the active locale;
+/// independent fixed requests do not delay that commit. Use a language view to
+/// inspect other languages. Readiness is independent of this view's counters.
 #[derive(Resource)]
 pub struct LocalizationProgress<S: FluentScope> {
 	pub(super) active: LoadingProgress<<S::Catalog as FluentCatalog>::Locale>,

@@ -268,10 +268,6 @@ fn dispatch_phase(world: &mut World, phase: TargetUpdatePhase) {
 	}
 }
 
-#[cfg(test)]
-#[path = "tests/registry.rs"]
-mod tests;
-
 /// Synchronize binding selections before the provider rebuilds its demand union.
 pub(crate) fn synchronize_consumers<C: crate::FluentCatalog>(world: &mut World) {
 	let active = {
@@ -292,3 +288,7 @@ pub(crate) fn synchronize_consumers<C: crate::FluentCatalog>(world: &mut World) 
 		}
 	}
 }
+
+#[cfg(test)]
+#[path = "tests/registry.rs"]
+mod tests;

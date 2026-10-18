@@ -170,7 +170,6 @@ fn update<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 			entity,
 			locale: binding.locale,
 			snapshot: frame.stamp(binding),
-			catalog: frame.catalog(binding).cloned(),
 			message: binding.message.identity(),
 			changed: state.pending,
 			text: context.into_owned(),
@@ -265,7 +264,7 @@ fn refresh_bindings<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 		}
 	};
 
-	deferred::queue::<S, T>(&mut commands, deferred);
+	deferred::queue::<S, T>(&mut commands, deferred, catalog, snapshots);
 }
 
 fn plan_refresh<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
@@ -282,7 +281,12 @@ fn plan_refresh<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 		return select_pending::<S, T, CACHE>(bindings, pending, frame);
 	}
 
-	let minimum = if frame.catalog.is_some() {
+	let minimum = if frame.catalog.is_some()
+		|| frame
+			.snapshots
+			.as_ref()
+			.is_some_and(|snapshots| !snapshots.is_empty())
+	{
 		MIN_FORMATTING_BINDINGS
 	} else {
 		MIN_REPAIR_BINDINGS
@@ -313,7 +317,12 @@ fn select_pending<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 		}
 
 		dirty += 1;
-		formatting += usize::from(!state.current(&binding.message, frame.previous) || !CACHE);
+		formatting += usize::from(
+			!state.current(&binding.message, frame.previous)
+				|| state.locale != binding.locale
+				|| state.snapshot != frame.stamp(binding)
+				|| !CACHE,
+		);
 
 		if parallel {
 			continue;

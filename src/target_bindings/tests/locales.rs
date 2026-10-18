@@ -287,3 +287,90 @@ fn native_text_and_accessible_label_on_one_entity_use_independent_languages() {
 	});
 	assert!(!app.world().contains_resource::<TestCatalog>());
 }
+
+#[test]
+fn new_fixed_consumer_uses_an_already_prepared_language_and_releases_its_snapshot() {
+	let mut app = App::new();
+	app.add_plugins((
+		MinimalPlugins,
+		LocalizationPlugin::<TestCatalog>::from_loader(|locale, _| {
+			std::future::ready(Ok::<_, String>(locale.as_bytes().to_vec()))
+		}),
+	));
+	let message = Msg::<TestCatalog>::new(|scope| scope.0.clone());
+	let following = app
+		.world_mut()
+		.spawn((Text::default(), Localized::<Text, _>::from(message.clone())))
+		.id();
+	pump(&mut app, |world| {
+		world.get::<Text>(following).unwrap().0 == "ja"
+	});
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog>>()
+		.prepare_locale("es");
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<TestCatalog>>()
+			.preparation_status()
+			== crate::PreparationStatus::Ready
+	});
+	let weak = {
+		let state = app.world().resource::<Localization<TestCatalog>>();
+		Arc::downgrade(
+			&state.preparation.as_ref().unwrap().store.values
+				[&std::any::TypeId::of::<TestCatalog>()]
+				.value,
+		)
+	};
+	let fixed = app
+		.world_mut()
+		.spawn((
+			Text::default(),
+			Localized::<Text, _>::from(message).with_locale("es"),
+		))
+		.id();
+	app.update();
+	assert_eq!(app.world().get::<Text>(fixed).unwrap().0, "es");
+	app.world_mut().despawn(fixed);
+	app.update();
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog>>()
+		.cancel_preparation();
+	assert!(weak.upgrade().is_none());
+	assert_eq!(app.world().get::<Text>(following).unwrap().0, "ja");
+}
+
+#[test]
+fn full_exposes_the_same_fixed_language_request_used_by_automatic_bindings() {
+	let mut app = App::new();
+	app.add_plugins((
+		MinimalPlugins,
+		LocalizationPlugin::<TestCatalog, Full>::from_loader(|locale, _| {
+			std::future::ready(Ok::<_, String>(locale.as_bytes().to_vec()))
+		}),
+	));
+	let token = app
+		.world_mut()
+		.resource_mut::<Localization<TestCatalog, Full>>()
+		.for_locale_mut("es")
+		.hold::<TestCatalog>();
+	pump(&mut app, |world| {
+		world.contains_resource::<TestCatalog>()
+			&& world
+				.resource::<Localization<TestCatalog, Full>>()
+				.for_locale("es")
+				.catalog()
+				.is_some()
+	});
+	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
+	drop(token);
+	app.update();
+	assert!(
+		app.world()
+			.resource::<Localization<TestCatalog, Full>>()
+			.for_locale("es")
+			.catalog()
+			.is_none()
+	);
+	assert_eq!(app.world().resource::<TestCatalog>().0, "ja");
+}

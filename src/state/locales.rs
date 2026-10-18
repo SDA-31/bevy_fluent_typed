@@ -146,7 +146,16 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			slot.automatic = paths;
 			slot.rebuild();
 			self.fixed_dirty = true;
+			self.views_changed = true;
 		}
+	}
+
+	/// Active physical demand, including fixed owners of the active language.
+	pub(crate) fn progress_desired(&self) -> &Arc<BTreeSet<&'static str>> {
+		self.fixed
+			.iter()
+			.find(|slot| slot.locale == self.locale() && !slot.fixed.is_empty())
+			.map_or(&self.desired, |slot| &slot.desired)
 	}
 
 	pub(crate) fn locale_index(&self, locale: C::Locale) -> usize {
@@ -179,6 +188,7 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	pub(crate) fn take_locale(&mut self, locale: C::Locale) -> Option<LocaleData<C>> {
 		let index = self.locale_index(locale);
 		self.fixed_dirty = true;
+		self.views_changed = true;
 		self.fixed[index].data.take()
 	}
 
@@ -189,6 +199,7 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 		crate::resources::assemble_store(&mut data.store);
 		self.fixed[index].data = Some(data);
 		self.fixed_dirty = true;
+		self.views_changed = true;
 	}
 
 	pub(crate) fn fixed_load<S: FluentScope<Catalog = C>>(&mut self, index: usize) {
@@ -197,6 +208,7 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			.insert(TypeId::of::<S>(), S::module_paths());
 		self.fixed[index].rebuild();
 		self.fixed_dirty = true;
+		self.views_changed = true;
 		let locale = self.fixed[index].locale;
 		self.visit_acquisitions(|state| {
 			if state.locale() != locale {
@@ -218,6 +230,7 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 		self.fixed[index].requested.remove(&TypeId::of::<S>());
 		self.fixed[index].rebuild();
 		self.fixed_dirty = true;
+		self.views_changed = true;
 	}
 
 	pub(crate) fn fixed_hold<S: FluentScope<Catalog = C>>(
@@ -227,6 +240,7 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 		let token = self.fixed[index].leases.hold::<S>();
 		self.fixed[index].rebuild();
 		self.fixed_dirty = true;
+		self.views_changed = true;
 		token
 	}
 
@@ -236,6 +250,7 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			if slot.leases.has_releases() && slot.leases.release_dropped() {
 				slot.rebuild();
 				self.fixed_dirty = true;
+				self.views_changed = true;
 			}
 		}
 

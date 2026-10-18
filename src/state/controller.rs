@@ -75,6 +75,8 @@ impl<C: FluentCatalog> RequestedModule<C> {
 pub struct Localization<C: FluentCatalog, M: LoadingMode = Lazy> {
 	pub(crate) fixed: Vec<super::locales::LocaleSlot<C>>,
 	pub(crate) fixed_dirty: bool,
+	/// Ready-data publication can change when a fixed owner appears or disappears.
+	pub(crate) views_changed: bool,
 	pub(crate) store: ModuleStore<C>,
 	/// Explicit scope pins; independent of leases and automatically discovered consumers.
 	pub(crate) requested: HashMap<TypeId, &'static [&'static str]>,
@@ -152,6 +154,7 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 		Self {
 			fixed: Vec::new(),
 			fixed_dirty: true,
+			views_changed: true,
 			store: ModuleStore::new(locale),
 			requested,
 			entries: BTreeMap::new(),

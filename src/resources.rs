@@ -11,72 +11,19 @@ pub(crate) fn synchronize<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
 	}
 
 	world.resource_scope(|world, mut localization: Mut<Localization<C, M>>| {
-		if let Some(target) = localization.preparation.as_mut()
-			&& target.synchronized != target.store.revision
-		{
-			assemble_store(&mut target.store);
-			target.synchronized = target.store.revision;
-		}
-
-		for slot in &mut localization.fixed {
-			let Some(data) = &mut slot.data else {
-				continue;
-			};
-
-			if data.synchronized == data.store.revision {
-				continue;
-			}
-
-			assemble_store(&mut data.store);
-			data.synchronized = data.store.revision;
-		}
-
+		assemble_additional(&mut localization);
 		let scopes = localization.store.scopes.clone();
 
 		for scope in scopes.iter().rev() {
 			synchronize_scope(world, &mut localization, scope);
 		}
 
-		let scopes = localization.store.scopes.clone();
-
 		for scope in scopes.iter() {
-			(scope.publish_locale)(
-				world,
-				localization.locale(),
-				localization
-					.store
-					.values
-					.get(&scope.id)
-					.map(|value| &value.value),
-			);
-
-			if let Some(target) = localization.preparation.as_ref().filter(|target| {
-				target.locale() != localization.locale()
-					&& localization
-						.fixed
-						.iter()
-						.any(|slot| slot.locale == target.locale() && !slot.fixed.is_empty())
-			}) {
-				(scope.publish_locale)(
-					world,
-					target.locale(),
-					target.store.values.get(&scope.id).map(|value| &value.value),
-				);
-			}
-
-			for slot in &localization.fixed {
-				let Some(data) = &slot.data else {
-					continue;
-				};
-				(scope.publish_locale)(
-					world,
-					slot.locale,
-					data.store.values.get(&scope.id).map(|value| &value.value),
-				);
-			}
+			publish_snapshots(world, &localization, scope);
 		}
 
 		localization.synchronized = localization.store.revision;
+		localization.views_changed = false;
 	});
 }
 
@@ -109,7 +56,7 @@ fn synchronize_scope<C: FluentCatalog, M: LoadingMode>(
 fn needs_sync<C: FluentCatalog, M: LoadingMode>(world: &World) -> bool {
 	let localization = world.resource::<Localization<C, M>>();
 
-	if localization.synchronized != localization.store.revision {
+	if localization.views_changed || localization.synchronized != localization.store.revision {
 		return true;
 	}
 
@@ -174,4 +121,76 @@ fn has_additional_changes<C: FluentCatalog, M: LoadingMode>(world: &World) -> bo
 				.as_ref()
 				.is_some_and(|data| data.synchronized != data.store.revision)
 		})
+}
+
+/// Assemble additional languages without projecting them into native resources.
+fn assemble_additional<C: FluentCatalog, M: LoadingMode>(localization: &mut Localization<C, M>) {
+	if let Some(target) = localization.preparation.as_mut()
+		&& target.synchronized != target.store.revision
+	{
+		assemble_store(&mut target.store);
+		target.synchronized = target.store.revision;
+	}
+
+	for slot in &mut localization.fixed {
+		let Some(data) = &mut slot.data else {
+			continue;
+		};
+
+		if data.synchronized == data.store.revision {
+			continue;
+		}
+
+		assemble_store(&mut data.store);
+		data.synchronized = data.store.revision;
+	}
+}
+
+/// Publish shared references for the target updater; only the active locale uses `Res<S>`.
+fn publish_snapshots<C: FluentCatalog, M: LoadingMode>(
+	world: &mut World,
+	localization: &Localization<C, M>,
+	scope: &ScopeRegistration<C>,
+) {
+	let fixed = |locale| {
+		localization
+			.fixed
+			.iter()
+			.any(|slot| slot.locale == locale && !slot.fixed.is_empty())
+	};
+	let active = localization
+		.store
+		.values
+		.get(&scope.id)
+		.filter(|_| fixed(localization.locale()));
+	(scope.publish_locale)(
+		world,
+		localization.locale(),
+		active.map(|value| &value.value),
+	);
+
+	if let Some(target) = localization
+		.preparation
+		.as_ref()
+		.filter(|target| target.locale() != localization.locale())
+	{
+		let value = target
+			.store
+			.values
+			.get(&scope.id)
+			.filter(|_| fixed(target.locale()));
+		(scope.publish_locale)(world, target.locale(), value.map(|value| &value.value));
+	}
+
+	for slot in &localization.fixed {
+		let Some(data) = &slot.data else {
+			continue;
+		};
+		let value = data
+			.store
+			.values
+			.get(&scope.id)
+			.filter(|_| !slot.fixed.is_empty());
+		(scope.publish_locale)(world, slot.locale, value.map(|value| &value.value));
+	}
 }

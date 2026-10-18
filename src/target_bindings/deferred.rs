@@ -4,7 +4,9 @@ use crate::bevy::{
 	prelude::{Commands, World},
 };
 use crate::message::MsgIdentity;
+use crate::state::LocaleSnapshot;
 use crate::{FluentScope, LocalizationTarget, LocalizationUpdate, Localized};
+use std::sync::Arc;
 
 /// Structural continuation of an adapter update, validated again before application.
 ///
@@ -16,7 +18,6 @@ pub(super) struct Deferred<S: FluentScope> {
 	pub(super) message: MsgIdentity<S>,
 	pub(super) locale: Option<<S::Catalog as crate::FluentCatalog>::Locale>,
 	pub(super) snapshot: Option<u64>,
-	pub(super) catalog: Option<S>,
 	/// A prepared value, or None while formatting remains lazy.
 	pub(super) text: Option<String>,
 	pub(super) changed: bool,
@@ -29,6 +30,8 @@ pub(super) struct Deferred<S: FluentScope> {
 pub(super) fn queue<S: FluentScope, T: LocalizationTarget>(
 	commands: &mut Commands,
 	mut batch: Vec<Deferred<S>>,
+	catalog: Option<S>,
+	snapshots: Option<Arc<Vec<LocaleSnapshot<S>>>>,
 ) {
 	if batch.is_empty() {
 		return;
@@ -38,7 +41,7 @@ pub(super) fn queue<S: FluentScope, T: LocalizationTarget>(
 		let mut query = world.query_filtered::<T::Data, T::Filter>();
 
 		for item in &mut batch {
-			apply_one::<S, T>(world, &mut query, item);
+			apply_one::<S, T>(world, &mut query, item, &catalog, &snapshots);
 		}
 
 		// Earlier rows can be changed by hooks belonging to later rows. Confirm
@@ -58,6 +61,8 @@ fn apply_one<S: FluentScope, T: LocalizationTarget>(
 	world: &mut World,
 	query: &mut QueryState<T::Data, T::Filter>,
 	item: &mut Deferred<S>,
+	catalog: &Option<S>,
+	snapshots: &Option<Arc<Vec<LocaleSnapshot<S>>>>,
 ) {
 	let this_run = world.change_tick().get();
 
@@ -82,11 +87,14 @@ fn apply_one<S: FluentScope, T: LocalizationTarget>(
 
 	let message = binding.message.clone();
 	let observed = entity.get::<State<S, T>>().and_then(State::observed);
-	let render = || {
-		item.catalog
+	let selected = match item.locale {
+		None => catalog.as_ref(),
+		Some(locale) => snapshots
 			.as_ref()
-			.map_or_else(String::new, |scope| message.render(scope))
+			.and_then(|snapshots| snapshots.iter().find(|snapshot| snapshot.locale == locale))
+			.map(|snapshot| &snapshot.value),
 	};
+	let render = || selected.map_or_else(String::new, |scope| message.render(scope));
 	let mut update = if let Some(text) = item.text.take() {
 		LocalizationUpdate::owned(item.changed, text)
 	} else {
@@ -163,3 +171,7 @@ fn current<S: FluentScope, T: LocalizationTarget>(
 	};
 	stamp == item.snapshot
 }
+
+#[cfg(test)]
+#[path = "tests/deferred.rs"]
+mod tests;

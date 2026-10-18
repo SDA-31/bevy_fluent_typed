@@ -21,7 +21,7 @@ fn snapshot<C: FluentCatalog, M: LoadingMode>(
 	selected: Option<&BTreeSet<&'static str>>,
 	status: &PreparationStatus,
 ) -> Snapshot<C> {
-	let paths = selected.unwrap_or(&state.desired);
+	let paths = selected.unwrap_or(state.progress_desired());
 	let preparation = state.preparation.as_deref().map(|target| {
 		let store = if target.locale() == state.locale() {
 			&state.store
@@ -29,7 +29,7 @@ fn snapshot<C: FluentCatalog, M: LoadingMode>(
 			&target.store
 		};
 
-		inspect(store, paths.iter().copied())
+		inspect(store, selected.unwrap_or(&state.desired).iter().copied())
 	});
 
 	Snapshot {

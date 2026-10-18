@@ -1,6 +1,6 @@
 //! Explicit locale selection that preserves existing module navigation and requests.
 use crate::{
-	FluentCatalog, FluentScope, Lazy, LoadingMode, Localization, Manual, ModuleLease, ModuleStatus,
+	FluentCatalog, FluentScope, Lazy, LoadingMode, Localization, ModuleLease, ModuleStatus,
 	ModuleStore,
 };
 
@@ -37,6 +37,7 @@ impl<'a, C: FluentCatalog> LocaleView<'a, C> {
 }
 
 /// Borrowed fixed-language request interface; dropping the view does not remove pins.
+/// Use `Localization::for_locale` for read-only navigation and status inspection.
 pub struct LocaleViewMut<'a, C: FluentCatalog, M: LoadingMode = Lazy> {
 	owner: &'a mut Localization<C, M>,
 	index: usize,
@@ -67,18 +68,21 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	}
 }
 
-macro_rules! explicit_locale_requests {
-    ($($mode:ty),+) => { $(impl<C: FluentCatalog> LocaleViewMut<'_, C, $mode> {
-        /// Retain this scope in the selected language until its fixed pin is removed.
-        /// Repeated calls are idempotent and retry failed requests.
-        pub fn load<S: FluentScope<Catalog=C>>(&mut self) { self.owner.fixed_load::<S>(self.index); }
+impl<C: FluentCatalog, M: LoadingMode> LocaleViewMut<'_, C, M> {
+	/// Retain this scope in the selected language until its fixed pin is removed.
+	/// Repeated calls are idempotent and retry failed requests. Full continues
+	/// retaining its active root independently of these fixed requests.
+	pub fn load<S: FluentScope<Catalog = C>>(&mut self) {
+		self.owner.fixed_load::<S>(self.index);
+	}
 
-        /// Remove only this scope's fixed-language manual pin.
-        pub fn unload<S: FluentScope<Catalog=C>>(&mut self) { self.owner.fixed_unload::<S>(self.index); }
+	/// Remove only this scope's fixed-language manual pin.
+	pub fn unload<S: FluentScope<Catalog = C>>(&mut self) {
+		self.owner.fixed_unload::<S>(self.index);
+	}
 
-        /// Retain an independent fixed-language request until its token drops.
-        pub fn hold<S: FluentScope<Catalog=C>>(&mut self) -> ModuleLease<S> { self.owner.fixed_hold::<S>(self.index) }
-    })+ };
+	/// Retain an independent fixed-language request until its token drops.
+	pub fn hold<S: FluentScope<Catalog = C>>(&mut self) -> ModuleLease<S> {
+		self.owner.fixed_hold::<S>(self.index)
+	}
 }
-
-explicit_locale_requests!(Lazy, Manual);

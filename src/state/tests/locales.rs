@@ -267,3 +267,44 @@ fn reload_includes_requested_fixed_languages_without_loading_unrequested_languag
 	ready(&mut app, "es");
 	assert_eq!(*reads.lock().unwrap(), ["es", "es"]);
 }
+
+#[test]
+fn native_root_progress_counts_fixed_owners_of_the_active_language_only() {
+	let (mut app, _) = app();
+	app.add_plugins(crate::LocalizationProgressPlugin::<TestCatalog>::new());
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
+		.for_locale_mut("ja")
+		.load::<TestCatalog>();
+	ready(&mut app, "ja");
+	let progress = app
+		.world()
+		.resource::<crate::LocalizationProgress<TestCatalog>>()
+		.active();
+	assert_eq!(progress.total, 1);
+	assert_eq!(progress.available, 1);
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
+		.for_locale_mut("es")
+		.load::<TestCatalog>();
+	ready(&mut app, "es");
+	assert_eq!(
+		app.world()
+			.resource::<crate::LocalizationProgress<TestCatalog>>()
+			.active()
+			.total,
+		1
+	);
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
+		.for_locale_mut("ja")
+		.unload::<TestCatalog>();
+	app.update();
+	assert_eq!(
+		app.world()
+			.resource::<crate::LocalizationProgress<TestCatalog>>()
+			.active()
+			.total,
+		0
+	);
+}

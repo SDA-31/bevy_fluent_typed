@@ -40,7 +40,7 @@ impl<'a, L: Copy + Eq> StoreView<'a, L> {
 		Self {
 			store: &state.store.progress_version,
 			locale: state.locale(),
-			desired: &state.desired,
+			desired: state.progress_desired(),
 			pending: state.pending,
 			retry: state.retry.revision,
 			handoff,

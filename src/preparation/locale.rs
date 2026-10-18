@@ -198,6 +198,7 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 		{
 			self.retain_locale(crate::state::LocaleData::take(&mut target));
 		}
+
 		self.commit_requested = false;
 		self.switch_when_ready = false;
 	}
@@ -219,10 +220,12 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 		preparation.desired = self.desired.clone();
 		preparation.requests_changed = true;
 		let mut state = Acquisition::controller(preparation);
+
 		if let Some(fixed) = fixed.filter(|fixed| !fixed.is_empty()) {
 			state.desired =
 				std::sync::Arc::new(state.desired.iter().chain(fixed.iter()).copied().collect());
 		}
+
 		crate::loading::release_state(&mut state);
 		self.commit_requested = false;
 	}
