@@ -16,6 +16,7 @@ use crate::{
 	UpdateResult, cache_policy,
 };
 
+/// The adapter's declared query, extended with its binding and tracking state.
 type Bindings<'w, 's, S, T> = Query<
 	'w,
 	's,
@@ -28,8 +29,13 @@ type Bindings<'w, 's, S, T> = Query<
 	<T as LocalizationTarget>::Filter,
 >;
 
+/// Potentially overlapping catalog and target borrows, accessed through a ParamSet.
 type Parameters<'w, 's, S, T> = (Option<Res<'w, S>>, Bindings<'w, 's, S, T>);
 
+/// Work retained per worker until all parallel target callbacks have finished.
+///
+/// Structural updates run later on the World. Superseded weak message identities
+/// are also retired together after the parallel pass.
 struct Work<S: FluentScope> {
 	deferred: Vec<Deferred<S>>,
 	retired: Vec<MsgIdentity<S>>,
@@ -57,6 +63,7 @@ pub(super) fn unregister<S: FluentScope, T: LocalizationTarget>(world: &mut Worl
 	let _ = world.unregister_system_cached(refresh_bindings::<S, T, false>);
 }
 
+/// Catalog snapshot and invalidation clocks shared by one complete query pass.
 struct Refresh<'a, S> {
 	catalog: &'a Option<S>,
 	changed: bool,
@@ -156,6 +163,19 @@ fn update<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 	(retired, deferred)
 }
 
+/// Execution path chosen without allocating another collection of binding rows.
+enum RefreshPlan {
+	/// Selection visited every row and found no target that needs an update.
+	Idle,
+	/// Update only the selected entities retained in the reusable pending buffer.
+	Pending,
+	/// Inspect and update the full query on the calling thread.
+	Sequential,
+	/// Run the native parallel query; selection has already stamped clean rows
+	/// when `selected` is true, allowing the workers to skip them.
+	Parallel { selected: bool },
+}
+
 fn refresh_bindings<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 	mut params: ParamSet<Parameters<S, T>>,
 	mut work: Local<Parallel<Work<S>>>,
@@ -173,6 +193,7 @@ fn refresh_bindings<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 		*was_ready = resource.is_some();
 		(resource.as_deref().cloned(), changed)
 	};
+
 	let mut bindings = params.p1();
 	// Only a scheduling estimate is needed. Query's native upper bound avoids
 	// traversing every row just to decide whether another traversal may parallelize.
@@ -181,6 +202,7 @@ fn refresh_bindings<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 	*pass = pass.wrapping_add(1);
 	let current = *pass;
 	let this_run = ticks.this_run().get();
+
 	let frame = Refresh {
 		catalog: &catalog,
 		changed,
@@ -188,113 +210,164 @@ fn refresh_bindings<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 		current,
 		this_run,
 	};
-	let can_parallel = should_parallelize(count, MIN_FORMATTING_BINDINGS.min(MIN_REPAIR_BINDINGS));
-	let mut selected = false;
-	let parallel = if can_parallel && !changed {
-		pending.clear();
-		let mut dirty = 0;
-		let mut formatting = 0;
-		let mut parallel = false;
 
-		for (entity, binding, data, mut state) in &mut bindings {
-			let state = state.bypass_change_detection();
-
-			if !needs_update(binding, &data, state, &frame) {
-				continue;
-			}
-
-			dirty += 1;
-			formatting += usize::from(!state.current(&binding.message, previous) || !CACHE);
-
-			if parallel {
-				continue;
-			}
-
-			parallel = formatting >= MIN_FORMATTING_BINDINGS || dirty >= MIN_REPAIR_BINDINGS;
-
-			if parallel {
-				pending.clear();
-				continue;
-			}
-
-			pending.push(entity);
+	let deferred = match plan_refresh::<S, T, CACHE>(&mut bindings, &mut pending, &frame, count) {
+		RefreshPlan::Idle => return,
+		RefreshPlan::Pending => refresh_pending::<S, T, CACHE>(&mut bindings, &mut pending, &frame),
+		RefreshPlan::Sequential => refresh_sequential::<S, T, CACHE>(&mut bindings, &frame),
+		RefreshPlan::Parallel { selected } => {
+			refresh_parallel::<S, T, CACHE>(&mut bindings, &mut work, &frame, selected)
 		}
-
-		if dirty == 0 {
-			return;
-		}
-
-		if !parallel {
-			let mut deferred = Vec::new();
-
-			for entity in pending.drain(..) {
-				let Ok((_, binding, data, mut state)) = bindings.get_mut(entity) else {
-					continue;
-				};
-				let (retired, item) = update::<S, T, CACHE>(
-					entity,
-					binding,
-					data,
-					state.bypass_change_detection(),
-					&frame,
-				);
-				drop(retired);
-				deferred.extend(item);
-			}
-
-			deferred::queue::<S, T>(&mut commands, deferred, catalog);
-			return;
-		}
-
-		selected = true;
-		true
-	} else {
-		can_parallel
-			&& count
-				>= if changed && catalog.is_some() {
-					MIN_FORMATTING_BINDINGS
-				} else {
-					MIN_REPAIR_BINDINGS
-				}
 	};
 
-	if !parallel {
-		let mut deferred = Vec::new();
+	deferred::queue::<S, T>(&mut commands, deferred, catalog);
+}
 
-		for (entity, binding, data, mut state) in &mut bindings {
-			let state = state.bypass_change_detection();
-
-			if !needs_update(binding, &data, state, &frame) {
-				continue;
-			}
-
-			let (retired, item) = update::<S, T, CACHE>(entity, binding, data, state, &frame);
-			drop(retired);
-			deferred.extend(item);
-		}
-
-		deferred::queue::<S, T>(&mut commands, deferred, catalog);
-		return;
+fn plan_refresh<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
+	bindings: &mut Bindings<'_, '_, S, T>,
+	pending: &mut Vec<Entity>,
+	frame: &Refresh<S>,
+	count: usize,
+) -> RefreshPlan {
+	if !should_parallelize(count, MIN_FORMATTING_BINDINGS.min(MIN_REPAIR_BINDINGS)) {
+		return RefreshPlan::Sequential;
 	}
 
+	if !frame.changed {
+		return select_pending::<S, T, CACHE>(bindings, pending, frame);
+	}
+
+	let minimum = if frame.catalog.is_some() {
+		MIN_FORMATTING_BINDINGS
+	} else {
+		MIN_REPAIR_BINDINGS
+	};
+
+	if count < minimum {
+		return RefreshPlan::Sequential;
+	}
+
+	RefreshPlan::Parallel { selected: false }
+}
+
+fn select_pending<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
+	bindings: &mut Bindings<'_, '_, S, T>,
+	pending: &mut Vec<Entity>,
+	frame: &Refresh<S>,
+) -> RefreshPlan {
+	pending.clear();
+	let mut dirty = 0;
+	let mut formatting = 0;
+	let mut parallel = false;
+
+	for (entity, binding, data, mut state) in bindings {
+		let state = state.bypass_change_detection();
+
+		if !needs_update(binding, &data, state, frame) {
+			continue;
+		}
+
+		dirty += 1;
+		formatting += usize::from(!state.current(&binding.message, frame.previous) || !CACHE);
+
+		if parallel {
+			continue;
+		}
+
+		parallel = formatting >= MIN_FORMATTING_BINDINGS || dirty >= MIN_REPAIR_BINDINGS;
+
+		if parallel {
+			pending.clear();
+			continue;
+		}
+
+		pending.push(entity);
+	}
+
+	if dirty == 0 {
+		return RefreshPlan::Idle;
+	}
+
+	if !parallel {
+		return RefreshPlan::Pending;
+	}
+
+	RefreshPlan::Parallel { selected: true }
+}
+
+fn refresh_pending<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
+	bindings: &mut Bindings<'_, '_, S, T>,
+	pending: &mut Vec<Entity>,
+	frame: &Refresh<S>,
+) -> Vec<Deferred<S>> {
+	let mut deferred = Vec::new();
+
+	for entity in pending.drain(..) {
+		let Ok((_, binding, data, mut state)) = bindings.get_mut(entity) else {
+			continue;
+		};
+		let (retired, item) = update::<S, T, CACHE>(
+			entity,
+			binding,
+			data,
+			state.bypass_change_detection(),
+			frame,
+		);
+
+		drop(retired);
+		deferred.extend(item);
+	}
+
+	deferred
+}
+
+fn refresh_sequential<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
+	bindings: &mut Bindings<'_, '_, S, T>,
+	frame: &Refresh<S>,
+) -> Vec<Deferred<S>> {
+	let mut deferred = Vec::new();
+
+	for (entity, binding, data, mut state) in bindings {
+		let state = state.bypass_change_detection();
+
+		if !needs_update(binding, &data, state, frame) {
+			continue;
+		}
+
+		let (retired, item) = update::<S, T, CACHE>(entity, binding, data, state, frame);
+
+		drop(retired);
+		deferred.extend(item);
+	}
+
+	deferred
+}
+
+fn refresh_parallel<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
+	bindings: &mut Bindings<'_, '_, S, T>,
+	work: &mut Parallel<Work<S>>,
+	frame: &Refresh<S>,
+	selected: bool,
+) -> Vec<Deferred<S>> {
 	bindings.par_iter_mut().for_each_init(
 		|| work.borrow_local_mut(),
 		|work, (entity, binding, data, mut state)| {
 			let state = state.bypass_change_detection();
 
-			if selected && state.pass == current {
+			if selected && state.pass == frame.current {
 				return;
 			}
 
-			if !needs_update(binding, &data, state, &frame) {
+			if !needs_update(binding, &data, state, frame) {
 				return;
 			}
 
-			let (retired, deferred) = update::<S, T, CACHE>(entity, binding, data, state, &frame);
+			let (retired, deferred) = update::<S, T, CACHE>(entity, binding, data, state, frame);
 			work.retired.extend(retired);
 			work.deferred.extend(deferred);
 		},
 	);
+
 	let mut deferred = Vec::new();
 
 	for work in work.iter_mut() {
@@ -302,5 +375,5 @@ fn refresh_bindings<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 		deferred.append(&mut work.deferred);
 	}
 
-	deferred::queue::<S, T>(&mut commands, deferred, catalog);
+	deferred
 }
