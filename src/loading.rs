@@ -10,6 +10,7 @@ use crate::bevy::{
 	ecs as bevy_ecs,
 };
 use crate::compatibility::{MessageReader, MessageWriter};
+use crate::state::Acquisition;
 #[cfg(feature = "manifest")]
 use crate::state::RequestedModule;
 use crate::{
@@ -96,7 +97,7 @@ pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 	}
 
 	reconcile_state(
-		&mut localization,
+		&mut Acquisition::controller(&mut localization),
 		&source,
 		&assets.server,
 		&assets.loaded,
@@ -111,7 +112,7 @@ pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 		&& let Some(preparation) = localization.preparation.as_mut()
 	{
 		reconcile_state(
-			preparation,
+			&mut Acquisition::controller(preparation),
 			&source,
 			&assets.server,
 			&assets.loaded,
@@ -123,8 +124,8 @@ pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 }
 
 #[cfg(feature = "manifest")]
-fn reconcile_state<C: FluentCatalog, M: LoadingMode>(
-	localization: &mut Localization<C, M>,
+fn reconcile_state<C: FluentCatalog>(
+	localization: &mut Acquisition<'_, C>,
 	source: &CatalogSource<C>,
 	server: &AssetServer,
 	assets: &Assets<ModuleAsset<C>>,
@@ -132,19 +133,19 @@ fn reconcile_state<C: FluentCatalog, M: LoadingMode>(
 	assets_changed: bool,
 	updates: &mut MessageWriter<CatalogUpdate<C>>,
 ) {
-	if !localization.requests_changed
+	if !*localization.requests_changed
 		&& localization.retry.is_empty()
-		&& localization.pending == 0
+		&& *localization.pending == 0
 		&& !assets_changed
 	{
 		return;
 	}
 
-	if localization.requests_changed {
-		localization.requests_changed = false;
+	if *localization.requests_changed {
+		*localization.requests_changed = false;
 	}
 
-	release_unrequested(localization);
+	release_state(localization);
 	let desired = localization.desired();
 
 	for path in desired.iter() {
@@ -175,7 +176,7 @@ fn reconcile_state<C: FluentCatalog, M: LoadingMode>(
 	}
 
 	if localization.staged {
-		crate::preparation::refresh_handoff(localization, source, server);
+		crate::preparation::refresh_acquisition_handoff(localization, source, server);
 	}
 }
 
@@ -189,8 +190,8 @@ enum RequestStep {
 }
 
 #[cfg(feature = "manifest")]
-fn begin_request<C: FluentCatalog, M: LoadingMode>(
-	localization: &mut Localization<C, M>,
+fn begin_request<C: FluentCatalog>(
+	localization: &mut Acquisition<'_, C>,
 	source: &CatalogSource<C>,
 	server: &AssetServer,
 	module: &Module<C>,
@@ -225,8 +226,8 @@ fn begin_request<C: FluentCatalog, M: LoadingMode>(
 }
 
 #[cfg(feature = "manifest")]
-fn start_file_request<C: FluentCatalog, M: LoadingMode>(
-	localization: &mut Localization<C, M>,
+fn start_file_request<C: FluentCatalog>(
+	localization: &mut Acquisition<'_, C>,
 	source: &CatalogSource<C>,
 	server: &AssetServer,
 	path: &'static str,
@@ -260,7 +261,7 @@ fn start_file_request<C: FluentCatalog, M: LoadingMode>(
 			.iter()
 			.any(|id| id.type_id() == std::any::TypeId::of::<PreparedModuleAsset<C>>())
 		{
-			localization.requests_changed = true;
+			*localization.requests_changed = true;
 			return RequestStep::NextModule;
 		}
 	}
@@ -288,7 +289,7 @@ fn start_file_request<C: FluentCatalog, M: LoadingMode>(
 		.entries
 		.get(path)
 		.and_then(|entry| entry.accepted);
-	localization.pending += 1;
+	*localization.pending += 1;
 	localization.entries.insert(
 		path,
 		RequestedModule {
@@ -305,8 +306,8 @@ fn start_file_request<C: FluentCatalog, M: LoadingMode>(
 }
 
 #[cfg(feature = "manifest")]
-fn poll_asset<C: FluentCatalog, M: LoadingMode>(
-	localization: &mut Localization<C, M>,
+fn poll_asset<C: FluentCatalog>(
+	localization: &mut Acquisition<'_, C>,
 	assets: &Assets<ModuleAsset<C>>,
 	prepared_assets: &Assets<PreparedModuleAsset<C>>,
 	path: &'static str,
@@ -361,9 +362,7 @@ fn poll_asset<C: FluentCatalog, M: LoadingMode>(
 	publish(localization, path, asset.candidate.clone(), updates);
 }
 
-pub(crate) fn release_unrequested<C: FluentCatalog, M: LoadingMode>(
-	localization: &mut Localization<C, M>,
-) {
+pub(crate) fn release_state<C: FluentCatalog>(localization: &mut Acquisition<'_, C>) {
 	let desired = localization.desired();
 	let removed: std::collections::BTreeSet<_> = localization
 		.entries
@@ -385,7 +384,7 @@ pub(crate) fn release_unrequested<C: FluentCatalog, M: LoadingMode>(
 			.remove(path)
 			.is_some_and(|entry| entry.pending)
 		{
-			localization.pending -= 1;
+			*localization.pending -= 1;
 		}
 
 		localization.retry.remove(path);
@@ -399,8 +398,8 @@ pub(crate) fn release_unrequested<C: FluentCatalog, M: LoadingMode>(
 	}
 }
 
-pub(crate) fn publish<C: FluentCatalog, M: LoadingMode>(
-	localization: &mut Localization<C, M>,
+pub(crate) fn publish<C: FluentCatalog>(
+	localization: &mut Acquisition<'_, C>,
 	path: &'static str,
 	candidate: Result<crate::catalog::SharedScope, String>,
 	updates: &mut MessageWriter<CatalogUpdate<C>>,
@@ -454,7 +453,11 @@ pub(crate) fn report_failures<C: FluentCatalog, M: LoadingMode>(
 	}
 
 	for event in events.read() {
-		report_failure(&mut localization, event, &mut updates);
+		report_failure(
+			&mut Acquisition::controller(&mut localization),
+			event,
+			&mut updates,
+		);
 	}
 
 	for event in prepared_events.read() {
@@ -473,7 +476,7 @@ pub(crate) fn report_failures<C: FluentCatalog, M: LoadingMode>(
 		if let Some(path) = path {
 			preparation.finish_request(path);
 			publish(
-				preparation,
+				&mut Acquisition::controller(preparation),
 				path,
 				Err(event.error.to_string()),
 				&mut updates,
@@ -483,8 +486,8 @@ pub(crate) fn report_failures<C: FluentCatalog, M: LoadingMode>(
 }
 
 #[cfg(feature = "manifest")]
-fn report_failure<C: FluentCatalog, M: LoadingMode>(
-	localization: &mut Localization<C, M>,
+fn report_failure<C: FluentCatalog>(
+	localization: &mut Acquisition<'_, C>,
 	event: &AssetLoadFailedEvent<ModuleAsset<C>>,
 	updates: &mut MessageWriter<CatalogUpdate<C>>,
 ) {
@@ -501,6 +504,11 @@ fn report_failure<C: FluentCatalog, M: LoadingMode>(
 		localization.finish_request(path);
 		publish(localization, path, Err(event.error.to_string()), updates);
 	}
+}
+pub(crate) fn release_unrequested<C: FluentCatalog, M: LoadingMode>(
+	state: &mut Localization<C, M>,
+) {
+	release_state(&mut Acquisition::controller(state));
 }
 
 #[cfg(feature = "manifest")]

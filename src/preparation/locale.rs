@@ -2,6 +2,7 @@
 #[cfg(feature = "manifest")]
 use crate::bevy::prelude::{AssetServer, Handle};
 use crate::bevy::prelude::{Mut, World};
+use crate::state::Acquisition;
 use crate::{FluentCatalog, LoadingMode, Localization, ModuleError, ModuleStatus};
 use std::fmt;
 #[cfg(feature = "manifest")]
@@ -359,6 +360,15 @@ pub(crate) fn refresh_handoff<C: FluentCatalog, M: LoadingMode>(
 	source: &crate::loading::CatalogSource<C>,
 	server: &AssetServer,
 ) {
+	refresh_acquisition_handoff(&mut Acquisition::controller(preparation), source, server);
+}
+
+#[cfg(feature = "manifest")]
+pub(crate) fn refresh_acquisition_handoff<C: FluentCatalog>(
+	preparation: &mut Acquisition<'_, C>,
+	source: &crate::loading::CatalogSource<C>,
+	server: &AssetServer,
+) {
 	preparation.handoff_pending.clear();
 
 	if source.manifest.embedded_modules().is_some() {
@@ -385,6 +395,6 @@ pub(crate) fn refresh_handoff<C: FluentCatalog, M: LoadingMode>(
 	}
 
 	if !preparation.handoff_pending.is_empty() {
-		preparation.requests_changed = true;
+		*preparation.requests_changed = true;
 	}
 }

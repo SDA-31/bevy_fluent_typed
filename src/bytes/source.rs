@@ -6,7 +6,8 @@ use crate::bevy::{
 };
 use crate::catalog::SharedScope;
 use crate::compatibility::MessageWriter;
-use crate::loading::{publish, release_unrequested};
+use crate::loading::{publish, release_state};
+use crate::state::Acquisition;
 use crate::state::RequestedModule;
 use crate::{CatalogUpdate, FluentCatalog, LoadingMode, Localization, Module, ModuleStatus};
 use std::{collections::HashMap, fmt::Display, future::Future, pin::Pin, sync::Arc};
@@ -80,29 +81,39 @@ pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 		return;
 	}
 
-	reconcile_state(&mut localization, &source, &mut updates);
+	reconcile_state(
+		&mut Acquisition::controller(&mut localization),
+		&source,
+		&mut updates,
+	);
 
 	if localization
 		.prepared_locale()
 		.is_some_and(|locale| locale != localization.locale())
 		&& let Some(preparation) = localization.preparation.as_mut()
 	{
-		reconcile_state(preparation, &source, &mut updates);
+		reconcile_state(
+			&mut Acquisition::controller(preparation),
+			&source,
+			&mut updates,
+		);
 	}
 }
 
-fn reconcile_state<C: FluentCatalog, M: LoadingMode>(
-	localization: &mut Localization<C, M>,
+fn reconcile_state<C: FluentCatalog>(
+	localization: &mut Acquisition<'_, C>,
 	source: &ByteSource<C>,
 	updates: &mut MessageWriter<CatalogUpdate<C>>,
 ) {
-	if !localization.requests_changed && localization.retry.is_empty() && localization.pending == 0
+	if !*localization.requests_changed
+		&& localization.retry.is_empty()
+		&& *localization.pending == 0
 	{
 		return;
 	}
 
-	localization.requests_changed = false;
-	release_unrequested(localization);
+	*localization.requests_changed = false;
+	release_state(localization);
 	let locale = localization.locale();
 
 	for &path in localization.desired().iter() {
@@ -123,7 +134,7 @@ fn reconcile_state<C: FluentCatalog, M: LoadingMode>(
 			entry.task = Some(IoTaskPool::get().spawn((source.loader.0)(locale, module)));
 			entry.pending = true;
 			localization.entries.insert(path, entry);
-			localization.pending += 1;
+			*localization.pending += 1;
 		}
 
 		let Some(entry) = localization.entries.get_mut(path) else {
