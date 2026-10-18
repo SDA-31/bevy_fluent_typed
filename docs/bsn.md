@@ -209,9 +209,10 @@ and [native BSN migration](https://bevy.org/learn/migration-guides/0-19-to-0-20/
 
 For application-defined components, see
 [custom bindings](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bindings.md).
-`Localized<Target, Scope>` names the target first. Every target implements
-`Component + Default`; the engine creates an omitted target once at binding
-initialization, including custom components. Later removal is respected.
+`Localized<Target, Scope>` names the target first. Every target is a component;
+`Default` is not required. Include it in the same scene entity as its binding.
+An omitted target removes the binding with a warning; no component is created.
+Later target removal after a successful attachment is respected.
 A binding always needs its formatting closure or Msg.
 The runnable BSN example includes typed button and caption-slot helpers and
 checks EN/ES/RU visible/semantic labels and release after despawning.
@@ -219,8 +220,8 @@ checks EN/ES/RU visible/semantic labels and release after despawning.
 ## World labels and scene setup
 
 Use `Localized::<Text2d, Interface>::new(...)` for a world label. Cameras, fonts,
-shaping and layout remain normal Bevy application setup. Built-in targets use
-`Default` to initialize an omitted component of exactly the selected type once.
+shaping and layout remain normal Bevy application setup. Include `Text2d` beside
+its binding, just as UI scenes include `Text`; no implicit target is created.
 
 These recipes use compiled Rust scenes. They do not add a `.bsn` file loader or
 serialize formatting closures. Translation reload keeps the generated schema

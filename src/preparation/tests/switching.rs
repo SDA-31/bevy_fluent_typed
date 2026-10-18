@@ -63,9 +63,10 @@ fn app() -> (App, Attempts, Entity) {
 	app.add_plugins((MinimalPlugins, plugin));
 	let label = app
 		.world_mut()
-		.spawn(Localized::<Text, TestCatalog>::new(|catalog| {
-			catalog.0.clone()
-		}))
+		.spawn((
+			Text::default(),
+			Localized::<Text, TestCatalog>::new(|catalog| catalog.0.clone()),
+		))
 		.id();
 	(app, attempts, label)
 }
@@ -272,9 +273,10 @@ fn failed_target_is_observable_retains_text_and_manual_load_retries_it() {
 	);
 	let label = app
 		.world_mut()
-		.spawn(Localized::<Text, TestCatalog>::new(|catalog| {
-			catalog.0.clone()
-		}))
+		.spawn((
+			Text::default(),
+			Localized::<Text, TestCatalog>::new(|catalog| catalog.0.clone()),
+		))
 		.id();
 	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
 	app.world_mut()
@@ -334,9 +336,10 @@ fn repeating_initial_selection_retries_failed_active_leaves_without_a_manual_pin
 	app.add_plugins((MinimalPlugins, plugin));
 	let binding = app
 		.world_mut()
-		.spawn(Localized::<Text, TestCatalog>::new(|catalog| {
-			catalog.0.clone()
-		}))
+		.spawn((
+			Text::default(),
+			Localized::<Text, TestCatalog>::new(|catalog| catalog.0.clone()),
+		))
 		.id();
 	app.world_mut()
 		.resource_mut::<Localization<TestCatalog>>()

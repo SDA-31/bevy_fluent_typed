@@ -616,6 +616,7 @@ dependencies = [
  "fluent-typed",
  "fluent_typed_codegen",
  "indexmap",
+ "tracing",
 ]
 
 [[package]]

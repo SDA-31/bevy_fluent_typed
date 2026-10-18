@@ -35,11 +35,12 @@ fn uncached_native<T: NativeText>(count: usize, supplied: bool) {
 	});
 	let owners: Vec<_> = (0..count)
 		.map(|_| {
-			let mut owner = world.spawn(Localized::<T, Catalog>::from(message.clone()));
-
-			if supplied {
-				owner.insert(T::default());
-			}
+			let binding = Localized::<T, Catalog>::from(message.clone());
+			let owner = if supplied {
+				world.spawn((T::default(), binding))
+			} else {
+				world.spawn((binding, T::default()))
+			};
 
 			owner.id()
 		})
@@ -216,7 +217,12 @@ fn uncached_custom_adapters_render_each_refresh_and_keep_unchanged_ticks() {
 			catalog.0.clone()
 		});
 		let owners: Vec<_> = world
-			.spawn_batch((0..count).map(|_| Localized::<Caption, Catalog>::from(message.clone())))
+			.spawn_batch((0..count).map(|_| {
+				(
+					Caption::default(),
+					Localized::<Caption, Catalog>::from(message.clone()),
+				)
+			}))
 			.collect();
 		world.flush();
 		<Localized<Caption, Catalog> as Binding>::refresh(world);
@@ -268,10 +274,12 @@ fn accessibility_uses_native_hooks_without_owning_the_neighbor_node_lifetime() {
 				catalog.0.clone()
 			});
 			let owners: Vec<_> = world
-				.spawn_batch(
-					(0..count)
-						.map(|_| Localized::<AccessibleLabel, Catalog>::from(message.clone())),
-				)
+				.spawn_batch((0..count).map(|_| {
+					(
+						AccessibleLabel::default(),
+						Localized::<AccessibleLabel, Catalog>::from(message.clone()),
+					)
+				}))
 				.collect();
 			world.flush();
 			<Localized<AccessibleLabel, Catalog> as Binding>::refresh(world);
@@ -410,7 +418,7 @@ fn observe_insertion<T: Component>(
 }
 
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
-fn insertion_observer<T: LocalizationTarget + Component>(
+fn insertion_observer<T: LocalizationTarget + Component + Default>(
 	edit: fn(&mut crate::bevy::prelude::World, crate::bevy::prelude::Entity),
 	read: fn(&crate::bevy::prelude::World, crate::bevy::prelude::Entity) -> &str,
 ) {
@@ -430,7 +438,10 @@ fn insertion_observer<T: LocalizationTarget + Component>(
 			});
 			let count = 1 + usize::from(previous);
 			let owners: Vec<_> = world
-				.spawn_batch((0..count).map(|_| Localized::<T, Catalog>::from(message.clone())))
+				.spawn_batch(
+					(0..count)
+						.map(|_| (T::default(), Localized::<T, Catalog>::from(message.clone()))),
+				)
 				.collect();
 			world.flush();
 			<Localized<T, Catalog> as Binding>::refresh(world);
@@ -462,7 +473,7 @@ fn insertion_observer<T: LocalizationTarget + Component>(
 
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 #[test]
-fn default_initialization_observer_edits_are_translated_on_first_native_refresh() {
+fn explicit_target_insertion_observer_edits_are_translated_on_first_native_refresh() {
 	insertion_observer::<Text>(
 		|world, entity| {
 			world.entity_mut(entity).insert(Text::new("observer"));
@@ -473,7 +484,7 @@ fn default_initialization_observer_edits_are_translated_on_first_native_refresh(
 
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 #[test]
-fn default_initialization_observer_edits_are_translated_on_first_semantic_refresh() {
+fn explicit_target_insertion_observer_edits_are_translated_on_first_semantic_refresh() {
 	use crate::bevy::prelude::AccessibleLabel;
 
 	insertion_observer::<AccessibleLabel>(
@@ -521,7 +532,7 @@ fn edit_earlier_owner(
 }
 
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
-fn insertion_hook<T: Component + LocalizationTarget, H: Component>(
+fn insertion_hook<T: Component + LocalizationTarget + Default, H: Component>(
 	edit: fn(&mut World, Entity),
 	read: fn(&World, Entity) -> &str,
 ) {
@@ -541,7 +552,9 @@ fn insertion_hook<T: Component + LocalizationTarget, H: Component>(
 		world.insert_resource(Catalog("translated".into()));
 		let message = Msg::new(|catalog: &Catalog| catalog.0.clone());
 		let owners: Vec<_> = world
-			.spawn_batch((0..2).map(|_| Localized::<T, Catalog>::from(message.clone())))
+			.spawn_batch(
+				(0..2).map(|_| (T::default(), Localized::<T, Catalog>::from(message.clone()))),
+			)
 			.collect();
 		world.flush();
 		<Localized<T, Catalog> as Binding>::refresh(world);
@@ -566,7 +579,7 @@ fn insertion_hook<T: Component + LocalizationTarget, H: Component>(
 
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 #[test]
-fn default_initialization_hooks_finish_before_the_first_native_translation() {
+fn explicit_target_insertion_hooks_finish_before_the_first_native_translation() {
 	insertion_hook::<Text, Text>(
 		|world, entity| {
 			world.get_mut::<Text>(entity).unwrap().0 = "hook".into();
@@ -577,7 +590,7 @@ fn default_initialization_hooks_finish_before_the_first_native_translation() {
 
 #[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
 #[test]
-fn default_initialization_hooks_finish_before_the_first_semantic_translation() {
+fn explicit_target_insertion_hooks_finish_before_the_first_semantic_translation() {
 	use crate::bevy::{a11y::AccessibilityNode, prelude::AccessibleLabel};
 
 	insertion_hook::<AccessibleLabel, AccessibilityNode>(
@@ -615,10 +628,13 @@ fn node_only_removal_does_not_reinsert_the_node_or_reinvoke_the_label_formatter(
 	let calls = Arc::new(AtomicUsize::new(0));
 	let observed = calls.clone();
 	let owner = world
-		.spawn(Localized::<AccessibleLabel, Catalog>::new(move |catalog| {
-			observed.fetch_add(1, Ordering::Relaxed);
-			catalog.0.clone()
-		}))
+		.spawn((
+			AccessibleLabel::default(),
+			Localized::<AccessibleLabel, Catalog>::new(move |catalog| {
+				observed.fetch_add(1, Ordering::Relaxed);
+				catalog.0.clone()
+			}),
+		))
 		.id();
 	world.flush();
 	<Localized<AccessibleLabel, Catalog> as Binding>::refresh(world);

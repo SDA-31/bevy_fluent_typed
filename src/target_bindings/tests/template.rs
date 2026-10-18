@@ -66,7 +66,7 @@ fn default_template_requires_an_explicit_message() {
 	);
 }
 
-#[derive(Component, Default)]
+#[derive(Component)]
 struct LabelTarget;
 
 impl LocalizationTarget for LabelTarget {
@@ -81,7 +81,7 @@ impl LocalizationTarget for LabelTarget {
 }
 
 #[test]
-fn custom_default_target_templates_need_no_clone_and_reject_missing_messages() {
+fn custom_nondefault_target_templates_need_no_clone_and_reject_missing_messages() {
 	type CustomTemplate = <Localized<LabelTarget, TestCatalog> as FromTemplate>::Template;
 	let calls = Arc::new(AtomicUsize::new(0));
 	let observed = calls.clone();

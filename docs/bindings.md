@@ -1,7 +1,7 @@
 # Application-defined localization bindings
 
 Use `Localized<Target, Scope>` for every automatic binding: ordinary Bevy text,
-application widgets and semantic labels. Targets implement `Component + Default`.
+application widgets and semantic labels. Targets implement `Component`; `Default` is optional.
 The binding owns `Msg`; the target component stores its output. All targets use the same
 provider, loading modes and entity-owned demand, without a user refresh system
 or component registration.
@@ -19,7 +19,7 @@ use bevy::prelude::{Component, EntityWorldMut};
 use bevy_fluent_typed::{LocalizationTarget, LocalizationUpdate, Localized};
 use texts::presentation::Hud;
 
-#[derive(Component, Default)]
+#[derive(Component)]
 struct MyCaption {
     text: String,
 }
@@ -38,7 +38,7 @@ impl LocalizationTarget for MyCaption {
 }
 
 commands.spawn((
-    MyCaption::default(),
+    MyCaption { text: String::new() },
     Localized::<MyCaption, Hud>::new(|hud| hud.msg_title()),
 ));
 ```
@@ -52,19 +52,25 @@ Implementing the trait alone does not opt entities into automatic updates.
 Each entity needs its own `Localized<Target, Scope>` binding; native text uses
 the same rule as application components.
 
-The engine creates an omitted target through `Default` once when the binding is
-attached. Custom components get this behavior without implementing `initialize`.
-Supplied components keep their settings. Removing the target later does not recreate it,
-including after a language or Msg change. Reinserting the target resumes updates.
-Removing and adding the binding starts a new initialization; replacing its Msg
-does not. Creation is independent of whether the catalog is ready.
+Spawn the target and its binding together. When the deferred add callback runs,
+a missing target removes the binding with one warning naming the entity, target
+type and scope. No component is created automatically, even when it implements
+`Default`. Rejected bindings do not retain their catalog or formatter captures.
+Warnings use standard tracing/Bevy logging and do not require the diagnostics feature.
+The check does not require a ready catalog and does not evaluate Data/Filter.
+Applications also supply any neighboring components used by the adapter.
 
-Compound and immutable components use this same trait. Targets without Default
-and non-component field markers are not supported. Its other hooks have defaults:
+Supplied components keep their settings. Removing the target after a successful
+attachment does not recreate it, including after a language or Msg change.
+Reinserting the target resumes updates. Removing and adding the binding checks
+presence again; replacing its Msg does not. A rejected binding does not revive
+when a target appears later: attach a new binding alongside that target.
+
+Compound and immutable components use this same trait. Components without
+`Default` are supported; non-component field markers are not. Other hooks have defaults:
 
 | Hook | Default and purpose |
 | --- | --- |
-| `initialize(entity)` | Does nothing after the engine creates a missing target. Override for additional neighbor setup; refresh never calls it. |
 | `needs_update(&data, &update)` | Returns true. An optional pure predicate can skip Idle work and guide parallel scheduling. |
 | `update(data, &mut update)` | Returns `UpdateResult::Deferred`, requesting sequential `apply`. Override for direct query writes. |
 | `apply(entity, &mut update)` | Required writer. Read `update.text()` only when a translation is needed. |
@@ -139,7 +145,7 @@ native `QueryItem` lifetime arity. This follows Bevy's
 Required `&mut Caption` or `Mut<Caption>` excludes an entity without Caption,
 so updates wait while the component is absent. `Mut<'static, Caption>` additionally
 preserves a Ref in the query's read-only view, including change detection.
-Built-in targets and the Badge example use the common initialization and required
+Built-in targets and the Badge example use application-owned components and required
 data without an Option.
 Use optional data only when absence is part of your custom logic, such as an
 optional neighbor; it does not itself create or retain anything.
@@ -153,9 +159,9 @@ remove its binding or despawn the entity.
 
 ## Supported targets
 
-Implement `LocalizationTarget` directly on a component with `Default`. Use one
-component type per independently bound value. Non-component field markers,
-foreign-component adapters and targets without Default are not supported.
+Implement `LocalizationTarget` directly on a component; no `Default` implementation
+is required. Use one component type per independently bound value. Non-component
+field markers and separate adapters for foreign component types are not supported.
 
 `Localized::<MyCaption, Hud>::from(message)` accepts an existing Msg.
 Its scope can also be inferred: `Localized::<MyCaption, _>::from(message)`.
@@ -164,10 +170,9 @@ A Msg stored elsewhere does not become a subscription: replacing that field
 does not replace the companion, even if they originally shared a clone.
 
 Built-in adapters are `Text`, `Text2d` and `TextSpan`, plus `AccessibleLabel` on
-Bevy 0.19/0.20. They use the same engine initialization as application components.
-TextSpan still needs an application-owned text parent. Default is required even
-when the application supplies the target. A custom target never receives an
-implicit UI Text from the library.
+Bevy 0.19/0.20. Like application components, each must be supplied alongside its
+binding. TextSpan still needs an application-owned text parent. A custom target
+never receives an implicit UI Text from the library.
 
 ## Semantic labels and refresh ordering
 
@@ -295,7 +300,8 @@ owners of the same cloned Msg.
 | Situation observed by refresh | Formatter invocation | Output behavior |
 | --- | --- | --- |
 | First eligible target with a ready scope | Yes | Apply the translation. |
-| Binding initialized before its scope loads, or the first load fails | No | Initialize a missing Default target once; eligible output is empty. |
+| Binding attached to a supplied target before its scope loads, or the first load fails | No | Eligible output is empty. |
+| Target missing when the binding is first attached | No | Remove the binding with a warning; create no component or catalog demand. |
 | Scope becomes ready after loading, retry or reacquisition | Yes | Publish the current translation. |
 | `set_locale` publishes a prepared language | Yes | Keep the active language until publication, then update. |
 | Manual `commit_locale` reaches publication | Yes | The call queues the commit; resource publication invalidates bindings. |
@@ -303,7 +309,7 @@ owners of the same cloned Msg.
 | A new Msg identity replaces the existing binding's formatter | Yes, when ready | Recompute without running initialization again. |
 | A cloned Msg is attached to another entity or target | Yes, when ready | That binding has independent metadata and output. |
 | Existing binding is replaced by a clone of its current Msg | No, if inputs are unchanged | Reuse output without initialization. |
-| Binding removed and added again | Yes, when eligible/ready | Start a new lifetime; the engine creates a missing Default target. |
+| Binding removed and added again | Yes, when eligible/ready | Check target presence again; reject a missing target with a warning. |
 | Scope becomes unavailable | No | Clear eligible output; missing targets stay absent. |
 | Existing target is edited through ordinary Bevy mutation | No additional formatting | Repair from cached output. |
 | Target is removed while Localized remains | No | Respect removal; catalog and Msg changes do not revive it. |
@@ -355,9 +361,10 @@ and Msg identity are rechecked before each structural callback. The same query's
 read-only view verifies opt-in matches only after the whole batch and hooks.
 No user tracking component or second refresh system is required.
 
-Initialization is separate from refresh and happens only on binding attachment.
-It preserves supplied settings. Removing a target does not run it again;
-removing Localized retires its metadata, while an existing target stays intact.
+The initial presence check is separate from refresh and happens only on binding
+attachment. It preserves supplied settings and removes a binding whose target is
+absent, without creating tracking state. Removing a target later does not run the
+check again; removing Localized retires its metadata, while an existing target stays intact.
 Temporary query exclusion can retain cached storage and binding-owned catalog
 demand; reentry uses current inputs.
 
@@ -384,7 +391,7 @@ required for automatic source-driven updates.
 Full, Lazy and Manual choose module loading and lifetime. All three still refresh
 existing bindings automatically when a scope is available. Manual means explicit
 module requests; application-owned text uses a plain String without a binding.
-A target's Default supplies the component, not a default Msg.
+Applications construct the targets and supply the deferred Msg explicitly.
 
 ### Cases that do not establish automatic ownership
 

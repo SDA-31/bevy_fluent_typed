@@ -83,11 +83,12 @@ fn exercise<T: NativeText>(count: usize, supplied: bool) {
 	});
 	let owners: Vec<_> = (0..count)
 		.map(|_| {
-			let mut owner = world.spawn(Localized::<T, Catalog>::from(message.clone()));
-
-			if supplied {
-				owner.insert(T::default());
-			}
+			let binding = Localized::<T, Catalog>::from(message.clone());
+			let owner = if supplied {
+				world.spawn((T::default(), binding))
+			} else {
+				world.spawn((binding, T::default()))
+			};
 
 			owner.id()
 		})

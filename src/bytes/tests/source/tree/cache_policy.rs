@@ -39,18 +39,24 @@ fn cache_policy_covers_child_scopes_and_keeps_other_providers_independent() {
 	let observed = calls.clone();
 	let child = app
 		.world_mut()
-		.spawn(Localized::<Text, Hud>::new(move |hud| {
-			observed.fetch_add(1, Ordering::Relaxed);
-			hud.0.as_str().to_owned()
-		}))
+		.spawn((
+			Text::default(),
+			Localized::<Text, Hud>::new(move |hud| {
+				observed.fetch_add(1, Ordering::Relaxed);
+				hud.0.as_str().to_owned()
+			}),
+		))
 		.id();
 	let observed = calls.clone();
 	let other = app
 		.world_mut()
-		.spawn(Localized::<Text, TestCatalog>::new(move |catalog| {
-			observed.fetch_add(1, Ordering::Relaxed);
-			catalog.0.clone()
-		}))
+		.spawn((
+			Text::default(),
+			Localized::<Text, TestCatalog>::new(move |catalog| {
+				observed.fetch_add(1, Ordering::Relaxed);
+				catalog.0.clone()
+			}),
+		))
 		.id();
 	pump(&mut app, |world| {
 		world
@@ -86,10 +92,13 @@ fn uncached_plugin_adopts_bindings_inserted_before_configuration() {
 	let observed = calls.clone();
 	let owner = app
 		.world_mut()
-		.spawn(Localized::<Text, TestCatalog>::new(move |catalog| {
-			observed.fetch_add(1, Ordering::Relaxed);
-			catalog.0.clone()
-		}))
+		.spawn((
+			Text::default(),
+			Localized::<Text, TestCatalog>::new(move |catalog| {
+				observed.fetch_add(1, Ordering::Relaxed);
+				catalog.0.clone()
+			}),
+		))
 		.id();
 	app.world_mut().flush();
 	app.add_plugins(

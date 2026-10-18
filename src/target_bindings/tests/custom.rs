@@ -120,18 +120,17 @@ fn custom_updates_keep_cache_repairs_and_structural_fallbacks() {
 			});
 			let owners: Vec<_> = (0..count)
 				.map(|_| {
-					let mut owner = world.spawn((
-						Localized::<Caption, Catalog>::from(message.clone()),
-						Probe {
-							trace: trace.clone(),
-							caller: thread::current().id(),
-							busy: false,
-						},
-					));
-
-					if supplied {
-						owner.insert(Caption::default());
-					}
+					let binding = Localized::<Caption, Catalog>::from(message.clone());
+					let probe = Probe {
+						trace: trace.clone(),
+						caller: thread::current().id(),
+						busy: false,
+					};
+					let owner = if supplied {
+						world.spawn((probe, Caption::default(), binding))
+					} else {
+						world.spawn((probe, binding, Caption::default()))
+					};
 
 					owner.id()
 				})
@@ -248,7 +247,7 @@ fn custom_updates_keep_cache_repairs_and_structural_fallbacks() {
 }
 
 #[test]
-fn custom_defaults_precede_catalog_readiness_and_last_removal_retires_the_cache() {
+fn supplied_custom_targets_precede_catalog_readiness_and_last_removal_retires_the_cache() {
 	let mut app = App::new();
 	app.add_plugins(MinimalPlugins);
 	let world = app.world_mut();
@@ -265,6 +264,7 @@ fn custom_defaults_precede_catalog_readiness_and_last_removal_retires_the_cache(
 	let owners: Vec<_> = world
 		.spawn_batch((0..8192).map(|_| {
 			(
+				Caption::default(),
 				Localized::<Caption, Catalog>::from(message.clone()),
 				Probe {
 					trace: trace.clone(),

@@ -73,13 +73,13 @@ fn message(calls: &Arc<AtomicUsize>) -> Msg<Catalog> {
 }
 
 #[test]
-fn default_initializes_once_and_does_not_revive_an_application_removed_target() {
+fn supplied_native_targets_are_preserved_and_removed_targets_are_not_recreated() {
 	for policy in [CachePolicy::Rendered, CachePolicy::None] {
 		let mut app = app(policy);
 		let calls = Arc::new(AtomicUsize::new(0));
 		let entity = app
 			.world_mut()
-			.spawn(Localized::<Text, _>::from(message(&calls)))
+			.spawn((Text::default(), Localized::<Text, _>::from(message(&calls))))
 			.id();
 		app.world_mut().flush();
 		assert!(app.world().get::<Text>(entity).is_some());
@@ -106,11 +106,16 @@ fn default_initializes_once_and_does_not_revive_an_application_removed_target() 
 			.entity_mut(entity)
 			.insert(Localized::<Text, _>::from(message(&calls)));
 		app.world_mut().flush();
-		assert!(app.world().get::<Text>(entity).is_some());
+		assert!(app.world().get::<Text>(entity).is_none());
+		assert!(
+			app.world()
+				.get::<Localized<Text, Catalog>>(entity)
+				.is_none()
+		);
 	}
 }
 
-#[derive(Component, Default)]
+#[derive(Component)]
 struct ApplicationCaption(String);
 
 impl LocalizationTarget for ApplicationCaption {
@@ -130,13 +135,16 @@ impl LocalizationTarget for ApplicationCaption {
 }
 
 #[test]
-fn minimal_custom_adapter_initializes_default_without_an_override() {
+fn minimal_custom_adapter_accepts_a_supplied_component_without_default() {
 	let mut app = app(CachePolicy::None);
 	let calls = Arc::new(AtomicUsize::new(0));
 	app.world_mut().insert_resource(Catalog("ready".into()));
 	let entity = app
 		.world_mut()
-		.spawn(Localized::<ApplicationCaption, _>::from(message(&calls)))
+		.spawn((
+			ApplicationCaption(String::new()),
+			Localized::<ApplicationCaption, _>::from(message(&calls)),
+		))
 		.id();
 	app.update();
 	assert_eq!(calls.load(Ordering::Relaxed), 1);
@@ -170,26 +178,9 @@ mod custom {
 		marker: PhantomData<T>,
 	}
 
-	impl<T: Send + Sync + 'static> Default for Caption<T> {
-		fn default() -> Self {
-			Self {
-				text: String::new(),
-				style: 42,
-				marker: PhantomData,
-			}
-		}
-	}
-
 	impl<T: Send + Sync + 'static> LocalizationTarget for Caption<T> {
 		type Data = Mut<'static, Self>;
 		type Filter = ();
-
-		fn initialize(entity: &mut EntityWorldMut<'_>) {
-			assert!(
-				entity.contains::<Self>(),
-				"the engine initializes Default before custom setup"
-			);
-		}
 
 		fn needs_update(data: &TargetItem<'_, '_, Self>, update: &LocalizationUpdate<'_>) -> bool {
 			update.is_changed() || update.component_changed(data)
@@ -216,7 +207,7 @@ mod custom {
 	struct NoDefaultArgument;
 
 	#[test]
-	fn generic_default_initialization_preserves_supplied_settings() {
+	fn generic_nondefault_targets_preserve_supplied_settings_and_reject_missing_targets() {
 		let mut app = app(CachePolicy::None);
 		app.world_mut()
 			.insert_resource(Catalog("translated".into()));
@@ -231,20 +222,25 @@ mod custom {
 			.world_mut()
 			.spawn((
 				Caption::<NoDefaultArgument> {
+					text: String::new(),
 					style: 7,
-					..Default::default()
+					marker: PhantomData,
 				},
 				Localized::<Caption<NoDefaultArgument>, _>::from(message(&calls)),
 			))
 			.id();
 		app.update();
-		assert_eq!(
+		assert!(
 			app.world()
 				.get::<Caption<NoDefaultArgument>>(implicit)
-				.unwrap()
-				.style,
-			42
+				.is_none()
 		);
+		assert!(
+			app.world()
+				.get::<Localized<Caption<NoDefaultArgument>, Catalog>>(implicit)
+				.is_none()
+		);
+		assert_eq!(calls.load(Ordering::Relaxed), 1);
 		assert_eq!(
 			app.world()
 				.get::<Caption<NoDefaultArgument>>(supplied)

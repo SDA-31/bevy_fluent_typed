@@ -12,13 +12,17 @@ fn automatic_group_and_leaf_owners_load_only_their_union_and_release_independent
 	let (mut app, source) = controlled_mode::<Lazy>();
 	let hud = app
 		.world_mut()
-		.spawn(Localized::<Text, Hud>::new(|hud| hud.0.to_string()))
+		.spawn((
+			Text::default(),
+			Localized::<Text, Hud>::new(|hud| hud.0.to_string()),
+		))
 		.id();
 	let group = app
 		.world_mut()
-		.spawn(Localized::<Text, Presentation>::new(|group| {
-			group.panel.0.to_string()
-		}))
+		.spawn((
+			Text::default(),
+			Localized::<Text, Presentation>::new(|group| group.panel.0.to_string()),
+		))
 		.id();
 	pump(&mut app, |_| source.count() == 2);
 	source.release::<Hud>("en", 0);

@@ -216,9 +216,10 @@ fn native_startup_can_create_bindings_without_waiting_for_catalog() {
 	.unwrap());
 	app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Native))
 		.add_systems(Startup, |mut commands: Commands| {
-			commands.spawn(Localized::<Text, TestCatalog>::new(|catalog| {
-				catalog.0.clone()
-			}));
+			commands.spawn((
+				Text::default(),
+				Localized::<Text, TestCatalog>::new(|catalog| catalog.0.clone()),
+			));
 		})
 		.add_systems(PostStartup, post);
 	app.update();
@@ -837,7 +838,10 @@ fn startup_commands_hand_off_demand_to_inserted_bindings_without_refetch() {
 		},
 	));
 	app.add_systems(Startup, |_: Res<TestCatalog>, mut commands: Commands| {
-		commands.spawn(Localized::<Text, TestCatalog>::new(|scope| scope.0.clone()));
+		commands.spawn((
+			Text::default(),
+			Localized::<Text, TestCatalog>::new(|scope| scope.0.clone()),
+		));
 	})
 	.add_systems(PostStartup, post);
 	pump(&mut app, |world| {

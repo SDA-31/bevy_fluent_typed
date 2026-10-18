@@ -19,7 +19,10 @@ fn bindings_track_lifetimes_before_and_after_plugin_installation() {
 	let calls = Arc::new(AtomicUsize::new(0));
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, AssetPlugin::default()));
-	let cancelled = app.world_mut().spawn(binding::<Text>(&calls)).id();
+	let cancelled = app
+		.world_mut()
+		.spawn((Text::default(), binding::<Text>(&calls)))
+		.id();
 	app.world_mut().despawn(cancelled);
 	let first = app
 		.world_mut()
@@ -83,7 +86,10 @@ fn an_application_removed_text_is_not_recreated_by_its_remaining_binding() {
 		AssetPlugin::default(),
 		LocalizationPlugin::<TestCatalog>::new(manifest()),
 	));
-	let entity = app.world_mut().spawn(binding::<Text>(&calls)).id();
+	let entity = app
+		.world_mut()
+		.spawn((Text::default(), binding::<Text>(&calls)))
+		.id();
 	app.update();
 	app.update();
 	assert_eq!(app.world().get::<Text>(entity).unwrap().0, "ja");

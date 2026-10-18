@@ -153,10 +153,10 @@ fn dropping_before_first_publication_performs_no_io_or_implicit_binding_load() {
 		observed.fetch_add(1, Ordering::Relaxed);
 		std::future::ready(Ok::<_, String>(b"data".to_vec()))
 	}));
-	app.world_mut()
-		.spawn(Localized::<Text, TestCatalog>::new(|catalog| {
-			catalog.0.clone()
-		}));
+	app.world_mut().spawn((
+		Text::default(),
+		Localized::<Text, TestCatalog>::new(|catalog| catalog.0.clone()),
+	));
 	let lease = app
 		.world_mut()
 		.resource_mut::<Localization<TestCatalog, Manual>>()

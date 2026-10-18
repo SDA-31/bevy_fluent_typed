@@ -126,7 +126,7 @@ impl LocalizationTarget for SemanticCaption {
 fn semantic_bindings_added_between_refresh_phases_use_the_ready_catalog() {
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, plugin()));
-	let owner = app.world_mut().spawn(binding()).id();
+	let owner = app.world_mut().spawn((Caption::default(), binding())).id();
 	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
 	app.add_systems(
 		PostUpdate,
@@ -135,9 +135,10 @@ fn semantic_bindings_added_between_refresh_phases_use_the_ready_catalog() {
 				return;
 			}
 
-			commands.spawn(Localized::<SemanticCaption, TestCatalog>::new(|c| {
-				c.0.clone()
-			}));
+			commands.spawn((
+				SemanticCaption::default(),
+				Localized::<SemanticCaption, TestCatalog>::new(|c| c.0.clone()),
+			));
 			*spawned = true;
 		})
 		.after(crate::LocalizationSystems::Refresh)
@@ -282,7 +283,7 @@ fn unbound_custom_targets_and_messages_do_not_request_a_catalog() {
 		app.world().get::<HookedCaption>(target).unwrap().text,
 		"owned"
 	);
-	app.world_mut().spawn(binding());
+	app.world_mut().spawn((Caption::default(), binding()));
 	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
 	assert_eq!(
 		app.world().get::<HookedCaption>(target).unwrap().text,
@@ -300,7 +301,9 @@ fn disabled_native_and_custom_bindings_keep_demand_and_resume_together() {
 	let owner = app
 		.world_mut()
 		.spawn((
+			Caption::default(),
 			binding(),
+			Text::default(),
 			Localized::<Text, TestCatalog>::new(|c| c.0.clone()),
 		))
 		.id();
@@ -338,10 +341,13 @@ fn custom_and_native_bindings_release_their_scope_only_after_the_last_owner() {
 	let _passive = binding();
 	app.update();
 	assert!(!app.world().contains_resource::<TestCatalog>());
-	let custom = app.world_mut().spawn(binding()).id();
+	let custom = app.world_mut().spawn((Caption::default(), binding())).id();
 	let native = app
 		.world_mut()
-		.spawn(Localized::<Text, TestCatalog>::new(|c| c.0.clone()))
+		.spawn((
+			Text::default(),
+			Localized::<Text, TestCatalog>::new(|c| c.0.clone()),
+		))
 		.id();
 	pump(&mut app, |world| {
 		world
@@ -355,7 +361,7 @@ fn custom_and_native_bindings_release_their_scope_only_after_the_last_owner() {
 	app.world_mut().despawn(native);
 	app.update();
 	assert!(!app.world().contains_resource::<TestCatalog>());
-	let later = app.world_mut().spawn(binding()).id();
+	let later = app.world_mut().spawn((Caption::default(), binding())).id();
 	pump(&mut app, |world| {
 		world
 			.get::<Caption>(later)
@@ -366,8 +372,8 @@ fn custom_and_native_bindings_release_their_scope_only_after_the_last_owner() {
 #[test]
 fn pre_plugin_companion_adoption_cancellation_and_replacement_are_balanced() {
 	let mut app = App::new();
-	let retained = app.world_mut().spawn(binding()).id();
-	let cancelled = app.world_mut().spawn(binding()).id();
+	let retained = app.world_mut().spawn((Caption::default(), binding())).id();
+	let cancelled = app.world_mut().spawn((Caption::default(), binding())).id();
 	app.world_mut().despawn(cancelled);
 	app.world_mut().flush();
 	app.add_plugins((MinimalPlugins, plugin()));
@@ -398,10 +404,13 @@ fn generic_targets_format_only_on_input_changes_and_repair_readded_targets() {
 	app.add_plugins((MinimalPlugins, plugin()));
 	let entity = app
 		.world_mut()
-		.spawn(Localized::<Caption, TestCatalog>::new(move |c| {
-			observed.fetch_add(1, Ordering::Relaxed);
-			c.0.clone()
-		}))
+		.spawn((
+			Caption::default(),
+			Localized::<Caption, TestCatalog>::new(move |c| {
+				observed.fetch_add(1, Ordering::Relaxed);
+				c.0.clone()
+			}),
+		))
 		.id();
 	pump(&mut app, |world| {
 		world
@@ -541,9 +550,10 @@ fn pending_custom_consumers_cancel_on_last_removal_and_failed_switches_keep_acti
 	app.add_plugins((MinimalPlugins, pending));
 	let entity = app
 		.world_mut()
-		.spawn(Localized::<HookedCaption, TestCatalog>::new(|c| {
-			c.0.clone()
-		}))
+		.spawn((
+			HookedCaption::default(),
+			Localized::<HookedCaption, TestCatalog>::new(|c| c.0.clone()),
+		))
 		.id();
 	pump(&mut app, |_| reads.load(Ordering::Relaxed) == 1);
 	app.world_mut().despawn(entity);
@@ -568,12 +578,13 @@ fn pending_custom_consumers_cancel_on_last_removal_and_failed_switches_keep_acti
 	});
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, plugin));
-	let custom = app.world_mut().spawn(binding()).id();
+	let custom = app.world_mut().spawn((Caption::default(), binding())).id();
 	let stored = app
 		.world_mut()
-		.spawn(Localized::<HookedCaption, TestCatalog>::new(|c| {
-			c.0.clone()
-		}))
+		.spawn((
+			HookedCaption::default(),
+			Localized::<HookedCaption, TestCatalog>::new(|c| c.0.clone()),
+		))
 		.id();
 	pump(&mut app, |world| {
 		world.get::<HookedCaption>(stored).unwrap().text == "Japanese"
@@ -607,7 +618,7 @@ fn full_keeps_its_eager_loading_policy_without_binding_owners() {
 	.unwrap();
 	app.add_plugins((MinimalPlugins, plugin));
 	pump(&mut app, |world| world.contains_resource::<TestCatalog>());
-	let entity = app.world_mut().spawn(binding()).id();
+	let entity = app.world_mut().spawn((Caption::default(), binding())).id();
 	app.update();
 	assert_eq!(app.world().get::<Caption>(entity).unwrap().0, "Japanese");
 	app.world_mut().despawn(entity);
@@ -642,6 +653,7 @@ fn semantic_binding_leaves_other_native_ui_producers_in_control_of_their_nodes()
 			.world_mut()
 			.spawn((
 				ImageNode::default(),
+				AccessibleLabel::default(),
 				Localized::<AccessibleLabel, TestCatalog>::new(|c| c.0.clone()),
 			))
 			.id();
@@ -742,10 +754,13 @@ fn accessibility_bindings_do_not_repair_names_written_by_other_node_owners() {
 		);
 		let entity = app
 			.world_mut()
-			.spawn(Localized::<AccessibleLabel, TestCatalog>::new(move |c| {
-				observed.fetch_add(1, Ordering::Relaxed);
-				c.0.clone()
-			}))
+			.spawn((
+				AccessibleLabel::default(),
+				Localized::<AccessibleLabel, TestCatalog>::new(move |c| {
+					observed.fetch_add(1, Ordering::Relaxed);
+					c.0.clone()
+				}),
+			))
 			.id();
 		pump(&mut app, |world| {
 			world

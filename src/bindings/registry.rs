@@ -174,8 +174,6 @@ pub(crate) fn added<B: Binding>(mut world: DeferredWorld, context: compatibility
 	let entity = context.entity;
 
 	world.commands().queue(move |world: &mut World| {
-		B::initialize(world, entity);
-
 		world.init_resource::<BindingRegistry>();
 		let key = TypeId::of::<B>();
 		let users = {
@@ -183,6 +181,10 @@ pub(crate) fn added<B: Binding>(mut world: DeferredWorld, context: compatibility
 			registry.entries.entry(key).or_insert_with(entry::<B>).users + 1
 		};
 		set_users(world, key, users);
+
+		// Initialization can reject and remove the binding. Its removal callback
+		// may run immediately, so first establish the matching registration.
+		B::initialize(world, entity);
 	});
 }
 

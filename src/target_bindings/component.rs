@@ -31,9 +31,9 @@ pub enum UpdateResult {
 
 /// Apply translated text through one native Bevy query and optional structural work.
 ///
-/// Implement on a local component that implements [`Default`]. Built-in and
-/// application adapters use this same contract. Field markers and targets without
-/// Default are not supported.
+/// Implement on a local component; [`Default`] is not required. Built-in and
+/// application adapters use this same contract. Non-component field markers are
+/// not supported.
 ///
 /// `Data` and `Filter` describe components on the binding's entity; the engine
 /// adds `Entity`, `Localized<Self, _>` and private tracking metadata. Do not request
@@ -45,15 +45,15 @@ pub enum UpdateResult {
 /// workers. `needs_update` optionally skips Idle work and informs scheduling.
 /// Neither callback may change its binding; `apply` must not despawn the entity.
 ///
-/// Use required data to wait while an application-owned target is absent. The
-/// binding creates a missing target through Default when attached, then calls
-/// `initialize` once for any additional setup. This does not run again after
-/// target removal or message replacement. Removing and adding the binding starts a new lifetime.
-/// Supplied components keep their settings.
+/// Spawn the target and its binding together. When the binding's deferred add
+/// callback runs, an absent target causes the binding to be removed with a warning.
+/// No target or neighboring component is created, even if it implements Default.
+/// After a successful attachment, required query data can wait while an
+/// application-owned target is absent. Reinserting it resumes updates.
 ///
 /// Application components implement this trait directly. Only Data/Filter and
-/// `apply` are required; override the default hooks for initialization, change
-/// tracking or direct query writes when needed.
+/// `apply` are required; override the default hooks for change tracking or direct
+/// query writes when needed. Applications own target and neighbor construction.
 ///
 /// Compare before writing to preserve change ticks. Combine context invalidation
 /// with `LocalizationUpdate::component_changed` for native change tracking that
@@ -64,9 +64,9 @@ pub enum UpdateResult {
 /// AccessibleLabel uses its normal immutable insertion hooks; the runtime does
 /// not independently own, repair or recreate AccessibilityNode.
 ///
-/// A non-Default component cannot be a target, even when supplied explicitly:
+/// A component without Default can be a target:
 ///
-/// ```compile_fail,E0277
+/// ```
 /// use bevy_fluent_typed::bevy::{ecs as bevy_ecs, prelude::{Component, EntityWorldMut}};
 /// use bevy_fluent_typed::{LocalizationTarget, LocalizationUpdate};
 ///
@@ -77,7 +77,13 @@ pub enum UpdateResult {
 ///     type Data = &'static mut Self;
 ///     type Filter = ();
 ///
-///     fn apply(_: &mut EntityWorldMut<'_>, _: &mut LocalizationUpdate<'_>) {}
+///     fn apply(entity: &mut EntityWorldMut<'_>, update: &mut LocalizationUpdate<'_>) {
+///         let Some(target) = entity.get_mut::<Self>() else {
+///             return;
+///         };
+///
+///         update.set_text(target.map_unchanged(|target| &mut target.0));
+///     }
 /// }
 /// ```
 ///
@@ -97,7 +103,7 @@ pub enum UpdateResult {
 ///     fn apply(_: &mut EntityWorldMut<'_>, _: &mut LocalizationUpdate<'_>) {}
 /// }
 /// ```
-pub trait LocalizationTarget: Component + Default {
+pub trait LocalizationTarget: Component {
 	/// Components on the binding's entity, using native Bevy query syntax.
 	///
 	/// Reference lifetimes in this description are `'static`; actual items borrow
@@ -130,14 +136,6 @@ pub trait LocalizationTarget: Component + Default {
 	/// Text layout is the default; semantic accessibility labels run after layout.
 	const PHASE: TargetUpdatePhase = TargetUpdatePhase::BeforeLayout;
 
-	/// Perform additional setup once, after the target's default initialization.
-	///
-	/// The engine creates a missing Self through Default before calling this hook.
-	/// Existing components keep their settings. This hook is empty by default and
-	/// can initialize neighboring components. Replacing the message does not repeat
-	/// initialization; removing and adding the binding does. Refresh never calls this method.
-	fn initialize(_entity: &mut EntityWorldMut<'_>) {}
-
 	/// Cheap optional eligibility check for work scheduling and Idle skipping.
 	///
 	/// The default always runs `update`. This method only inspects query data;
@@ -161,7 +159,7 @@ pub trait LocalizationTarget: Component + Default {
 		UpdateResult::Deferred
 	}
 
-	/// Finish an update that [`Self::update`] deferred, or create the missing target.
+	/// Finish an update that [`Self::update`] deferred.
 	///
 	/// Runs sequentially after the query pass. Read `update.text()` only if needed;
 	/// already available neighbor data can be used without invoking Msg. If query
@@ -227,12 +225,13 @@ pub type TargetReadItem<'w, 's, T> = crate::bevy::ecs::query::QueryItem<
 /// the runtime does not independently manage its AccessibilityNode.
 /// The target comes first: `Localized::<Text, Scope>` or
 /// `Localized::<Text, _>::from(message)` when the scope can be inferred.
-/// Targets implement Component + Default. The engine creates a missing component
-/// once during initialization. Later target removal is respected, including across catalog or
-/// Msg changes. Reinsert the target to resume updates, or remove and add the binding
-/// for a new initialization. Custom adapters use the same initialization and may
-/// initialize additional neighbors through their optional initialize hook.
-/// Field markers and targets without Default are not supported.
+/// Spawn the target alongside this binding; Default is not required and no
+/// component is created automatically. If the target is missing when the deferred
+/// add callback runs, the binding is removed with a warning naming the entity,
+/// target type and scope. Later target removal is respected, including across
+/// catalog or Msg changes. Reinsert the target to resume updates. Removing and
+/// adding the binding checks target presence again. Applications own neighboring
+/// components. Non-component field markers are not supported.
 /// A `TextSpan` binding requires an application-owned parent text hierarchy; it
 /// never creates a root `Text`. Each clone owns its own demand and refreshes
 /// independently, sharing the formatter and owned arguments through `Arc`.

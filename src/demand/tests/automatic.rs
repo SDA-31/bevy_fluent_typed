@@ -52,7 +52,7 @@ fn unattached_messages_and_optional_parameters_do_not_start_io() {
 #[test]
 fn inserted_bindings_share_demand_and_last_removal_releases_data() {
 	let (mut app, reads) = app();
-	let first = app.world_mut().spawn(binding()).id();
+	let first = app.world_mut().spawn((Text::default(), binding())).id();
 	let second = app
 		.world_mut()
 		.spawn((
@@ -117,7 +117,7 @@ fn prepared_failures_follow_current_automatic_demand() {
 				}
 			},
 		);
-		let owner = app.world_mut().spawn(binding()).id();
+		let owner = app.world_mut().spawn((Text::default(), binding())).id();
 		app.update();
 		app.world_mut()
 			.resource_mut::<Localization<TestCatalog>>()
@@ -230,7 +230,7 @@ fn once_completion_releases_its_demand() {
 fn once_commands_handoff_keeps_the_same_snapshot_without_another_read() {
 	let (mut app, reads) = app();
 	app.add_systems(Startup, |_: Res<TestCatalog>, mut commands: Commands| {
-		let label = commands.spawn(binding()).id();
+		let label = commands.spawn((Text::default(), binding())).id();
 		commands.insert_resource(Spawned(label));
 	});
 	pump(&mut app, |world| world.contains_resource::<Spawned>());
@@ -265,10 +265,12 @@ impl FluentScope for Unregistered {
 #[test]
 fn unregistered_binding_scopes_and_cancelled_prepublication_bindings_do_not_load() {
 	let (mut app, reads) = app();
-	let cancelled = app.world_mut().spawn(binding()).id();
+	let cancelled = app.world_mut().spawn((Text::default(), binding())).id();
 	app.world_mut().despawn(cancelled);
-	app.world_mut()
-		.spawn(Localized::<Text, Unregistered>::new(|_| String::new()));
+	app.world_mut().spawn((
+		Text::default(),
+		Localized::<Text, Unregistered>::new(|_| String::new()),
+	));
 	app.update();
 	assert_eq!(reads.load(Ordering::Relaxed), 0);
 	assert!(!app.world().contains_resource::<TestCatalog>());
@@ -288,7 +290,7 @@ fn initial_failure_retries_only_after_explicit_reload() {
 	});
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, plugin));
-	let label = app.world_mut().spawn(binding()).id();
+	let label = app.world_mut().spawn((Text::default(), binding())).id();
 	pump(&mut app, |world| {
 		matches!(
 			world
@@ -320,7 +322,7 @@ fn initial_failure_retries_only_after_explicit_reload() {
 #[test]
 fn flushed_pre_plugin_binding_is_adopted_and_released() {
 	let mut app = App::new();
-	let label = app.world_mut().spawn(binding()).id();
+	let label = app.world_mut().spawn((Text::default(), binding())).id();
 	app.world_mut().flush();
 	let plugin =
 		LocalizationPlugin::<TestCatalog>::from_bytes([("ja", "ui.ftl", b"Japanese".as_slice())])
@@ -343,7 +345,7 @@ fn last_owner_cancels_pending_request_and_reacquires_fresh() {
 	});
 	let mut app = App::new();
 	app.add_plugins((MinimalPlugins, plugin));
-	let first = app.world_mut().spawn(binding()).id();
+	let first = app.world_mut().spawn((Text::default(), binding())).id();
 	pump(&mut app, |_| reads.load(Ordering::Relaxed) == 1);
 	app.world_mut().despawn(first);
 	app.update();
@@ -352,7 +354,7 @@ fn last_owner_cancels_pending_request_and_reacquires_fresh() {
 		0
 	);
 	assert!(!app.world().contains_resource::<TestCatalog>());
-	let second = app.world_mut().spawn(binding()).id();
+	let second = app.world_mut().spawn((Text::default(), binding())).id();
 	pump(&mut app, |_| reads.load(Ordering::Relaxed) == 2);
 	app.world_mut().despawn(second);
 	app.update();

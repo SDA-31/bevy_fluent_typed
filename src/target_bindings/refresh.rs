@@ -2,6 +2,7 @@ use super::{engine, state::State};
 use crate::bevy::prelude::{Entity, World};
 use crate::bindings::Binding;
 use crate::{FluentScope, LocalizationTarget, Localized, TargetUpdatePhase};
+use std::any::type_name;
 
 impl<T: LocalizationTarget, S: FluentScope> Binding for Localized<T, S> {
 	type Scope = S;
@@ -22,14 +23,17 @@ impl<T: LocalizationTarget, S: FluentScope> Binding for Localized<T, S> {
 		}
 
 		if !entity.contains::<T>() {
-			entity.insert(T::default());
+			tracing::warn!(
+				entity = ?entity.id(),
+				target_component = type_name::<T>(),
+				scope = type_name::<S>(),
+				"removing Localized: target component is missing; spawn the target alongside its binding"
+			);
+			entity.remove::<Self>();
+			return;
 		}
 
-		T::initialize(&mut entity);
-
-		if entity.contains::<Self>() {
-			entity.insert(State::<S, T>::default());
-		}
+		entity.insert(State::<S, T>::default());
 	}
 
 	fn retire(world: &mut World, entity: Entity) {

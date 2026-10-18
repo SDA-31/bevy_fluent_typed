@@ -83,10 +83,12 @@ pub(crate) fn spawn_widgets(mut commands: Commands) {
 		))
 		.id();
 
-	// An apply-only component needs no custom initialization or registration.
+	// An apply-only component needs no Default implementation or registration.
 	let title = commands
 		.spawn((
-			Title::default(),
+			Title {
+				text: String::new(),
+			},
 			Localized::<Title, Greeting>::new(|greeting| greeting.msg_title()),
 		))
 		.id();

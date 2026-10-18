@@ -7,7 +7,7 @@ use bevy_fluent_typed::Msg;
 pub(super) fn spawn(world: &mut World, message: Msg<Interface>) -> (Entity, Entity) {
 	let ui_binding = Localized::<Text, _>::from(message.clone());
 	let binding = Localized::<Text2d, _>::from(message);
-	let ui = world.spawn_scene(bsn! { ui_binding }).unwrap().id();
+	let ui = world.spawn_scene(bsn! { Text ui_binding }).unwrap().id();
 	let world_label = world.spawn_scene(bsn! { binding Text2d }).unwrap().id();
 	(ui, world_label)
 }

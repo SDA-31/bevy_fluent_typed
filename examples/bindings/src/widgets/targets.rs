@@ -19,14 +19,6 @@ impl LocalizationTarget for Caption {
 	type Data = (Mut<'static, Self>, Mut<'static, CaptionMirror>);
 	type Filter = Without<CaptionPaused>;
 
-	fn initialize(entity: &mut EntityWorldMut<'_>) {
-		if entity.contains::<CaptionMirror>() {
-			return;
-		}
-
-		entity.insert(CaptionMirror::default());
-	}
-
 	fn needs_update(
 		(caption, mirror): &TargetItem<'_, '_, Self>,
 		update: &LocalizationUpdate<'_>,
@@ -100,8 +92,8 @@ impl LocalizationTarget for Badge {
 	}
 }
 
-/// A minimal apply-only component uses the same default initialization.
-#[derive(Component, Default)]
+/// A minimal apply-only component needs no Default implementation.
+#[derive(Component)]
 pub(crate) struct Title {
 	pub text: String,
 }

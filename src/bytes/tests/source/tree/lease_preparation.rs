@@ -12,7 +12,10 @@ fn new_lease_revokes_a_queued_commit_and_existing_owners_survive_publication() {
 	};
 	let label = app
 		.world_mut()
-		.spawn(Localized::<Text, Hud>::new(|hud| hud.0.as_str().to_owned()))
+		.spawn((
+			Text::default(),
+			Localized::<Text, Hud>::new(|hud| hud.0.as_str().to_owned()),
+		))
 		.id();
 	pump(&mut app, |_| source.count() == 1);
 	let active = source.release::<Hud>("en", 0);

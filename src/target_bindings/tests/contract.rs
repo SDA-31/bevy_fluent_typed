@@ -168,7 +168,12 @@ fn public_immutable_adapters_confirm_the_whole_batch_without_hiding_later_hooks(
 			catalog.0.clone()
 		});
 		let owners: Vec<_> = world
-			.spawn_batch((0..2).map(|_| Localized::<Caption, Catalog>::from(message.clone())))
+			.spawn_batch((0..2).map(|_| {
+				(
+					Caption::default(),
+					Localized::<Caption, Catalog>::from(message.clone()),
+				)
+			}))
 			.collect();
 		world.flush();
 		<Localized<Caption, Catalog> as Binding>::refresh(world);

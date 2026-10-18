@@ -142,6 +142,7 @@ fn typed_pairs_use_native_filters_and_lazy_message_reads() {
 					Enabled,
 					Overlay,
 					Paused,
+					Paired::default(),
 					Localized::<Paired, Catalog>::from(message.clone()),
 				))
 				.id();
@@ -237,7 +238,10 @@ fn required_data_reenters_after_explicit_target_removal() {
 		world.insert_resource(Catalog("first".into()));
 		let calls = Arc::new(AtomicUsize::new(0));
 		let owner = world
-			.spawn(Localized::<Required, Catalog>::from(message(&calls)))
+			.spawn((
+				Required::default(),
+				Localized::<Required, Catalog>::from(message(&calls)),
+			))
 			.id();
 		world.flush();
 		world.entity_mut(owner).remove::<Required>();
@@ -286,7 +290,10 @@ fn unread_uncached_invalidations_remain_pending_without_formatting() {
 	let world = app.world_mut();
 	let calls = Arc::new(AtomicUsize::new(0));
 	let owner = world
-		.spawn(Localized::<Waiting, Catalog>::from(message(&calls)))
+		.spawn((
+			Waiting::default(),
+			Localized::<Waiting, Catalog>::from(message(&calls)),
+		))
 		.id();
 	world.flush();
 	world.entity_mut(owner).remove::<Waiting>();
@@ -405,9 +412,12 @@ fn deferred_batches_recheck_filters_identity_and_despawns_after_prior_callbacks(
 			let world = app.world_mut();
 			world.insert_resource(action);
 			world.insert_resource(Catalog("old".into()));
-			world.spawn_batch(
-				(0..3).map(|_| Localized::<DeferredTarget, Catalog>::new(|c| c.0.clone())),
-			);
+			world.spawn_batch((0..3).map(|_| {
+				(
+					DeferredTarget::default(),
+					Localized::<DeferredTarget, Catalog>::new(|c| c.0.clone()),
+				)
+			}));
 			refresh::<DeferredTarget>(world);
 			let applied = world
 				.query::<&DeferredTarget>()

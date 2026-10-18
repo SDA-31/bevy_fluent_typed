@@ -48,9 +48,9 @@ commands.spawn((
 
 The first argument is the target. Bindings update `Text`, `Text2d`, `TextSpan`
 and `AccessibleLabel` independently; `Localized<Text, _>` never adds an
-accessibility label. All targets implement `Component + Default`; a binding
-creates a missing target once without a custom initializer. Explicit components
-preserve your styling and layout.
+accessibility label. All targets are supplied explicitly alongside their binding;
+`Default` is optional. A missing target removes its binding with a warning and
+creates no component. Explicit components preserve your styling and layout.
 The span belongs to a text hierarchy supplied by the application.
 
 The ordinary button has a `Node`, `AccessibleLabel` and its binding on the root,
@@ -60,15 +60,14 @@ see its [separate example](../bsn) for scene syntax and composition.
 
 [targets.rs](src/widgets/targets.rs) demonstrates three levels of integration:
 
-- `Title` implements only Data/Filter and `apply` for its String field. The engine
-  supplies default initialization; the default update requests sequential apply.
+- `Title` implements only Data/Filter and `apply` for its String field, without
+  implementing Default. The default update requests sequential apply.
 - `Badge` adds direct query writes, native change tracking and `set_text` to skip
-  unchanged work. It inherits the same default initialization as Title and Text.
+  unchanged work. Its Default is used explicitly by the application's spawn code.
 - `Caption` uses one Query with required mutable Caption/CaptionMirror data and
   `Without<CaptionPaused>`. Its pure `needs_update` skips Idle, and a mirror-only
-  edit is repaired from Caption without reading Msg. Its initialize hook only
-  supplies the neighboring mirror, after the engine has initialized Caption.
-  Removing either component later is respected.
+  edit is repaired from Caption without reading Msg. The application supplies
+  both components; removing either component later is respected.
 
 Custom targets need no registration or extra plugin; see
 [custom component bindings](../../docs/bindings.md#bind-a-custom-component).

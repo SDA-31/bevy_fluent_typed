@@ -150,7 +150,7 @@ access translations and connect them to Bevy data.
 | --- | --- | --- |
 | Messages and arguments | Runtime identifiers and `FluentArgs`. | Generated typed scope accessors and arguments; explicit `build.rs` generation checks the shared translation contract. |
 | Loading and lifetime | Asset handles; application code builds a `Localization` from loaded bundles. | Consumer-driven scopes by default; inserted bindings retain their scope. Native `Res<Scope>` discovery on Bevy 0.19/0.20, with Full/Manual modes also available. |
-| Updating components | Application code formats content and applies the resulting strings. | `Localized<Target, Scope>` updates native text, explicit accessibility labels, custom components implementing `Component + Default` through one public adapter trait. |
+| Updating components | Application code formats content and applies the resulting strings. | `Localized<Target, Scope>` updates native text, explicit accessibility labels, custom components through one public adapter trait. Targets are supplied explicitly; `Default` is optional. |
 | Language selection | Locale negotiation and fallback chains. | Keeps active catalogs until requested target scopes validate and publish together; no automatic locale fallback. |
 | Formatted output | Content lookup returns a formatted string. | Provider-wide retained-output caching or on-demand formatting; target components own their strings in both policies. |
 | Bevy support | Bevy 0.19. | One selected backend from Bevy 0.16.1 through 0.20; see [supported engines](#supported-engines). |

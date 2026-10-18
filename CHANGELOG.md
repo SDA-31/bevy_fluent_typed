@@ -20,8 +20,8 @@ Release preparation; this version has not been published. See the
   configuring the second provider. Sources, locales and FTL contents are not
   compared. See [registration conflicts](docs/runtime.md#registration-conflicts).
 - `Localized<Target, Scope>` and the public `LocalizationTarget` contract bind
-  deferred messages to native text and custom components implementing
-  `Component + Default`.
+  deferred messages to native text and custom components. `Default` is not
+  required; applications supply the target and any neighboring components.
   Adapters describe one native Bevy query, with default callbacks and optional
   structural work. Built-in targets use this same contract.
 - Automatic `AccessibleLabel` bindings on Bevy 0.19/0.20 through Bevy's ordinary
@@ -53,17 +53,18 @@ Release preparation; this version has not been published. See the
   use Bevy change ticks and reuse retained output under the default cache policy;
   explicit `bypass_change_detection` edits remain untracked until another observed
   change or binding invalidation. Idle preserves target ticks.
-- **Breaking behavior change:** all targets require `Component + Default`.
-  They are initialized once when their binding is attached, preserving supplied
-  components and settings.
-  Later target removal is respected, including across Msg and catalog changes;
-  reinsert the target to resume updates, or remove and add the binding to start
-  a new lifetime. Replacing Msg alone does not repeat initialization. In Lazy,
-  the binding retains its scope while the target is absent. Removing the binding
-  stops automatic writes and leaves the target's last value in place. Custom
-  components use the same automatic initialization as built-ins. The optional
-  `LocalizationTarget::initialize` hook runs afterward for neighbor setup. See the
-  [binding lifecycle](docs/bindings.md#loading-and-lifecycle).
+- **Breaking behavior change:** bindings no longer create missing components.
+  Supply the selected target beside `Localized`, including native text targets.
+  If it is absent when the deferred add callback runs, the binding is removed
+  with a warning naming the entity, target type and scope; its formatter captures
+  and catalog demand are released. `Default` is optional and there is no public
+  initialization hook. Supplied components and settings are preserved.
+  Later target removal after a successful attachment is respected, including
+  across Msg and catalog changes; reinsert the target to resume updates.
+  Removing and adding a binding checks presence again; replacing Msg alone does
+  not. In Lazy, an accepted binding retains its scope while its target is absent.
+  Removing the binding stops automatic writes and leaves the target's last value
+  in place. See the [binding lifecycle](docs/bindings.md#loading-and-lifecycle).
 
 ### Deprecated
 

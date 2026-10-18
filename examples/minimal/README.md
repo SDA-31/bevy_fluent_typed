@@ -85,7 +85,7 @@ application-owned Decimal and percentage formatters through Bevy resources.
 ## Application-defined components
 
 The separate [binding example](../bindings) covers custom component bindings,
-default initialization, native text targets, button captions and query filters.
+explicit component construction, native text targets, button captions and query filters.
 See [the binding guide](../../docs/bindings.md) for the contracts.
 
 [MIT](LICENSE), for the example and its translation fixtures only.

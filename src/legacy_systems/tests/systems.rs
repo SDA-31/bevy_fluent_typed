@@ -43,9 +43,10 @@ fn observe(catalog: Option<Res<TestCatalog>>, mut observed: ResMut<Observed>) {
 
 fn setup(_: Res<TestCatalog>, mut commands: Commands, mut observed: ResMut<Observed>) {
 	observed.setups += 1;
-	commands.spawn(Localized::<Text, TestCatalog>::new(|catalog| {
-		catalog.0.clone()
-	}));
+	commands.spawn((
+		Text::default(),
+		Localized::<Text, TestCatalog>::new(|catalog| catalog.0.clone()),
+	));
 }
 
 fn app<M: crate::LoadingMode>() -> (App, Arc<Gate>, Arc<AtomicUsize>) {

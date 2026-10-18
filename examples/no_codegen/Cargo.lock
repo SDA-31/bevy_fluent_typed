@@ -1662,6 +1662,7 @@ dependencies = [
  "bevy 0.20.0",
  "fluent-typed",
  "indexmap",
+ "tracing",
 ]
 
 [[package]]

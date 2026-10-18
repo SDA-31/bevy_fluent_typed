@@ -32,7 +32,7 @@ fn deferred_messages_refresh_and_clear_existing_ui_and_world_labels() {
 }
 
 #[test]
-fn native_defaults_create_only_the_selected_target_without_a_catalog() {
+fn native_bindings_require_the_selected_target_without_creating_components() {
 	let mut app = App::new();
 	bindings::register::<TestCatalog>(&mut app, false);
 	let binding = Localized::<Text, TestCatalog>::new(|catalog| catalog.0.clone());
@@ -65,21 +65,27 @@ fn native_defaults_create_only_the_selected_target_without_a_catalog() {
 	app.world_mut().despawn(despawned);
 	app.update();
 
-	assert!(app.world().get::<Text>(implicit).unwrap().0.is_empty());
+	assert!(app.world().get::<Text>(implicit).is_none());
+	assert!(
+		app.world()
+			.get::<Localized<Text, TestCatalog>>(implicit)
+			.is_none()
+	);
 	assert!(app.world().get::<Text>(ui).unwrap().0.is_empty());
 	assert!(app.world().get::<Text>(world).is_none());
 	assert!(app.world().get::<Text>(late_world).is_none());
-	// Initialization may already have run when an exclusive world access flushed hooks.
-	assert!(app.world().get::<Text>(cancelled).unwrap().0.is_empty());
+	assert!(app.world().get::<Text>(cancelled).is_none());
 	app.world_mut().insert_resource(TestCatalog("ready".into()));
 	app.update();
 
-	for entity in [implicit, ui] {
-		assert_eq!(app.world().get::<Text>(entity).unwrap().0, "ready");
-	}
+	assert_eq!(app.world().get::<Text>(ui).unwrap().0, "ready");
+	assert_eq!(app.world().get::<Text2d>(world).unwrap().0, "ready");
+	assert!(app.world().get::<Text>(world).is_none());
 
-	for entity in [world, late_world] {
-		assert_eq!(app.world().get::<Text2d>(entity).unwrap().0, "ready");
-		assert!(app.world().get::<Text>(entity).is_none());
-	}
+	assert!(app.world().get::<Text2d>(late_world).unwrap().0.is_empty());
+	assert!(
+		app.world()
+			.get::<Localized<Text2d, TestCatalog>>(late_world)
+			.is_none()
+	);
 }
