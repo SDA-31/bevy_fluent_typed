@@ -23,6 +23,33 @@ commands.spawn((
 restores following the provider. Replace a binding when its captured arguments
 change. The target component remains application-owned.
 
+Native BSN on Bevy 0.20 accepts the modifier inside the scene:
+
+```rust,ignore
+bsn! {
+    Text
+    Localized::<Text, Dialog>::from(message).with_locale(Locale::Ru)
+}
+```
+
+On Bevy 0.19, configure the binding in ordinary Rust before passing it through
+the typed constructor. This form also works on 0.20:
+
+```rust,ignore
+let binding = Localized::<Text, Dialog>::from(message).with_locale(Locale::Ru);
+bsn! {
+    Text
+    Localized::<Text, Dialog>::from(binding)
+}
+```
+
+Use the same placement for `follow_locale()`. Cloned bindings preserve their
+selection when converted into scene templates. Fixed bindings still react to
+translation reloads; removing the last one releases its language's demand.
+The [BSN locale tests](../examples/bsn/src/tests/locales.rs) cover native syntax,
+fixed/following labels, cloned bindings, reload/release and different languages
+for Text, Text2d, TextSpan and AccessibleLabel.
+
 For application-owned strings, retain your own `Msg<Dialog>` and request its
 scope in a fixed language:
 

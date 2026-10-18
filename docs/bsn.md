@@ -91,6 +91,11 @@ Each label follows the current catalog independently, including language changes
 and translation reloads. In explicit Manual, unloading its scope clears its text until that scope
 is ready again. Replace a binding when its captured arguments change.
 
+For a fixed-language binding, configure `with_locale` before the macro on
+Bevy 0.19 and pass the binding through `Localized::from`. Bevy 0.20 also permits
+the chained modifier inside `bsn!`. The same distinction applies to
+`follow_locale`; see [several-language scenes](multilocale.md).
+
 ## Localize a text span
 
 Use `Localized<TextSpan, Scope>` on a `TextSpan` child of a `Text` or `Text2d` root:

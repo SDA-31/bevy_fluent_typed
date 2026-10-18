@@ -12,6 +12,7 @@ use crate::{
 };
 use std::{
 	any::type_name,
+	process::Command,
 	sync::{
 		Arc, Mutex,
 		atomic::{AtomicUsize, Ordering},
@@ -118,8 +119,30 @@ fn rejects_missing<T: LocalizationTarget>() {
 
 #[test]
 fn missing_targets_with_or_without_default_are_rejected_once() {
-	rejects_missing::<Caption>();
-	rejects_missing::<DefaultTrap>();
+	// Tracing's callsite cache is process-global, even for a thread-local subscriber.
+	// Keep the scoped recorder independent of concurrent tests' tracing state.
+	const CHILD: &str = "BEVY_FLUENT_MISSING_TARGET_WARNING_CHILD";
+
+	if std::env::var_os(CHILD).is_some() {
+		rejects_missing::<Caption>();
+		rejects_missing::<DefaultTrap>();
+		return;
+	}
+
+	let module = module_path!().split_once("::").unwrap().1;
+	let test = format!("{module}::missing_targets_with_or_without_default_are_rejected_once");
+	let output = Command::new(std::env::current_exe().unwrap())
+		.args(["--exact", &test, "--nocapture", "--color=never"])
+		.env(CHILD, "1")
+		.output()
+		.expect("run the isolated warning test");
+	let stdout = String::from_utf8_lossy(&output.stdout);
+	let stderr = String::from_utf8_lossy(&output.stderr);
+
+	assert!(
+		output.status.success() && stdout.contains("1 passed; 0 failed;"),
+		"isolated warning test failed: {stdout}\n{stderr}"
+	);
 }
 
 #[test]

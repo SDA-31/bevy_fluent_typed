@@ -14,6 +14,7 @@ use texts::presentation::Hud as Interface;
 mod native;
 
 mod buttons;
+mod locales;
 
 type Source = Arc<Mutex<HashMap<String, Vec<u8>>>>;
 
@@ -306,35 +307,5 @@ fn native_scene_span_updates_without_inserting_a_root_text() {
 	assert!(app.world().get::<Text2d>(span).is_none());
 	app.world_mut().despawn(span);
 	app.update();
-	assert!(!app.world().contains_resource::<Interface>());
-}
-
-#[test]
-fn fixed_bsn_language_and_generated_navigation_share_the_provider() {
-	let (mut app, _) = test_app();
-	let message = Msg::<Interface>::new(|hud| hud.msg_hello("Ada"));
-	let manual = message.clone();
-	let entity = app
-		.world_mut()
-		.spawn_scene(bsn! {
-			Text
-			Localized::<Text, Interface>::from(message.clone()).with_locale(texts::Locale::Es)
-		})
-		.unwrap()
-		.id();
-	pump(&mut app, |world| {
-		world
-			.get::<Text>(entity)
-			.is_some_and(|text| text.0.starts_with("Hola"))
-	});
-	let localization = app.world().resource::<Localization<texts::Translations>>();
-	let hud = localization
-		.for_locale(texts::Locale::Es)
-		.modules()
-		.presentation()
-		.hud()
-		.unwrap();
-	assert!(manual.render(hud).starts_with("Hola"));
-	assert_eq!(localization.locale(), texts::Locale::En);
 	assert!(!app.world().contains_resource::<Interface>());
 }

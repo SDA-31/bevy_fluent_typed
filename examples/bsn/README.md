@@ -53,6 +53,13 @@ independent scene-instance arguments, inline message input and rejection of
 scenes that omit their formatter. The runnable application reads files;
 it does not keep a test byte map in memory.
 
+[Locale tests](src/tests/locales.rs) verify fixed languages beside following
+labels, cloned binding conversion, switching, reload and release, including
+Text2d, TextSpan and independent AccessibleLabel selection. The native syntax
+helpers cover a prepared binding through `Localized::from` on Bevy 0.19 and
+inline `with_locale`/`follow_locale` chains on 0.20. See the
+[several-language guide](../../docs/multilocale.md) for both forms.
+
 [The process test](tests/output.rs) checks the rendered output and bounds the
 headless runner with a test-only timeout.
 
