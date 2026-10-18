@@ -65,6 +65,20 @@ impl<C: FluentCatalog> ModuleStore<C> {
 		}
 	}
 
+	/// Allocate empty locale data while reusing compiled schema metadata.
+	pub(crate) fn empty_for(&self, locale: C::Locale) -> Self {
+		Self {
+			locale,
+			values: HashMap::new(),
+			states: BTreeMap::new(),
+			leaves: self.leaves.clone(),
+			scopes: self.scopes.clone(),
+			scope_indices: self.scope_indices.clone(),
+			revision: 0,
+			progress_version: crate::progress::StoreVersion::default(),
+		}
+	}
+
 	/// Selected locale, including while its modules are still loading.
 	pub fn locale(&self) -> C::Locale {
 		self.locale

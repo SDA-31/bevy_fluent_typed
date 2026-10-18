@@ -41,13 +41,8 @@ pub(crate) fn reload_catalogs<C: FluentCatalog, M: LoadingMode>(
 		return;
 	}
 
-	let desired = localization.desired();
-	localization.retry.extend(desired.iter().copied());
 	localization.commit_requested = false;
-
-	if let Some(preparation) = localization.preparation.as_mut() {
-		preparation.retry.extend(desired.iter().copied());
-	}
+	localization.visit_acquisitions(|state| state.retry.extend(state.desired().iter().copied()));
 }
 
 /// Asset snapshots and event cursors used by one provider's reconciliation system.
@@ -82,45 +77,21 @@ pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 	// completion can publish before Bevy flushes its asset-event queue.
 	let assets_changed = assets.changes.read().count() + assets.prepared_changes.read().count() > 0;
 
-	let needs_reconcile = |state: &Localization<C, M>| {
-		state.requests_changed || !state.retry.is_empty() || state.pending > 0 || assets_changed
-	};
-	let target_needs_reconcile = localization
-		.preparation
-		.as_ref()
-		.is_some_and(|preparation| {
-			preparation.locale() != localization.locale() && needs_reconcile(preparation)
-		});
-
-	if !needs_reconcile(&localization) && !target_needs_reconcile {
+	if !localization.acquisition_needed(assets_changed) {
 		return;
 	}
 
-	reconcile_state(
-		&mut Acquisition::controller(&mut localization),
-		&source,
-		&assets.server,
-		&assets.loaded,
-		&assets.prepared,
-		assets_changed,
-		&mut updates,
-	);
-
-	if localization
-		.prepared_locale()
-		.is_some_and(|locale| locale != localization.locale())
-		&& let Some(preparation) = localization.preparation.as_mut()
-	{
+	localization.visit_acquisitions(|state| {
 		reconcile_state(
-			&mut Acquisition::controller(preparation),
+			state,
 			&source,
 			&assets.server,
 			&assets.loaded,
 			&assets.prepared,
 			assets_changed,
 			&mut updates,
-		);
-	}
+		)
+	});
 }
 
 #[cfg(feature = "manifest")]
@@ -317,7 +288,8 @@ fn poll_asset<C: FluentCatalog>(
 	let Some(entry) = localization.entries.get(path) else {
 		return;
 	};
-	let asset = if localization.staged {
+	let staged_entry = entry.preparation_handle.is_some();
+	let asset = if staged_entry {
 		entry
 			.preparation_handle
 			.as_ref()
@@ -331,7 +303,7 @@ fn poll_asset<C: FluentCatalog>(
 			.map(|asset| (asset, None))
 	};
 	let Some((asset, request)) = asset else {
-		if localization.staged
+		if staged_entry
 			&& entry.pending
 			&& entry
 				.preparation_attempt
@@ -347,7 +319,7 @@ fn poll_asset<C: FluentCatalog>(
 
 	// Revisions order loader invocations, not completion. External overlapping
 	// reads delayed before AssetLoader::load have no public Bevy request identity.
-	if (localization.staged && entry.preparation_request != request)
+	if (staged_entry && entry.preparation_request != request)
 		|| asset.locale != locale
 		|| asset.path != path
 		|| entry
@@ -453,35 +425,25 @@ pub(crate) fn report_failures<C: FluentCatalog, M: LoadingMode>(
 	}
 
 	for event in events.read() {
-		report_failure(
-			&mut Acquisition::controller(&mut localization),
-			event,
-			&mut updates,
-		);
+		localization.visit_acquisitions(|state| report_failure(state, event, &mut updates));
 	}
 
 	for event in prepared_events.read() {
-		let Some(preparation) = localization.preparation.as_mut() else {
-			continue;
-		};
-		let desired = preparation.desired();
-		let path = preparation.entries.iter().find_map(|(path, entry)| {
-			entry
-				.preparation_handle
-				.as_ref()
-				.filter(|handle| desired.contains(path) && handle.id() == event.id)
-				.map(|_| *path)
+		localization.visit_acquisitions(|state| {
+			let desired = state.desired();
+			let path = state.entries.iter().find_map(|(path, entry)| {
+				entry
+					.preparation_handle
+					.as_ref()
+					.filter(|handle| desired.contains(path) && handle.id() == event.id)
+					.map(|_| *path)
+			});
+			let Some(path) = path else {
+				return;
+			};
+			state.finish_request(path);
+			publish(state, path, Err(event.error.to_string()), &mut updates);
 		});
-
-		if let Some(path) = path {
-			preparation.finish_request(path);
-			publish(
-				&mut Acquisition::controller(preparation),
-				path,
-				Err(event.error.to_string()),
-				&mut updates,
-			);
-		}
 	}
 }
 
@@ -504,11 +466,6 @@ fn report_failure<C: FluentCatalog>(
 		localization.finish_request(path);
 		publish(localization, path, Err(event.error.to_string()), updates);
 	}
-}
-pub(crate) fn release_unrequested<C: FluentCatalog, M: LoadingMode>(
-	state: &mut Localization<C, M>,
-) {
-	release_state(&mut Acquisition::controller(state));
 }
 
 #[cfg(feature = "manifest")]

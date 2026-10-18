@@ -67,37 +67,11 @@ pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 		localization.synchronize_preparation_requests();
 	}
 
-	let needs_reconcile = |state: &Localization<C, M>| {
-		state.requests_changed || !state.retry.is_empty() || state.pending > 0
-	};
-	let target_needs_reconcile = localization
-		.preparation
-		.as_ref()
-		.is_some_and(|preparation| {
-			preparation.locale() != localization.locale() && needs_reconcile(preparation)
-		});
-
-	if !needs_reconcile(&localization) && !target_needs_reconcile {
+	if !localization.acquisition_needed(false) {
 		return;
 	}
 
-	reconcile_state(
-		&mut Acquisition::controller(&mut localization),
-		&source,
-		&mut updates,
-	);
-
-	if localization
-		.prepared_locale()
-		.is_some_and(|locale| locale != localization.locale())
-		&& let Some(preparation) = localization.preparation.as_mut()
-	{
-		reconcile_state(
-			&mut Acquisition::controller(preparation),
-			&source,
-			&mut updates,
-		);
-	}
+	localization.visit_acquisitions(|state| reconcile_state(state, &source, &mut updates));
 }
 
 fn reconcile_state<C: FluentCatalog>(

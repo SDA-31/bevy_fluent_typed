@@ -73,6 +73,8 @@ impl<C: FluentCatalog> RequestedModule<C> {
 /// Resource publication is synchronized at the plugin's Publish/Refresh boundaries.
 #[derive(Resource)]
 pub struct Localization<C: FluentCatalog, M: LoadingMode = Lazy> {
+	pub(crate) fixed: Vec<super::locales::LocaleSlot<C>>,
+	pub(crate) fixed_dirty: bool,
 	pub(crate) store: ModuleStore<C>,
 	/// Explicit scope pins; independent of leases and automatically discovered consumers.
 	pub(crate) requested: HashMap<TypeId, &'static [&'static str]>,
@@ -118,6 +120,20 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	/// # Panics
 	/// Panics if the locale is not declared by the provider.
 	pub fn new(locale: C::Locale) -> Self {
+		let mut state = Self::empty(locale);
+		state.fixed = C::locales()
+			.iter()
+			.copied()
+			.map(|selected| {
+				let data = (selected != locale)
+					.then(|| super::locales::LocaleData::empty(state.store.empty_for(selected)));
+				super::locales::LocaleSlot::new(selected, data)
+			})
+			.collect();
+		state
+	}
+
+	pub(crate) fn empty(locale: C::Locale) -> Self {
 		assert!(
 			C::locales().contains(&locale),
 			"locale must belong to the provider"
@@ -134,6 +150,8 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			.collect();
 
 		Self {
+			fixed: Vec::new(),
+			fixed_dirty: true,
 			store: ModuleStore::new(locale),
 			requested,
 			entries: BTreeMap::new(),
@@ -199,6 +217,11 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			&& self.entries.is_empty()
 		{
 			self.cancel_preparation();
+			if let Some(data) = self.take_locale(locale) {
+				let previous = super::locales::LocaleData::take(self);
+				self.retain_locale(previous);
+				data.install(self);
+			}
 			self.store.locale = locale;
 			self.requests_changed = true;
 			return;
@@ -309,19 +332,6 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 				.chain(self.automatic.iter().copied())
 				.collect(),
 		);
-	}
-
-	pub(crate) fn finish_request(&mut self, path: &str) -> &mut RequestedModule<C> {
-		let entry = self
-			.entries
-			.get_mut(path)
-			.expect("registered module request");
-
-		if std::mem::replace(&mut entry.pending, false) {
-			self.pending -= 1;
-		}
-
-		entry
 	}
 }
 
