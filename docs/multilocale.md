@@ -13,15 +13,26 @@ A binding follows the active language by default. Fix its language explicitly:
 ```rust,ignore
 let message = Msg::<Dialog>::new(|dialog| dialog.msg_line());
 commands.spawn((Text::default(), Localized::<Text, _>::from(message.clone())));
-commands.spawn((
-    Text::default(),
-    Localized::<Text, _>::from(message).with_locale(Locale::Ru),
-));
+let fixed = commands
+    .spawn((
+        Text::default(),
+        Localized::<Text, _>::from(message.clone()).with_locale(Locale::Ru),
+    ))
+    .id();
 ```
 
-`with_locale` preserves automatic message and catalog updates. `follow_locale`
-restores following the provider. Replace a binding when its captured arguments
-change. The target component remains application-owned.
+Keep `Msg` as the reusable message definition; `Localized` is the final binding
+attached to a target. `with_locale` preserves automatic message and catalog
+updates. To change the selected language, replace the binding from the retained
+message. Omitting the modifier makes the new binding follow the provider again:
+
+```rust,ignore
+commands.entity(fixed).insert(Localized::<Text, _>::from(message));
+```
+
+The target component remains application-owned. Replacing `Localized` preserves
+that target and other entities' bindings. Replace the message as well when its
+captured arguments change.
 
 Native BSN on Bevy 0.20 accepts the modifier inside the scene:
 
@@ -43,12 +54,12 @@ bsn! {
 }
 ```
 
-Use the same placement for `follow_locale()`. Cloned bindings preserve their
-selection when converted into scene templates. Fixed bindings still react to
-translation reloads; removing the last one releases its language's demand.
+Fixed bindings still react to translation reloads; removing the last one
+releases its language's demand.
 The [BSN locale tests](../examples/bsn/src/tests/locales.rs) cover native syntax,
-fixed/following labels, cloned bindings, reload/release and different languages
-for Text, Text2d, TextSpan and AccessibleLabel.
+fixed/following labels, cloned binding conversion, replacement from a retained
+message, reload/release and different languages for Text, Text2d, TextSpan and
+AccessibleLabel.
 
 For application-owned strings, retain your own `Msg<Dialog>` and request its
 scope in a fixed language:
@@ -94,6 +105,6 @@ Native root progress counts demand for the active language, including its fixed
 consumers. Preparation progress follows the consumers moving with the game
 language. Inspect another language through its view's per-scope `progress`.
 
-Change a binding normally when selecting another language. A write through
+Replace a binding normally when selecting another language. A write through
 `bypass_change_detection` does not update its automatic language demand.
 The existing message-identity invalidation remains separate from that demand.

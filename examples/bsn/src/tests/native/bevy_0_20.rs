@@ -47,10 +47,3 @@ pub(super) fn fixed_scene(message: Msg<Interface>, locale: texts::Locale) -> imp
 		Localized::<Text, Interface>::from(message).with_locale(locale)
 	}
 }
-
-pub(super) fn following_scene(binding: Localized<Text, Interface>) -> impl Scene {
-	bsn! {
-		Text
-		Localized::<Text, Interface>::from(binding).follow_locale()
-	}
-}

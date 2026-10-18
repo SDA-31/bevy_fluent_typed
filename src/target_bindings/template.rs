@@ -33,12 +33,6 @@ impl<T: LocalizationTarget, S: FluentScope> LocalizedTemplate<T, S> {
 		self
 	}
 
-	/// Restore following the provider's active language.
-	pub fn follow_locale(mut self) -> Self {
-		self.locale = None;
-		self
-	}
-
 	/// Capture a formatter without reading or requesting the catalog.
 	pub fn new(format: impl Fn(&S) -> String + Send + Sync + 'static) -> Self {
 		Self::from(Msg::new(format))

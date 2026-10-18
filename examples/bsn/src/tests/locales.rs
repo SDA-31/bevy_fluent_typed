@@ -96,11 +96,12 @@ fn fixed_scene_keeps_its_language_during_switch_reload_and_release() {
 }
 
 #[test]
-fn cloned_fixed_bindings_and_follow_override_survive_scene_conversion() {
+fn cloned_fixed_bindings_and_msg_replacements_keep_scene_targets_independent() {
 	let (mut app, _) = test_app();
 	let name = String::from("Ada");
-	let binding = Localized::<Text, Interface>::new(move |hud| hud.msg_hello(&name))
-		.with_locale(texts::Locale::Es);
+	let message = Msg::<Interface>::new(move |hud| hud.msg_hello(&name));
+	let binding =
+		Localized::<Text, Interface>::from(message.clone()).with_locale(texts::Locale::Es);
 	let first_binding = binding.clone();
 	let second_binding = binding.clone();
 	let first = app
@@ -119,9 +120,13 @@ fn cloned_fixed_bindings_and_follow_override_survive_scene_conversion() {
 		})
 		.unwrap()
 		.id();
+	let following_message = message.clone();
 	let following = app
 		.world_mut()
-		.spawn_scene(native::following_scene(binding))
+		.spawn_scene(bsn! {
+			Text
+			Localized::<Text, Interface>::from(following_message)
+		})
 		.unwrap()
 		.id();
 
@@ -140,16 +145,22 @@ fn cloned_fixed_bindings_and_follow_override_survive_scene_conversion() {
 	assert!(starts_with(app.world(), first, "Hola"));
 	assert!(starts_with(app.world(), second, "Hola"));
 
-	app.world_mut().despawn(first);
-	app.update();
+	app.world_mut()
+		.entity_mut(first)
+		.insert(Localized::<Text, Interface>::from(message));
+
+	pump(&mut app, |world| starts_with(world, first, "Привет"));
 
 	assert!(fixed_ready(app.world()));
 	assert!(app.world().get::<Text>(second).unwrap().0.contains("Ada"));
+	assert!(starts_with(app.world(), second, "Hola"));
 
 	app.world_mut().despawn(second);
 
 	pump(&mut app, |world| !fixed_ready(world));
 
+	assert!(starts_with(app.world(), first, "Привет"));
+	assert!(app.world().get::<Text>(first).unwrap().0.contains("Ada"));
 	assert!(starts_with(app.world(), following, "Привет"));
 }
 

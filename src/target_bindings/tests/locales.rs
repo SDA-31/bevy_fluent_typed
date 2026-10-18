@@ -139,11 +139,9 @@ fn replacing_only_the_selection_with_the_same_msg_invalidates_text_and_demand() 
 			.catalog()
 			.is_none()
 	);
-	app.world_mut().entity_mut(target).insert(
-		Localized::<Text, _>::from(message)
-			.with_locale("de")
-			.follow_locale(),
-	);
+	app.world_mut()
+		.entity_mut(target)
+		.insert(Localized::<Text, _>::from(message));
 	pump(&mut app, |world| {
 		world.get::<Text>(target).unwrap().0 == "ja"
 	});
