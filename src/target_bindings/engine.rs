@@ -11,10 +11,12 @@ use crate::bevy::{
 	utils::Parallel,
 };
 use crate::message::MsgIdentity;
+use crate::state::{LocaleSnapshot, LocaleSnapshots};
 use crate::{
 	CachePolicy, FluentScope, LocalizationTarget, LocalizationUpdate, Localized, TargetItem,
 	UpdateResult, cache_policy,
 };
+use std::sync::Arc;
 
 /// The adapter's declared query, extended with its binding and tracking state.
 type Bindings<'w, 's, S, T> = Query<
@@ -30,7 +32,10 @@ type Bindings<'w, 's, S, T> = Query<
 >;
 
 /// Potentially overlapping catalog and target borrows, accessed through a ParamSet.
-type Parameters<'w, 's, S, T> = (Option<Res<'w, S>>, Bindings<'w, 's, S, T>);
+type Parameters<'w, 's, S, T> = (
+	(Option<Res<'w, S>>, Option<Res<'w, LocaleSnapshots<S>>>),
+	Bindings<'w, 's, S, T>,
+);
 
 /// Work retained per worker until all parallel target callbacks have finished.
 ///
@@ -64,12 +69,38 @@ pub(super) fn unregister<S: FluentScope, T: LocalizationTarget>(world: &mut Worl
 }
 
 /// Catalog snapshot and invalidation clocks shared by one complete query pass.
-struct Refresh<'a, S> {
+struct Refresh<'a, S: FluentScope> {
+	snapshots: &'a Option<Arc<Vec<LocaleSnapshot<S>>>>,
+	stamp: Option<u64>,
 	catalog: &'a Option<S>,
 	changed: bool,
 	previous: u64,
 	current: u64,
 	this_run: u32,
+}
+
+impl<S: FluentScope> Refresh<'_, S> {
+	fn catalog<T: LocalizationTarget>(&self, binding: &Localized<T, S>) -> Option<&S> {
+		match binding.locale {
+			None => self.catalog.as_ref(),
+			Some(locale) => self
+				.snapshots
+				.as_deref()
+				.and_then(|snapshots| snapshots.iter().find(|snapshot| snapshot.locale == locale))
+				.map(|snapshot| &snapshot.value),
+		}
+	}
+
+	fn stamp<T: LocalizationTarget>(&self, binding: &Localized<T, S>) -> Option<u64> {
+		match binding.locale {
+			None => self.stamp,
+			Some(locale) => self
+				.snapshots
+				.as_deref()
+				.and_then(|snapshots| snapshots.iter().find(|snapshot| snapshot.locale == locale))
+				.map(|snapshot| snapshot.stamp),
+		}
+	}
 }
 
 fn needs_update<S: FluentScope, T: LocalizationTarget>(
@@ -78,7 +109,9 @@ fn needs_update<S: FluentScope, T: LocalizationTarget>(
 	state: &mut State<S, T>,
 	frame: &Refresh<S>,
 ) -> bool {
-	let invalidated = frame.changed || !state.current(&binding.message, frame.previous);
+	let invalidated = !state.current(&binding.message, frame.previous)
+		|| state.locale != binding.locale
+		|| state.snapshot != frame.stamp(binding);
 	let changed = invalidated || state.pending;
 	let update = LocalizationUpdate::cached(changed, "").observe(state.observed(), frame.this_run);
 	let needed = T::needs_update(data, &update);
@@ -100,17 +133,18 @@ fn update<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 	frame: &Refresh<S>,
 ) -> (Option<MsgIdentity<S>>, Option<Deferred<S>>) {
 	let Refresh {
-		catalog,
-		changed,
 		previous,
 		current,
 		this_run,
+		..
 	} = *frame;
-	let invalidated = changed || !state.current(&binding.message, previous);
+	let invalidated = !state.current(&binding.message, previous)
+		|| state.locale != binding.locale
+		|| state.snapshot != frame.stamp(binding);
 	state.pending |= invalidated;
 	let render = || {
-		catalog
-			.as_ref()
+		frame
+			.catalog(binding)
 			.map_or_else(String::new, |scope| binding.message.render(scope))
 	};
 
@@ -134,6 +168,9 @@ fn update<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 		UpdateResult::Done => None,
 		UpdateResult::Deferred => Some(Deferred {
 			entity,
+			locale: binding.locale,
+			snapshot: frame.stamp(binding),
+			catalog: frame.catalog(binding).cloned(),
 			message: binding.message.identity(),
 			changed: state.pending,
 			text: context.into_owned(),
@@ -151,6 +188,8 @@ fn update<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 	}
 
 	state.pass = current;
+	state.locale = binding.locale;
+	state.snapshot = frame.stamp(binding);
 	let retired = if state
 		.message
 		.as_ref()
@@ -186,12 +225,16 @@ fn refresh_bindings<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 	mut commands: Commands,
 ) {
 	// Resource entities can also occur in user Data. End that resource borrow first.
-	let (catalog, changed) = {
-		let resource = params.p0();
+	let (catalog, changed, snapshots, stamp) = {
+		let (resource, snapshots) = params.p0();
 		let changed = *was_ready != resource.is_some()
 			|| resource.as_ref().is_some_and(|value| value.is_changed());
 		*was_ready = resource.is_some();
-		(resource.as_deref().cloned(), changed)
+		let stamp = resource
+			.as_ref()
+			.map(|resource| u64::from(resource.last_changed().get()));
+		let snapshots = snapshots.map(|table| table.ready.clone());
+		(resource.as_deref().cloned(), changed, snapshots, stamp)
 	};
 
 	let mut bindings = params.p1();
@@ -204,6 +247,8 @@ fn refresh_bindings<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 	let this_run = ticks.this_run().get();
 
 	let frame = Refresh {
+		snapshots: &snapshots,
+		stamp,
 		catalog: &catalog,
 		changed,
 		previous,
@@ -220,7 +265,7 @@ fn refresh_bindings<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 		}
 	};
 
-	deferred::queue::<S, T>(&mut commands, deferred, catalog);
+	deferred::queue::<S, T>(&mut commands, deferred);
 }
 
 fn plan_refresh<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(

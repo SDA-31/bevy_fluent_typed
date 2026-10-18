@@ -58,3 +58,7 @@ mod template_tests;
 #[cfg(test)]
 #[path = "tests/basics.rs"]
 mod basics_tests;
+
+#[cfg(test)]
+#[path = "tests/locales.rs"]
+mod locale_tests;

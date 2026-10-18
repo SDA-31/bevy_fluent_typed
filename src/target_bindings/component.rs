@@ -241,10 +241,27 @@ pub type TargetReadItem<'w, 's, T> = crate::bevy::ecs::query::QueryItem<
 /// bidi ordering and font coverage remain the renderer's responsibility.
 pub struct Localized<T: LocalizationTarget, S: FluentScope> {
 	pub(crate) message: Msg<S>,
+	pub(crate) locale: Option<<S::Catalog as crate::FluentCatalog>::Locale>,
 	marker: PhantomData<fn() -> T>,
 }
 
 impl<T: LocalizationTarget, S: FluentScope> Localized<T, S> {
+	/// Pin this binding to a compiled language while retaining automatic updates.
+	pub fn with_locale(mut self, locale: <S::Catalog as crate::FluentCatalog>::Locale) -> Self {
+		assert!(
+			<S::Catalog as crate::FluentCatalog>::locales().contains(&locale),
+			"locale must belong to the provider"
+		);
+		self.locale = Some(locale);
+		self
+	}
+
+	/// Follow the provider's active language again.
+	pub fn follow_locale(mut self) -> Self {
+		self.locale = None;
+		self
+	}
+
 	/// Capture a formatter without reading or requesting the scope.
 	pub fn new(format: impl Fn(&S) -> String + Send + Sync + 'static) -> Self {
 		Self::from(Msg::new(format))
@@ -255,6 +272,7 @@ impl<T: LocalizationTarget, S: FluentScope> From<Msg<S>> for Localized<T, S> {
 	fn from(message: Msg<S>) -> Self {
 		Self {
 			message,
+			locale: None,
 			marker: PhantomData,
 		}
 	}
@@ -262,6 +280,10 @@ impl<T: LocalizationTarget, S: FluentScope> From<Msg<S>> for Localized<T, S> {
 
 impl<T: LocalizationTarget, S: FluentScope> Clone for Localized<T, S> {
 	fn clone(&self) -> Self {
-		Self::from(self.message.clone())
+		Self {
+			message: self.message.clone(),
+			locale: self.locale,
+			marker: PhantomData,
+		}
 	}
 }

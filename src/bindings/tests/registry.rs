@@ -96,16 +96,20 @@ fn removed_jobs_are_not_run_from_an_earlier_dispatch_snapshot() {
 		.entries
 		.insert(TypeId::of::<RemovedSibling>(), second);
 	registry.active = Arc::from([
-		(
-			TypeId::of::<RemovesSibling>(),
-			TargetUpdatePhase::BeforeLayout,
-			RemovesSibling::refresh as super::Refresh,
-		),
-		(
-			TypeId::of::<RemovedSibling>(),
-			TargetUpdatePhase::BeforeLayout,
-			RemovedSibling::refresh as super::Refresh,
-		),
+		super::ActiveBinding {
+			key: TypeId::of::<RemovesSibling>(),
+			phase: TargetUpdatePhase::BeforeLayout,
+			refresh: RemovesSibling::refresh,
+			root: TypeId::of::<Catalog>(),
+			synchronize_consumers: |_| {},
+		},
+		super::ActiveBinding {
+			key: TypeId::of::<RemovedSibling>(),
+			phase: TargetUpdatePhase::BeforeLayout,
+			refresh: RemovedSibling::refresh,
+			root: TypeId::of::<Catalog>(),
+			synchronize_consumers: |_| {},
+		},
 	]);
 	dispatch_phase(&mut world, TargetUpdatePhase::BeforeLayout);
 	assert_eq!(world.resource::<RemovedJobRuns>().0, 0);

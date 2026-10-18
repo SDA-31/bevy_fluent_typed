@@ -31,10 +31,10 @@ pub struct ModuleStore<C: FluentCatalog> {
 	/// Ready leaf and assembled-group snapshots keyed by nominal Rust type.
 	pub(crate) values: HashMap<TypeId, ReadyScope>,
 	pub(crate) states: BTreeMap<&'static str, ModuleStatus>,
-	pub(crate) leaves: BTreeMap<&'static str, TypeId>,
+	pub(crate) leaves: Arc<BTreeMap<&'static str, TypeId>>,
 	pub(crate) scopes: Arc<[ScopeRegistration<C>]>,
 	/// Index into the immutable schema, avoiding a scan during Idle restoration checks.
-	pub(crate) scope_indices: HashMap<TypeId, usize>,
+	pub(crate) scope_indices: Arc<HashMap<TypeId, usize>>,
 	/// Monotonic active publication clock; staged stores are rebased before commit.
 	pub(crate) revision: u64,
 	/// Separate opt-in bookkeeping for loading-progress observers.
@@ -44,7 +44,7 @@ pub struct ModuleStore<C: FluentCatalog> {
 impl<C: FluentCatalog> ModuleStore<C> {
 	pub(crate) fn new(locale: C::Locale) -> Self {
 		let scopes: Arc<[ScopeRegistration<C>]> = C::scopes().into();
-		let scope_indices = scopes
+		let scope_indices: HashMap<_, _> = scopes
 			.iter()
 			.enumerate()
 			.map(|(index, scope)| (scope.id, index))
@@ -54,14 +54,16 @@ impl<C: FluentCatalog> ModuleStore<C> {
 			locale,
 			values: HashMap::new(),
 			states: BTreeMap::new(),
-			leaves: C::modules()
-				.into_iter()
-				.map(|module| (module.path, module.scope))
-				.collect(),
+			leaves: Arc::new(
+				C::modules()
+					.into_iter()
+					.map(|module| (module.path, module.scope))
+					.collect(),
+			),
 			revision: 0,
 			progress_version: crate::progress::StoreVersion::default(),
 			scopes,
-			scope_indices,
+			scope_indices: Arc::new(scope_indices),
 		}
 	}
 
@@ -203,6 +205,7 @@ impl<C: FluentCatalog> ModuleStore<C> {
 	)
 )]
 pub struct ScopeRegistration<C: FluentCatalog> {
+	pub(crate) publish_locale: fn(&mut World, C::Locale, Option<&SharedScope>),
 	pub(crate) id: TypeId,
 	/// Immediate schema parent; missing metadata falls back to the catalog root.
 	pub(crate) parent: Option<TypeId>,
@@ -228,6 +231,7 @@ impl<C: FluentCatalog> ScopeRegistration<C> {
 	/// Register one scope's assembly, resources and deferred text bindings.
 	pub fn new<S: FluentScope<Catalog = C>>() -> Self {
 		Self {
+			publish_locale: crate::state::LocaleSnapshots::<S>::publish,
 			id: TypeId::of::<S>(),
 			parent: None,
 			progress: crate::progress::Subscription::new::<S>,

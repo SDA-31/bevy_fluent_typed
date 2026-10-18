@@ -14,6 +14,9 @@ use crate::{FluentScope, LocalizationTarget, LocalizationUpdate, Localized};
 pub(super) struct Deferred<S: FluentScope> {
 	pub(super) entity: crate::bevy::prelude::Entity,
 	pub(super) message: MsgIdentity<S>,
+	pub(super) locale: Option<<S::Catalog as crate::FluentCatalog>::Locale>,
+	pub(super) snapshot: Option<u64>,
+	pub(super) catalog: Option<S>,
 	/// A prepared value, or None while formatting remains lazy.
 	pub(super) text: Option<String>,
 	pub(super) changed: bool,
@@ -26,7 +29,6 @@ pub(super) struct Deferred<S: FluentScope> {
 pub(super) fn queue<S: FluentScope, T: LocalizationTarget>(
 	commands: &mut Commands,
 	mut batch: Vec<Deferred<S>>,
-	catalog: Option<S>,
 ) {
 	if batch.is_empty() {
 		return;
@@ -36,7 +38,7 @@ pub(super) fn queue<S: FluentScope, T: LocalizationTarget>(
 		let mut query = world.query_filtered::<T::Data, T::Filter>();
 
 		for item in &mut batch {
-			apply_one::<S, T>(world, &mut query, item, &catalog);
+			apply_one::<S, T>(world, &mut query, item);
 		}
 
 		// Earlier rows can be changed by hooks belonging to later rows. Confirm
@@ -56,11 +58,18 @@ fn apply_one<S: FluentScope, T: LocalizationTarget>(
 	world: &mut World,
 	query: &mut QueryState<T::Data, T::Filter>,
 	item: &mut Deferred<S>,
-	catalog: &Option<S>,
 ) {
 	let this_run = world.change_tick().get();
 
 	if query.get(world, item.entity).is_err() {
+		return;
+	}
+
+	let Some(binding) = world.get::<Localized<T, S>>(item.entity) else {
+		return;
+	};
+
+	if !current::<S, T>(world, binding, item) {
 		return;
 	}
 
@@ -71,14 +80,10 @@ fn apply_one<S: FluentScope, T: LocalizationTarget>(
 		return;
 	};
 
-	if !item.message.matches(&binding.message) {
-		return;
-	}
-
 	let message = binding.message.clone();
 	let observed = entity.get::<State<S, T>>().and_then(State::observed);
 	let render = || {
-		catalog
+		item.catalog
 			.as_ref()
 			.map_or_else(String::new, |scope| message.render(scope))
 	};
@@ -104,7 +109,7 @@ fn confirm_one<S: FluentScope, T: LocalizationTarget>(
 		return;
 	};
 
-	if !item.message.matches(&binding.message) {
+	if !current::<S, T>(world, binding, &item) {
 		return;
 	}
 
@@ -130,4 +135,31 @@ fn confirm_one<S: FluentScope, T: LocalizationTarget>(
 	if confirmed {
 		state.confirm(observed);
 	}
+}
+
+fn current<S: FluentScope, T: LocalizationTarget>(
+	world: &World,
+	binding: &Localized<T, S>,
+	item: &Deferred<S>,
+) -> bool {
+	if !item.message.matches(&binding.message) || item.locale != binding.locale {
+		return false;
+	}
+
+	let stamp = match binding.locale {
+		None => world.get_resource_ref::<S>().map(|resource| {
+			use crate::bevy::prelude::DetectChanges;
+			u64::from(resource.last_changed().get())
+		}),
+		Some(locale) => world
+			.get_resource::<crate::state::LocaleSnapshots<S>>()
+			.and_then(|table| {
+				table
+					.ready
+					.iter()
+					.find(|snapshot| snapshot.locale == locale)
+			})
+			.map(|snapshot| snapshot.stamp),
+	};
+	stamp == item.snapshot
 }

@@ -14,6 +14,7 @@ use std::{
 /// Release and Drop are idempotent; a shared dirty flag invalidates provider unions.
 pub(crate) struct Consumer {
 	root: TypeId,
+	locale: Option<usize>,
 	paths: &'static [&'static str],
 	active: AtomicBool,
 	dirty: Arc<AtomicBool>,
@@ -39,7 +40,8 @@ impl Drop for Consumer {
 #[derive(Resource, Default)]
 struct Demands {
 	consumers: Vec<Weak<Consumer>>,
-	paths: HashMap<TypeId, Arc<BTreeSet<&'static str>>>,
+	paths: HashMap<(TypeId, Option<usize>), Arc<BTreeSet<&'static str>>>,
+	bindings: HashMap<(TypeId, Option<usize>), Weak<Consumer>>,
 	dirty: Arc<AtomicBool>,
 	revision: u64,
 }
@@ -50,7 +52,7 @@ impl Demands {
 			return;
 		}
 
-		let mut paths: HashMap<TypeId, BTreeSet<&'static str>> = HashMap::new();
+		let mut paths: HashMap<(TypeId, Option<usize>), BTreeSet<&'static str>> = HashMap::new();
 		self.consumers.retain(|owner| {
 			let Some(owner) = owner.upgrade() else {
 				return false;
@@ -61,7 +63,7 @@ impl Demands {
 			}
 
 			paths
-				.entry(owner.root)
+				.entry((owner.root, owner.locale))
 				.or_default()
 				.extend(owner.paths.iter().copied());
 			true
@@ -79,6 +81,7 @@ pub(crate) fn acquire<S: FluentScope>(world: &mut World) -> Arc<Consumer> {
 	let mut demands = world.resource_mut::<Demands>();
 	let consumer = Arc::new(Consumer {
 		root: TypeId::of::<S::Catalog>(),
+		locale: None,
 		paths: S::module_paths(),
 		active: AtomicBool::new(true),
 		dirty: demands.dirty.clone(),
@@ -88,12 +91,50 @@ pub(crate) fn acquire<S: FluentScope>(world: &mut World) -> Arc<Consumer> {
 	consumer
 }
 
+pub(crate) fn acquire_binding<S: FluentScope>(
+	world: &mut World,
+	locale: Option<<S::Catalog as FluentCatalog>::Locale>,
+) -> Arc<Consumer> {
+	let locale = locale.map(|selected| {
+		<S::Catalog as FluentCatalog>::locales()
+			.iter()
+			.position(|locale| *locale == selected)
+			.expect("compiled locale")
+	});
+	let key = (TypeId::of::<S>(), locale);
+	world.init_resource::<Demands>();
+
+	if let Some(consumer) = world
+		.resource::<Demands>()
+		.bindings
+		.get(&key)
+		.and_then(Weak::upgrade)
+	{
+		return consumer;
+	}
+
+	let mut demands = world.resource_mut::<Demands>();
+	let consumer = Arc::new(Consumer {
+		root: TypeId::of::<S::Catalog>(),
+		locale,
+		paths: S::module_paths(),
+		active: AtomicBool::new(true),
+		dirty: demands.dirty.clone(),
+	});
+	demands.consumers.push(Arc::downgrade(&consumer));
+	demands.bindings.insert(key, Arc::downgrade(&consumer));
+	demands.dirty.store(true, Ordering::Release);
+	consumer
+}
+
 pub(crate) fn synchronize<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
 	world.flush();
 
-	if !M::AUTOMATIC {
+	if !M::AUTOMATIC && !M::FULL {
 		return;
 	}
+
+	crate::bindings::synchronize_consumers::<C>(world);
 
 	let Some(mut demands) = world.get_resource_mut::<Demands>() else {
 		return;
@@ -109,10 +150,22 @@ pub(crate) fn synchronize<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
 	let paths = world
 		.resource::<Demands>()
 		.paths
-		.get(&TypeId::of::<C>())
+		.get(&(TypeId::of::<C>(), None))
 		.cloned()
 		.unwrap_or_default();
-	world
-		.resource_mut::<Localization<C, M>>()
-		.set_automatic(paths, revision);
+	let fixed = C::locales()
+		.iter()
+		.enumerate()
+		.map(|(index, _)| {
+			world
+				.resource::<Demands>()
+				.paths
+				.get(&(TypeId::of::<C>(), Some(index)))
+				.cloned()
+				.unwrap_or_default()
+		})
+		.collect::<Vec<_>>();
+	let mut localization = world.resource_mut::<Localization<C, M>>();
+	localization.set_automatic(paths, revision);
+	localization.set_fixed_automatic(fixed);
 }

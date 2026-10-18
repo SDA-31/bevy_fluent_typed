@@ -193,10 +193,10 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	/// Drops target snapshots and tasks/handles and cancels queued publication.
 	/// External acquisition may continue, but its completion cannot publish a target.
 	pub fn cancel_preparation(&mut self) {
-		if let Some(mut target) = self.preparation.take() {
-			if target.locale() != self.locale() {
-				self.retain_locale(crate::state::locales::LocaleData::take(&mut target));
-			}
+		if let Some(mut target) = self.preparation.take()
+			&& target.locale() != self.locale()
+		{
+			self.retain_locale(crate::state::LocaleData::take(&mut target));
 		}
 		self.commit_requested = false;
 		self.switch_when_ready = false;
@@ -280,7 +280,7 @@ pub(crate) fn commit<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
 		#[cfg(feature = "manifest")]
 		activate_file_handles(world, &mut preparation);
 
-		let previous = crate::state::locales::LocaleData::take(&mut localization);
+		let previous = crate::state::LocaleData::take(&mut localization);
 		localization.retain_locale(previous);
 		localization.store = preparation.store;
 		localization.entries = preparation.entries;

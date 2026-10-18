@@ -804,3 +804,6 @@ fn group_and_leaf_leases_share_io_and_discard_released_pending_siblings() {
 	app.update();
 	assert!(!app.world().contains_resource::<Hud>());
 }
+
+#[path = "tree/multilocale.rs"]
+mod multilocale;

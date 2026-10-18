@@ -1,4 +1,7 @@
-use super::{engine, state::State};
+use super::{
+	engine,
+	state::{Ownership, State},
+};
 use crate::bevy::prelude::{Entity, World};
 use crate::bindings::Binding;
 use crate::{FluentScope, LocalizationTarget, Localized, TargetUpdatePhase};
@@ -6,6 +9,25 @@ use std::any::type_name;
 
 impl<T: LocalizationTarget, S: FluentScope> Binding for Localized<T, S> {
 	type Scope = S;
+
+	const SHARED_DEMAND: bool = false;
+
+	fn synchronize_consumers(world: &mut World) {
+		let changes = world
+			.run_system_cached(changed_selections::<S, T>)
+			.expect("valid binding ownership query");
+
+		for (entity, locale) in changes {
+			let consumer = crate::demand::acquire_binding::<S>(world, locale);
+
+			if let Some(mut state) = world.get_mut::<State<S, T>>(entity) {
+				state.consumer = Some(Ownership {
+					locale,
+					_token: consumer,
+				});
+			}
+		}
+	}
 
 	const PHASE: TargetUpdatePhase = T::PHASE;
 
@@ -43,6 +65,31 @@ impl<T: LocalizationTarget, S: FluentScope> Binding for Localized<T, S> {
 	}
 
 	fn unregister(world: &mut World) {
+		let _ = world.unregister_system_cached(changed_selections::<S, T>);
 		engine::unregister::<S, T>(world);
 	}
 }
+
+/// Changed bindings update demand once; unchanged frames allocate no owner list entries.
+fn changed_selections<S: FluentScope, T: LocalizationTarget>(
+	bindings: SelectionChanges<'_, '_, S, T>,
+) -> Vec<(Entity, Option<<S::Catalog as crate::FluentCatalog>::Locale>)> {
+	bindings
+		.iter()
+		.filter(|(_, binding, state)| {
+			state
+				.consumer
+				.as_ref()
+				.is_none_or(|consumer| consumer.locale != binding.locale)
+		})
+		.map(|(entity, binding, _)| (entity, binding.locale))
+		.collect()
+}
+
+/// Only changed binding metadata is inspected for demand ownership changes.
+type SelectionChanges<'w, 's, S, T> = crate::bevy::prelude::Query<
+	'w,
+	's,
+	(Entity, &'static Localized<T, S>, &'static State<S, T>),
+	crate::bevy::prelude::Changed<Localized<T, S>>,
+>;

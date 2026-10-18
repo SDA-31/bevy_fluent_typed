@@ -11,26 +11,69 @@ pub(crate) fn synchronize<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
 	}
 
 	world.resource_scope(|world, mut localization: Mut<Localization<C, M>>| {
-		if let Some(target) = localization.preparation.as_mut() {
-			if target.synchronized != target.store.revision {
-				assemble_store(&mut target.store);
-				target.synchronized = target.store.revision;
-			}
+		if let Some(target) = localization.preparation.as_mut()
+			&& target.synchronized != target.store.revision
+		{
+			assemble_store(&mut target.store);
+			target.synchronized = target.store.revision;
 		}
 
 		for slot in &mut localization.fixed {
-			if let Some(data) = &mut slot.data {
-				if data.synchronized != data.store.revision {
-					assemble_store(&mut data.store);
-					data.synchronized = data.store.revision;
-				}
+			let Some(data) = &mut slot.data else {
+				continue;
+			};
+
+			if data.synchronized == data.store.revision {
+				continue;
 			}
+
+			assemble_store(&mut data.store);
+			data.synchronized = data.store.revision;
 		}
 
 		let scopes = localization.store.scopes.clone();
 
 		for scope in scopes.iter().rev() {
 			synchronize_scope(world, &mut localization, scope);
+		}
+
+		let scopes = localization.store.scopes.clone();
+
+		for scope in scopes.iter() {
+			(scope.publish_locale)(
+				world,
+				localization.locale(),
+				localization
+					.store
+					.values
+					.get(&scope.id)
+					.map(|value| &value.value),
+			);
+
+			if let Some(target) = localization.preparation.as_ref().filter(|target| {
+				target.locale() != localization.locale()
+					&& localization
+						.fixed
+						.iter()
+						.any(|slot| slot.locale == target.locale() && !slot.fixed.is_empty())
+			}) {
+				(scope.publish_locale)(
+					world,
+					target.locale(),
+					target.store.values.get(&scope.id).map(|value| &value.value),
+				);
+			}
+
+			for slot in &localization.fixed {
+				let Some(data) = &slot.data else {
+					continue;
+				};
+				(scope.publish_locale)(
+					world,
+					slot.locale,
+					data.store.values.get(&scope.id).map(|value| &value.value),
+				);
+			}
 		}
 
 		localization.synchronized = localization.store.revision;

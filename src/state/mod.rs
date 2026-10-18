@@ -1,7 +1,8 @@
 mod access;
 mod acquisition;
 mod controller;
-pub(crate) mod locales;
+mod locales;
+mod snapshots;
 
 pub use access::{LocaleView, LocaleViewMut};
 pub use controller::Localization;
@@ -16,3 +17,6 @@ mod state_tests;
 #[cfg(test)]
 #[path = "tests/locales.rs"]
 mod locale_tests;
+
+pub(crate) use locales::LocaleData;
+pub(crate) use snapshots::{LocaleSnapshot, LocaleSnapshots};

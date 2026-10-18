@@ -137,6 +137,18 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			})
 	}
 
+	pub(crate) fn set_fixed_automatic(&mut self, paths: Vec<Arc<BTreeSet<&'static str>>>) {
+		for (slot, paths) in self.fixed.iter_mut().zip(paths) {
+			if slot.automatic == paths {
+				continue;
+			}
+
+			slot.automatic = paths;
+			slot.rebuild();
+			self.fixed_dirty = true;
+		}
+	}
+
 	pub(crate) fn locale_index(&self, locale: C::Locale) -> usize {
 		self.fixed
 			.iter()
