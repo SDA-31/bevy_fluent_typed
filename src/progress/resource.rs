@@ -17,8 +17,8 @@ use crate::{FluentCatalog, FluentScope, PreparationStatus};
 /// unique schema paths, including unrequested files, without starting I/O.
 /// Active root counters include fixed requests for the active language. Preparation
 /// root counters and readiness follow the consumers moving with the active locale;
-/// independent fixed requests do not delay that commit. Use a language view to
-/// inspect other languages. Readiness is independent of this view's counters.
+/// independent fixed requests do not delay that commit. Use `Localization::for_locale`
+/// to inspect other languages. Readiness is independent of this snapshot's counters.
 #[derive(Resource)]
 pub struct LocalizationProgress<S: FluentScope> {
 	pub(super) active: LoadingProgress<<S::Catalog as FluentCatalog>::Locale>,

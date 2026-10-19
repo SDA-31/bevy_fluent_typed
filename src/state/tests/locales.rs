@@ -66,7 +66,7 @@ fn fixed_load_is_readable_through_msg_without_native_resource_publication() {
 		.load::<TestCatalog>();
 	ready(&mut app, "es");
 	let state = app.world().resource::<Localization<TestCatalog, Manual>>();
-	// Borrow survives dropping the temporary language view.
+	// Borrow survives dropping the temporary locale access.
 	let catalog = state
 		.for_locale("es")
 		.modules()

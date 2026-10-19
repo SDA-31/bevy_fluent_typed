@@ -4,7 +4,7 @@ mod controller;
 mod locales;
 mod snapshots;
 
-pub use access::{LocaleView, LocaleViewMut};
+pub use access::{LocaleAccess, LocaleAccessMut};
 pub use controller::Localization;
 
 pub(crate) use acquisition::Acquisition;

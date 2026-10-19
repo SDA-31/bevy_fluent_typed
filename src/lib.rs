@@ -162,7 +162,7 @@ pub use scheduling::{LocalizationStartupPlugin, StartupStrategy};
 #[cfg(feature = "runtime")]
 pub use scope::{ModuleStore, ScopeRegistration};
 #[cfg(feature = "runtime")]
-pub use state::{LocaleView, LocaleViewMut, Localization};
+pub use state::{LocaleAccess, LocaleAccessMut, Localization};
 #[cfg(feature = "runtime")]
 pub use status::{ModuleError, ModuleStatus};
 #[cfg(feature = "runtime")]

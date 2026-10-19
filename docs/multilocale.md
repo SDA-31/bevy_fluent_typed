@@ -75,16 +75,17 @@ let dialog = localization.for_locale(Locale::Ru).modules().dialog()?;
 let text = message.render(dialog);
 ```
 
-Reading never loads modules. Missing data uses the existing `ModuleError`, with
-its language, module path and latest attempt status. `status` and `progress` on
-the read-only language view inspect readiness. A root is complete only when all
-its modules are ready; prefer the smallest scope needed by the screen.
+`for_locale` returns a read-only `LocaleAccess`. Reading never loads modules.
+Missing data uses the existing `ModuleError`, with its language, module path
+and latest attempt status. `status` and `progress` inspect readiness. A root is
+complete only when all its modules are ready; prefer the smallest scope needed
+by the screen.
 
-Explicit fixed-language requests work with every loading mode. `load` is an
-idempotent fixed-language pin, released by the corresponding
-`unload`. For independent ownership, use the language view's `hold` and retain
-its `ModuleLease` until the screen closes. Dropping the view does not release a
-pin or a lease. Existing `Localization::load/hold` continue following the active
+`for_locale_mut` returns `LocaleAccessMut` for explicit fixed-language requests,
+available with every loading mode. `load` is an idempotent fixed-language pin,
+released by the corresponding `unload`. For independent ownership, use `hold`
+and retain its `ModuleLease` until the screen closes. Dropping the access does
+not release a pin or a lease. Existing `Localization::load/hold` continue following the active
 language. Overlapping requests share acquisition while retaining independent
 ownership.
 

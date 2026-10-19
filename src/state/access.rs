@@ -5,12 +5,12 @@ use crate::{
 };
 
 /// Borrowed access to one compiled language; inspection never starts loading.
-pub struct LocaleView<'a, C: FluentCatalog> {
+pub struct LocaleAccess<'a, C: FluentCatalog> {
 	store: &'a ModuleStore<C>,
 }
 
-impl<'a, C: FluentCatalog> LocaleView<'a, C> {
-	/// Language selected by this view, independent of the game's active language.
+impl<'a, C: FluentCatalog> LocaleAccess<'a, C> {
+	/// Selected language, independent of the game's active language.
 	pub fn locale(&self) -> C::Locale {
 		self.store.locale()
 	}
@@ -36,9 +36,9 @@ impl<'a, C: FluentCatalog> LocaleView<'a, C> {
 	}
 }
 
-/// Borrowed fixed-language request interface; dropping the view does not remove pins.
+/// Borrowed access to fixed-language requests; dropping it does not remove pins.
 /// Use `Localization::for_locale` for read-only navigation and status inspection.
-pub struct LocaleViewMut<'a, C: FluentCatalog, M: LoadingMode = Lazy> {
+pub struct LocaleAccessMut<'a, C: FluentCatalog, M: LoadingMode = Lazy> {
 	owner: &'a mut Localization<C, M>,
 	index: usize,
 }
@@ -48,12 +48,12 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	///
 	/// # Panics
 	/// Panics if the locale is not declared by the provider.
-	pub fn for_locale(&self, locale: C::Locale) -> LocaleView<'_, C> {
+	pub fn for_locale(&self, locale: C::Locale) -> LocaleAccess<'_, C> {
 		assert!(
 			C::locales().contains(&locale),
 			"locale must belong to the provider"
 		);
-		LocaleView {
+		LocaleAccess {
 			store: self.locale_store(locale),
 		}
 	}
@@ -62,13 +62,13 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	///
 	/// # Panics
 	/// Panics if the locale is not declared by the provider.
-	pub fn for_locale_mut(&mut self, locale: C::Locale) -> LocaleViewMut<'_, C, M> {
+	pub fn for_locale_mut(&mut self, locale: C::Locale) -> LocaleAccessMut<'_, C, M> {
 		let index = self.locale_index(locale);
-		LocaleViewMut { owner: self, index }
+		LocaleAccessMut { owner: self, index }
 	}
 }
 
-impl<C: FluentCatalog, M: LoadingMode> LocaleViewMut<'_, C, M> {
+impl<C: FluentCatalog, M: LoadingMode> LocaleAccessMut<'_, C, M> {
 	/// Retain this scope in the selected language until its fixed pin is removed.
 	/// Repeated calls are idempotent and retry failed requests. Full continues
 	/// retaining its active root independently of these fixed requests.
