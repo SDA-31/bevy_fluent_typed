@@ -83,9 +83,10 @@ fn spawn_notice(mut commands: Commands) {
 The scope is inferred from `Msg<Interface>`; BSN still needs explicit target
 and scope parameters: `::<Text, _>`.
 
-Keep `Msg` as the reusable definition and clone it when several entities need
-the same message. Construct each `Localized` where it is attached. For a binding
-prepared before the macro, use `Localized::<Text, Interface>::from(binding)`.
+When several entities need the same message, keeping a separate `Msg` and
+cloning it can be convenient. You can construct each `Localized` where it is
+attached. For a binding prepared before the macro, use
+`Localized::<Text, Interface>::from(binding)`.
 Bevy 0.20 also accepts a component variable directly, such as `Text binding`;
 on 0.19 use the typed constructor above. Message clones share their formatter
 and owned arguments through `Arc`.

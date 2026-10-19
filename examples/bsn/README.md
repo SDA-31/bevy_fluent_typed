@@ -42,9 +42,10 @@ Creating a scene or cloning an unattached binding is passive. Inserting its
 `Localized<Text, Interface>` requests and retains the scope in default Lazy.
 Removing the last binding releases that demand unless another consumer, manual
 pin or lease remains.
-Explicit Manual still requires manual requests. Retain and clone `Msg` to reuse
-its formatter and arguments; construct each `Localized` where it is attached.
-Each inserted label follows the current translations independently.
+Explicit Manual still requires manual requests. If you want to reuse a formatter
+and its arguments, keeping a separate `Msg` and cloning it can be convenient;
+you can construct each `Localized` where it is attached. Each inserted label
+follows the current translations independently.
 
 ## Verification
 

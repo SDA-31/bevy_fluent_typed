@@ -21,10 +21,10 @@ let fixed = commands
     .id();
 ```
 
-Keep `Msg` as the reusable message definition; `Localized` is the final binding
-attached to a target. `with_locale` preserves automatic message and catalog
-updates. To change the selected language, replace the binding from the retained
-message. Omitting the modifier makes the new binding follow the provider again:
+`with_locale` preserves automatic message and catalog updates. If you expect to
+reuse a message or change a label's selected language later, consider keeping
+a separate `Msg`. You can then create replacement bindings from it. For example,
+omitting the modifier makes the new binding follow the provider again:
 
 ```rust,ignore
 commands.entity(fixed).insert(Localized::<Text, _>::from(message));
@@ -61,8 +61,8 @@ fixed/following labels, cloned binding conversion, replacement from a retained
 message, reload/release and different languages for Text, Text2d, TextSpan and
 AccessibleLabel.
 
-For application-owned strings, retain your own `Msg<Dialog>` and request its
-scope in a fixed language:
+For application-owned strings, you can render a `Msg<Dialog>` against a
+fixed-language scope. First request the scope:
 
 ```rust,ignore
 localization.for_locale_mut(Locale::Ru).load::<Dialog>();

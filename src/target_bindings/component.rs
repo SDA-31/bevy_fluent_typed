@@ -217,11 +217,11 @@ pub type TargetReadItem<'w, 's, T> = crate::bevy::ecs::query::QueryItem<
 /// By default, formatting runs when the catalog, message or eligibility changes.
 /// The provider's [`crate::CachePolicy`] can disable output retention; native
 /// target repair then formats again, and custom adapters request text lazily.
-/// Keep [`Msg`] as the reusable message definition and construct this binding
-/// where it is attached. It follows the provider's active language by default;
-/// [`Self::with_locale`] selects a fixed language. Replace the binding when its
-/// selection or captured arguments change; reuse the retained message when only
-/// the language selection changes.
+/// It follows the provider's active language by default; [`Self::with_locale`]
+/// selects a fixed language. For message reuse or later binding replacements,
+/// consider keeping a separate [`Msg`] and constructing bindings where they are
+/// attached. A retained message can be reused when only the selected language
+/// changes; new captured arguments require a new message.
 /// Each target should have exactly one localization writer.
 /// Built-in text targets update their selected component only. Custom adapters
 /// can synchronize neighbors declared in Data. AccessibleLabel uses Bevy hooks;
