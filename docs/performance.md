@@ -45,39 +45,64 @@ filter reentry, bypass-change-detection and accessibility limits.
 Parallel query execution requires Bevy's native `multi_threaded` feature.
 A multi-worker compute pool alone does not enable parallel ECS queries.
 
-## Measured tradeoffs against runtime 0.3.1
+## Measured refresh costs
 
-These results compare published runtime 0.3.1 (`d08269d`) with implementation
-snapshot `8a14049`, using the same benchmark scenarios.
+These measurements use implementation snapshot
+[`490eb5b`](https://github.com/SDA-31/bevy_fluent_typed/commit/490eb5bb1a457ee947abeb40c7e187a63caf1e05),
+measured on October 19, 2026: Ryzen 5 4600H, Rust 1.99.0, exact Bevy 0.20.0,
+release opt-level 3 and a six-worker compute pool with native multithreading.
+Bindings share one catalog scope. The fixture uses a six-variant enum locale,
+matching generated applications, and supplies already-ready catalogs directly.
 
-The October 17, 2026 scale series used a Ryzen 5 4600H, Rust 1.99, Bevy 0.20,
-release opt-level 3, Rendered caching and a pool of six workers. Three independent
-processes per variant recorded 32 individual synchronous PostUpdate refreshes
-each, after warmup. Variants were interleaved; no outliers were discarded.
-Spawn, input preparation, renderer, layout, loading and validation were outside
-the refresh timer. CPU was recorded in a separate series and sums all threads.
+| Text bindings | Scenario | Cache policy | Median elapsed time, ms | 95th-percentile elapsed time, ms | Mean aggregate CPU time, ms |
+| ---: | --- | --- | ---: | ---: | ---: |
+| 1,024 | Fluent formatting | Rendered | 0.373 | 0.390 | 0.385 |
+| 100,000 | Unchanged targets | Rendered | 1.049 | 1.170 | 1.062 |
+| 100,000 | String-clone formatter | Rendered | 2.948 | 5.035 | 14.508 |
+| 100,000 | Fluent formatting | Rendered | 13.689 | 16.479 | 75.823 |
+| 100,000 | Reattach the same Msg | Rendered | 1.094 | 1.227 | 1.097 |
+| 100,000 | Replace one Msg | Rendered | 1.052 | 1.245 | 1.077 |
+| 100,000 | Forced long-string growth | Rendered | 57.345 | 61.704 | 264.949 |
+| 100,000 | Repair ordinary text edits | Rendered | 42.429 | 52.877 | 173.348 |
+| 1,048,576 | Unchanged targets | Rendered | 11.450 | 12.095 | 11.193 |
+| 1,048,576 | String-clone formatter | Rendered | 29.333 | 30.595 | 149.428 |
+| 1,048,576 | Fluent formatting | Rendered | 123.241 | 147.506 | 621.995 |
+| 100,000 | Unchanged targets | None | 1.040 | 1.200 | 1.065 |
+| 100,000 | Fluent formatting | None | 11.194 | 11.769 | 51.576 |
+| 100,000 | Forced long-string growth | None | 32.994 | 38.781 | 155.200 |
+| 100,000 | Repair ordinary text edits | None | 61.561 | 66.700 | 246.293 |
+| 100,000 | Unchanged targets across six fixed locale slots | Rendered | 1.093 | 1.217 | 1.121 |
+| 100,000 | Fluent formatting across six fixed locale slots | Rendered | 11.470 | 12.465 | 59.548 |
 
-| Scenario | Stable median elapsed time, ms | Snapshot median elapsed time, ms | Stable / snapshot mean CPU time, ms |
-| --- | ---: | ---: | ---: |
-| Refresh 100,000 texts through Fluent | 30.882 | 13.214 | 31.380 / 66.387 |
-| Refresh 1,048,576 texts through Fluent | 329.135 | 111.877 | 329.173 / 535.195 |
-| 100,000 unchanged texts | 0.309 | 0.644 | 0.346 / 0.700 |
-| Refresh 100,000 texts with a String-clone formatter | 2.047 | 2.709 | 2.122 / 12.833 |
+For ten unchanged bindings, a separate block control measured 1.67 µs
+elapsed and 1.67 µs aggregate CPU per refresh. This is the median of
+five process means, each from fifteen blocks of 2,048 refreshes; batching
+amortizes CPU-clock overhead for this small workload.
 
-Elapsed time measures a refresh from start to completion, including waiting for
-worker tasks. For each process, we take the median of its 32 elapsed-time
-measurements; the table reports the median of those three process medians.
-For CPU time, we take the mean within each process, then the median of those
-three means. CPU time sums work across all threads and is not added to elapsed
-time.
+Elapsed time measures each synchronous `PostUpdate` refresh from start to
+completion, including waiting for worker tasks. The table takes the median
+of three process medians; the percentile column likewise reports the median
+of three within-process percentiles. Each process records at least 64 refreshes
+for the main workloads and 32 at one million targets. Fast workloads continue
+toward a 150 ms observation window, with a 4,096-sample cap that can end it
+earlier. Warmup is excluded; measured outliers are retained. These
+are descriptive samples, not confidence intervals or worst-case bounds.
 
-Lower latency can consume more aggregate CPU, and cheap or unchanged work can
-cost more than 0.3.1. Scheduling also depends on placement: a separate
-256-refresh-per-process stress test with expensive callbacks clustered in the
-last 5% of 100,000 entities measured 22.518 ms stable versus 45.126 ms with native
-batching. These finite workloads establish neither a universal speedup nor a
-worst-case bound for arbitrary callbacks.
+CPU is recorded in a separate trial. It sums all process threads during the
+refresh interval, including the caller and workers. Each process contributes
+its mean, and the table reports the median of those three means. CPU time is
+not added to elapsed time; lower latency can require more aggregate CPU.
 
-Actual frame impact also includes text layout and other systems competing for
-the same workers. Profile a representative application, including locale
-switches and ordinary UI changes, before choosing a cache policy or tuning work.
+Spawn, input preparation, catalog loading/demand coordination, layout,
+renderer and validation are outside the refresh timer. This is an isolated
+binding-update benchmark, not a complete `App::update` or frame measurement.
+The growth case deliberately clears and shrinks target buffers before each
+refresh, forcing long outputs to allocate again; it is a stress workload.
+The six-locale case republishes six ready snapshots with identical Fluent
+payloads and distributes bindings across them; it measures selection and
+refresh, not translation loading.
+
+Actual frame impact also includes text layout and other systems competing
+for the same workers. Profile a representative application, including
+locale switches and ordinary UI changes, before tuning work or choosing
+a cache policy. Callback placement and cost can change scheduling behavior.

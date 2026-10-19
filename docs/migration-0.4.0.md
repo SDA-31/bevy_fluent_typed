@@ -139,7 +139,7 @@ an ordinary component does not establish automatic ownership.
 
 ## Bind custom components through the same contract
 
-Implement `LocalizationTarget` directly on a component with `Default`:
+Implement `LocalizationTarget` directly on the application component:
 
 ```rust,ignore
 use bevy::prelude::{Component, EntityWorldMut};

@@ -29,9 +29,15 @@ Release preparation; this version has not been published. See the
   not independently repair or recreate `AccessibilityNode`.
 - Provider-wide `CachePolicy::Rendered` (default) and `CachePolicy::None`.
   The latter retains tracking metadata without retaining formatted output.
+- Several simultaneous languages through one provider. `Localized::with_locale`
+  fixes a binding's language while ordinary bindings follow the active language.
+  `Localization::for_locale` returns `LocaleAccess` for ready typed scopes;
+  `for_locale_mut` provides explicit `load`/`unload`/`hold` requests. Explicit
+  `modules()` navigation remains available alongside direct navigation through
+  `Deref`. See [rendering several languages](docs/multilocale.md).
 - Focused custom component examples and native BSN button-caption recipes.
 - A [performance reference](docs/performance.md) describing skipped work,
-  provider cache tradeoffs and benchmark results against runtime 0.3.1.
+  provider cache tradeoffs and measured refresh latency and aggregate CPU costs.
 - Tracked standalone lockfiles for the runtime, examples and
   compatibility tool, with locked CI graphs.
 
