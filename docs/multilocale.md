@@ -75,6 +75,19 @@ let dialog = localization.for_locale(Locale::Ru).modules().dialog()?;
 let text = message.render(dialog);
 ```
 
+`modules()` is the usual typed navigation path. `LocaleAccess` also implements
+`Deref` to the provider's navigation type, allowing a shorter generated path:
+
+```rust,ignore
+let dialog = localization.for_locale(Locale::Ru).dialog()?;
+```
+
+Both paths borrow the same ready scope and report the same readiness errors.
+Neither starts loading or retains modules. Use the explicit `modules()` path
+when a module name matches a `LocaleAccess` method, such as `catalog` or `status`.
+Handwritten providers keep their own navigation types; direct calls follow those
+types' normal borrowed-method rules, without new `Copy` or `Clone` requirements.
+
 `for_locale` returns a read-only `LocaleAccess`. Reading never loads modules.
 Missing data uses the existing `ModuleError`, with its language, module path
 and latest attempt status. `status` and `progress` inspect readiness. A root is
@@ -104,7 +117,7 @@ output; it does not disable retention of requested parsed catalogs.
 
 Native root progress counts demand for the active language, including its fixed
 consumers. Preparation progress follows the consumers moving with the game
-language. Inspect another language through its view's per-scope `progress`.
+language. Inspect another language with `for_locale(locale).progress::<Scope>()`.
 
 Replace a binding normally when selecting another language. A write through
 `bypass_change_detection` does not update its automatic language demand.

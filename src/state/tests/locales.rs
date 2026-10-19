@@ -32,12 +32,7 @@ fn ready(app: &mut App, locale: &'static str) {
 fn inspecting_an_unloaded_locale_does_not_request_it() {
 	let (mut app, reads) = app();
 	let state = app.world().resource::<Localization<TestCatalog, Manual>>();
-	let error = state
-		.for_locale("es")
-		.modules()
-		.get::<TestCatalog>()
-		.err()
-		.unwrap();
+	let error = state.for_locale("es").get::<TestCatalog>().err().unwrap();
 	assert_eq!(error.locale, "es");
 	assert_eq!(error.path, "ui.ftl");
 	assert_eq!(error.status, ModuleStatus::Unloaded);
@@ -72,6 +67,9 @@ fn fixed_load_is_readable_through_msg_without_native_resource_publication() {
 		.modules()
 		.get::<TestCatalog>()
 		.unwrap();
+	let direct = state.for_locale("es").get::<TestCatalog>().unwrap();
+	assert!(std::ptr::eq(catalog, direct));
+
 	let message = Msg::<TestCatalog>::new(|scope| scope.0.clone());
 	assert_eq!(message.render(catalog), "es");
 	assert!(!app.world().contains_resource::<TestCatalog>());

@@ -3,10 +3,15 @@ use crate::{
 	FluentCatalog, FluentScope, Lazy, LoadingMode, Localization, ModuleLease, ModuleStatus,
 	ModuleStore,
 };
+use std::ops::Deref;
 
 /// Borrowed access to one compiled language; inspection never starts loading.
+/// Use [`Self::modules`] for explicit navigation, or access navigation methods
+/// directly through [`Deref`]. The explicit path also avoids method-name conflicts.
 pub struct LocaleAccess<'a, C: FluentCatalog> {
 	store: &'a ModuleStore<C>,
+	/// Keep the provider's navigation value so `Deref` can borrow it directly.
+	navigation: C::Modules<'a>,
 }
 
 impl<'a, C: FluentCatalog> LocaleAccess<'a, C> {
@@ -36,6 +41,14 @@ impl<'a, C: FluentCatalog> LocaleAccess<'a, C> {
 	}
 }
 
+impl<'a, C: FluentCatalog> Deref for LocaleAccess<'a, C> {
+	type Target = C::Modules<'a>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.navigation
+	}
+}
+
 /// Borrowed access to fixed-language requests; dropping it does not remove pins.
 /// Use `Localization::for_locale` for read-only navigation and status inspection.
 pub struct LocaleAccessMut<'a, C: FluentCatalog, M: LoadingMode = Lazy> {
@@ -53,8 +66,11 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			C::locales().contains(&locale),
 			"locale must belong to the provider"
 		);
+		let store = self.locale_store(locale);
+
 		LocaleAccess {
-			store: self.locale_store(locale),
+			store,
+			navigation: C::view(store),
 		}
 	}
 

@@ -17,7 +17,6 @@ fn fixed_ready(world: &World) -> bool {
 	world
 		.resource::<Localization<texts::Translations>>()
 		.for_locale(texts::Locale::Es)
-		.modules()
 		.presentation()
 		.hud()
 		.is_ok()
@@ -43,7 +42,13 @@ fn fixed_bsn_language_and_generated_navigation_share_the_provider() {
 		.presentation()
 		.hud()
 		.unwrap();
+	let direct = localization
+		.for_locale(texts::Locale::Es)
+		.presentation()
+		.hud()
+		.unwrap();
 
+	assert!(std::ptr::eq(hud, direct));
 	assert!(manual.render(hud).starts_with("Hola"));
 	assert_eq!(localization.locale(), texts::Locale::En);
 	assert!(!app.world().contains_resource::<Interface>());
