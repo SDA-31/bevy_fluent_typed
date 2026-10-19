@@ -1,8 +1,5 @@
 # Render several languages
 
-This page describes the experimental API in this checkout. Its names and details
-may change before integration; it is not part of a published release.
-
 Use this API to show language names in their own languages, or keep an original
 subtitle beside one following the game's language. Each root provider continues
 owning one source and one cache policy. Additional languages do not require
