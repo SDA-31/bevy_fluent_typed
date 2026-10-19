@@ -42,8 +42,10 @@ Creating a scene or cloning an unattached binding is passive. Inserting its
 `Localized<Text, Interface>` requests and retains the scope in default Lazy.
 Removing the last binding releases that demand unless another consumer, manual
 pin or lease remains.
-Explicit Manual still requires manual requests. Clones share the formatter and
-arguments; each inserted label follows the current translations independently.
+Explicit Manual still requires manual requests. If you want to reuse a formatter
+and its arguments, keeping a separate `Msg` and cloning it can be convenient;
+you can construct each `Localized` where it is attached. Each inserted label
+follows the current translations independently.
 
 ## Verification
 
@@ -52,6 +54,14 @@ all three locales, unload/reload, invalid translation rejection and recovery,
 independent scene-instance arguments, inline message input and rejection of
 scenes that omit their formatter. The runnable application reads files;
 it does not keep a test byte map in memory.
+
+[Locale tests](src/tests/locales.rs) verify fixed languages beside following
+labels, cloned binding conversion, replacement from a retained message,
+switching, reload and release, including
+Text2d, TextSpan and independent AccessibleLabel selection. The native syntax
+helpers cover a prepared binding through `Localized::from` on Bevy 0.19 and
+inline `with_locale` chains on 0.20. See the
+[several-language guide](../../docs/multilocale.md) for both forms.
 
 [The process test](tests/output.rs) checks the rendered output and bounds the
 headless runner with a test-only timeout.

@@ -88,7 +88,7 @@ impl<C: FluentScope> fmt::Debug for Msg<C> {
 #[cfg_attr(feature = "bevy-0-16", derive(crate::bevy::prelude::Event))]
 #[cfg_attr(not(feature = "bevy-0-16"), derive(crate::bevy::prelude::Message))]
 pub enum CatalogUpdate<C: FluentCatalog> {
-	/// One requested module of the selected locale passed loading and validation.
+	/// One requested module of the reported locale passed loading and validation.
 	/// Every successful reload publishes a fresh candidate; idle frames keep identity.
 	Loaded {
 		/// Language whose candidate was accepted, including unchanged loads.

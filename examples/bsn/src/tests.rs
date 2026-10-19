@@ -14,6 +14,7 @@ use texts::presentation::Hud as Interface;
 mod native;
 
 mod buttons;
+mod locales;
 
 type Source = Arc<Mutex<HashMap<String, Vec<u8>>>>;
 

@@ -1,0 +1,104 @@
+//! Explicit locale selection that preserves existing module navigation and requests.
+use crate::{
+	FluentCatalog, FluentScope, Lazy, LoadingMode, Localization, ModuleLease, ModuleStatus,
+	ModuleStore,
+};
+use std::ops::Deref;
+
+/// Borrowed access to one compiled language; inspection never starts loading.
+/// Use [`Self::modules`] for explicit navigation, or access navigation methods
+/// directly through [`Deref`]. The explicit path also avoids method-name conflicts.
+pub struct LocaleAccess<'a, C: FluentCatalog> {
+	store: &'a ModuleStore<C>,
+	/// Keep the provider's navigation value so `Deref` can borrow it directly.
+	navigation: C::Modules<'a>,
+}
+
+impl<'a, C: FluentCatalog> LocaleAccess<'a, C> {
+	/// Selected language, independent of the game's active language.
+	pub fn locale(&self) -> C::Locale {
+		self.store.locale()
+	}
+
+	/// Reuse typed navigation and existing module-readiness errors.
+	pub fn modules(&self) -> C::Modules<'a> {
+		C::view(self.store)
+	}
+
+	/// Borrow a complete root when every module of this language is ready.
+	pub fn catalog(&self) -> Option<&'a C> {
+		self.store.get::<C>().ok()
+	}
+
+	/// Inspect the latest attempts without retaining the scope.
+	pub fn status<S: FluentScope<Catalog = C>>(&self) -> ModuleStatus {
+		self.store.status::<S>()
+	}
+
+	/// Inspect the selected language's per-scope counts without loading it.
+	pub fn progress<S: FluentScope<Catalog = C>>(&self) -> crate::LoadingProgress<C::Locale> {
+		self.store.progress::<S>()
+	}
+}
+
+impl<'a, C: FluentCatalog> Deref for LocaleAccess<'a, C> {
+	type Target = C::Modules<'a>;
+
+	fn deref(&self) -> &Self::Target {
+		&self.navigation
+	}
+}
+
+/// Borrowed access to fixed-language requests; dropping it does not remove pins.
+/// Use `Localization::for_locale` for read-only navigation and status inspection.
+pub struct LocaleAccessMut<'a, C: FluentCatalog, M: LoadingMode = Lazy> {
+	owner: &'a mut Localization<C, M>,
+	index: usize,
+}
+
+impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
+	/// Inspect a compiled language without changing the active language or loading modules.
+	///
+	/// # Panics
+	/// Panics if the locale is not declared by the provider.
+	pub fn for_locale(&self, locale: C::Locale) -> LocaleAccess<'_, C> {
+		assert!(
+			C::locales().contains(&locale),
+			"locale must belong to the provider"
+		);
+		let store = self.locale_store(locale);
+
+		LocaleAccess {
+			store,
+			navigation: C::view(store),
+		}
+	}
+
+	/// Select a fixed language for explicit requests, without switching the game language.
+	///
+	/// # Panics
+	/// Panics if the locale is not declared by the provider.
+	pub fn for_locale_mut(&mut self, locale: C::Locale) -> LocaleAccessMut<'_, C, M> {
+		let index = self.locale_index(locale);
+		LocaleAccessMut { owner: self, index }
+	}
+}
+
+impl<C: FluentCatalog, M: LoadingMode> LocaleAccessMut<'_, C, M> {
+	/// Retain this scope in the selected language until its fixed pin is removed.
+	/// Repeated calls are idempotent and retry failed requests. Full continues
+	/// retaining its active root independently of these fixed requests.
+	pub fn load<S: FluentScope<Catalog = C>>(&mut self) {
+		self.owner.fixed_load::<S>(self.index);
+	}
+
+	/// Remove only this scope's fixed-language manual pin.
+	pub fn unload<S: FluentScope<Catalog = C>>(&mut self) {
+		self.owner.fixed_unload::<S>(self.index);
+	}
+
+	/// Retain an independent fixed-language request until its token drops.
+	pub fn hold<S: FluentScope<Catalog = C>>(&mut self) -> ModuleLease<S> {
+		self.owner.fixed_hold::<S>(self.index)
+	}
+}

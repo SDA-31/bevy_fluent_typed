@@ -217,9 +217,12 @@ pub type TargetReadItem<'w, 's, T> = crate::bevy::ecs::query::QueryItem<
 /// By default, formatting runs when the catalog, message or eligibility changes.
 /// The provider's [`crate::CachePolicy`] can disable output retention; native
 /// target repair then formats again, and custom adapters request text lazily.
-/// Replace the binding
-/// when captured arguments change. Each target should have exactly one
-/// localization writer.
+/// It follows the provider's active language by default; [`Self::with_locale`]
+/// selects a fixed language. For message reuse or later binding replacements,
+/// consider keeping a separate [`Msg`] and constructing bindings where they are
+/// attached. A retained message can be reused when only the selected language
+/// changes; new captured arguments require a new message.
+/// Each target should have exactly one localization writer.
 /// Built-in text targets update their selected component only. Custom adapters
 /// can synchronize neighbors declared in Data. AccessibleLabel uses Bevy hooks;
 /// the runtime does not independently manage its AccessibilityNode.
@@ -241,10 +244,21 @@ pub type TargetReadItem<'w, 's, T> = crate::bevy::ecs::query::QueryItem<
 /// bidi ordering and font coverage remain the renderer's responsibility.
 pub struct Localized<T: LocalizationTarget, S: FluentScope> {
 	pub(crate) message: Msg<S>,
+	pub(crate) locale: Option<<S::Catalog as crate::FluentCatalog>::Locale>,
 	marker: PhantomData<fn() -> T>,
 }
 
 impl<T: LocalizationTarget, S: FluentScope> Localized<T, S> {
+	/// Pin this binding to a compiled language while retaining automatic updates.
+	pub fn with_locale(mut self, locale: <S::Catalog as crate::FluentCatalog>::Locale) -> Self {
+		assert!(
+			<S::Catalog as crate::FluentCatalog>::locales().contains(&locale),
+			"locale must belong to the provider"
+		);
+		self.locale = Some(locale);
+		self
+	}
+
 	/// Capture a formatter without reading or requesting the scope.
 	pub fn new(format: impl Fn(&S) -> String + Send + Sync + 'static) -> Self {
 		Self::from(Msg::new(format))
@@ -255,6 +269,7 @@ impl<T: LocalizationTarget, S: FluentScope> From<Msg<S>> for Localized<T, S> {
 	fn from(message: Msg<S>) -> Self {
 		Self {
 			message,
+			locale: None,
 			marker: PhantomData,
 		}
 	}
@@ -262,6 +277,10 @@ impl<T: LocalizationTarget, S: FluentScope> From<Msg<S>> for Localized<T, S> {
 
 impl<T: LocalizationTarget, S: FluentScope> Clone for Localized<T, S> {
 	fn clone(&self) -> Self {
-		Self::from(self.message.clone())
+		Self {
+			message: self.message.clone(),
+			locale: self.locale,
+			marker: PhantomData,
+		}
 	}
 }

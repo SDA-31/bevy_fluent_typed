@@ -83,13 +83,21 @@ fn spawn_notice(mut commands: Commands) {
 The scope is inferred from `Msg<Interface>`; BSN still needs explicit target
 and scope parameters: `::<Text, _>`.
 
-For an existing binding, use `Localized::<Text, Interface>::from(binding)`.
-Clone it first when several entities need it. Bevy 0.20 also accepts a component
-variable directly, such as `Text binding`; on 0.19 use the typed constructor above.
-`binding.clone()` shares its formatter and owned arguments through `Arc`.
+When several entities need the same message, keeping a separate `Msg` and
+cloning it can be convenient. You can construct each `Localized` where it is
+attached. For a binding prepared before the macro, use
+`Localized::<Text, Interface>::from(binding)`.
+Bevy 0.20 also accepts a component variable directly, such as `Text binding`;
+on 0.19 use the typed constructor above. Message clones share their formatter
+and owned arguments through `Arc`.
 Each label follows the current catalog independently, including language changes
 and translation reloads. In explicit Manual, unloading its scope clears its text until that scope
 is ready again. Replace a binding when its captured arguments change.
+
+For a fixed-language binding, configure `with_locale` before the macro on
+Bevy 0.19 and pass the binding through `Localized::from`. Bevy 0.20 also permits
+the chained modifier inside `bsn!`; see
+[several-language scenes](multilocale.md).
 
 ## Localize a text span
 

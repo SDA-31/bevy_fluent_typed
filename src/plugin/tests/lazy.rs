@@ -1058,3 +1058,54 @@ fn target_handoff_waits_for_an_obsolete_normal_reader_and_preserves_fresh_commit
 		assert_eq!(app.world().resource::<TestCatalog>().0, "fresh prepared es");
 	}
 }
+
+#[test]
+fn switching_to_a_fixed_file_locale_reuses_its_normal_handle_without_another_read() {
+	let (mut app, gate, _files) = asynchronous_app();
+	gate.pass_new_reads.store(true, Ordering::SeqCst);
+	let lease = {
+		let mut state = app
+			.world_mut()
+			.resource_mut::<Localization<TestCatalog, Manual>>();
+		state.load::<TestCatalog>();
+		state.for_locale_mut("es").hold::<TestCatalog>()
+	};
+	pump(&mut app, |world| {
+		let state = world.resource::<Localization<TestCatalog, Manual>>();
+		state.catalog().is_some() && state.for_locale("es").catalog().is_some()
+	});
+	let (handle, accepted) = {
+		let state = app.world().resource::<Localization<TestCatalog, Manual>>();
+		let data = state
+			.fixed
+			.iter()
+			.find(|slot| slot.locale == "es")
+			.unwrap()
+			.data
+			.as_ref()
+			.unwrap();
+		let entry = &data.entries["ui.ftl"];
+		(entry.handle.as_ref().unwrap().id(), entry.accepted)
+	};
+	let reads = gate.state.lock().unwrap().1.len();
+	app.world_mut()
+		.resource_mut::<Localization<TestCatalog, Manual>>()
+		.set_locale("es");
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<TestCatalog, Manual>>()
+			.locale() == "es"
+	});
+	for _ in 0..4 {
+		app.update();
+	}
+	let state = app.world().resource::<Localization<TestCatalog, Manual>>();
+	assert_eq!(
+		state.entries["ui.ftl"].handle.as_ref().unwrap().id(),
+		handle
+	);
+	assert_eq!(state.entries["ui.ftl"].accepted, accepted);
+	assert_eq!(gate.state.lock().unwrap().1.len(), reads);
+	assert_eq!(app.world().resource::<TestCatalog>().0, "es");
+	drop(lease);
+}

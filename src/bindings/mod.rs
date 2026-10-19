@@ -7,4 +7,4 @@ mod registry;
 	any(feature = "bevy-0-19", feature = "bevy-0-20")
 ))]
 pub(crate) use registry::dispatch;
-pub(crate) use registry::{Binding, added, register, removed};
+pub(crate) use registry::{Binding, added, register, removed, synchronize_consumers};

@@ -1,5 +1,5 @@
-use crate::button;
 use crate::texts::presentation::Hud as Interface;
+use crate::{button, texts};
 use bevy::prelude::*;
 use bevy_fluent_typed::Localized;
 use bevy_fluent_typed::Msg;
@@ -47,4 +47,13 @@ pub(super) fn list_caption(message: Msg<Interface>) -> Box<dyn SceneList> {
 		Localized::<Text, Interface>::from(message),
 		Node
 	})
+}
+
+pub(super) fn fixed_scene(message: Msg<Interface>, locale: texts::Locale) -> impl Scene {
+	let binding = Localized::<Text, Interface>::from(message).with_locale(locale);
+
+	bsn! {
+		Text
+		Localized::<Text, Interface>::from(binding)
+	}
 }

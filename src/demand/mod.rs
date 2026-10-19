@@ -1,6 +1,6 @@
 mod tracking;
 
-pub(crate) use tracking::{Consumer, acquire, synchronize};
+pub(crate) use tracking::{Consumer, acquire, acquire_binding, synchronize};
 
 #[cfg(test)]
 #[path = "tests/automatic.rs"]

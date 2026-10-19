@@ -21,6 +21,10 @@ type Refresh = fn(&mut World);
 pub(crate) trait Binding: Component {
 	type Scope: FluentScope;
 
+	const SHARED_DEMAND: bool = true;
+
+	fn synchronize_consumers(_world: &mut World) {}
+
 	const PHASE: TargetUpdatePhase = TargetUpdatePhase::BeforeLayout;
 
 	fn refresh(world: &mut World);
@@ -34,6 +38,9 @@ pub(crate) trait Binding: Component {
 
 /// One binding type's callbacks, live instance count and optional automatic demand owner.
 struct BindingEntry {
+	root: TypeId,
+	shared_demand: bool,
+	synchronize_consumers: Refresh,
 	scope: TypeId,
 	/// Number of attached binding components of this concrete type.
 	users: usize,
@@ -45,6 +52,15 @@ struct BindingEntry {
 	acquire: fn(&mut World) -> Arc<Consumer>,
 }
 
+/// Immutable callbacks retained while dispatch temporarily releases registry borrows.
+struct ActiveBinding {
+	key: TypeId,
+	phase: TargetUpdatePhase,
+	refresh: Refresh,
+	root: TypeId,
+	synchronize_consumers: Refresh,
+}
+
 /// App-wide registry of binding types and their enabled/automatic scope policies.
 /// The immutable active snapshot lets callbacks mutate registrations while dispatching;
 /// dirty rebuilds it before the next dispatch.
@@ -53,7 +69,7 @@ struct BindingRegistry {
 	enabled: HashSet<TypeId>,
 	automatic: HashSet<TypeId>,
 	entries: HashMap<TypeId, BindingEntry>,
-	active: Arc<[(TypeId, TargetUpdatePhase, Refresh)]>,
+	active: Arc<[ActiveBinding]>,
 	dirty: bool,
 }
 
@@ -63,7 +79,13 @@ impl BindingRegistry {
 			.entries
 			.iter()
 			.filter(|(_, entry)| entry.users > 0 && self.enabled.contains(&entry.scope))
-			.map(|(id, entry)| (*id, entry.phase, entry.refresh))
+			.map(|(id, entry)| ActiveBinding {
+				key: *id,
+				phase: entry.phase,
+				refresh: entry.refresh,
+				root: entry.root,
+				synchronize_consumers: entry.synchronize_consumers,
+			})
 			.collect();
 		self.dirty = false;
 	}
@@ -110,7 +132,11 @@ pub(crate) fn register<S: FluentScope>(app: &mut App, automatic: bool) {
 		.entries
 		.iter()
 		.filter(|(_, entry)| {
-			automatic && entry.scope == id && entry.users > 0 && entry.consumer.is_none()
+			automatic
+				&& entry.shared_demand
+				&& entry.scope == id
+				&& entry.users > 0
+				&& entry.consumer.is_none()
 		})
 		.map(|(key, entry)| (*key, entry.acquire))
 		.collect();
@@ -128,6 +154,9 @@ pub(crate) fn register<S: FluentScope>(app: &mut App, automatic: bool) {
 
 fn entry<B: Binding>() -> BindingEntry {
 	BindingEntry {
+		root: TypeId::of::<<B::Scope as FluentScope>::Catalog>(),
+		shared_demand: B::SHARED_DEMAND,
+		synchronize_consumers: B::synchronize_consumers,
 		scope: TypeId::of::<B::Scope>(),
 		users: 0,
 		refresh: B::refresh,
@@ -145,7 +174,10 @@ fn set_users(world: &mut World, key: TypeId, users: usize) {
 	let scope = entry.scope;
 	let acquire = entry.acquire;
 	let unregister = entry.unregister;
-	let adopt = users > 0 && registry.automatic.contains(&scope) && entry.consumer.is_none();
+	let adopt = entry.shared_demand
+		&& users > 0
+		&& registry.automatic.contains(&scope)
+		&& entry.consumer.is_none();
 	registry.entries.get_mut(&key).unwrap().users = users;
 	registry.dirty |= was_active != (users > 0);
 
@@ -221,17 +253,38 @@ fn dispatch_phase(world: &mut World, phase: TargetUpdatePhase) {
 
 	let active = world.resource::<BindingRegistry>().active.clone();
 
-	for (key, target_phase, refresh) in active.iter() {
+	for job in active.iter() {
 		// Earlier adapters may remove another binding's final instance. Recheck
 		// the job so its already-unregistered cache is not recreated.
 		let registry = world.resource::<BindingRegistry>();
 		let current = registry
 			.entries
-			.get(key)
+			.get(&job.key)
 			.is_some_and(|entry| entry.users > 0 && registry.enabled.contains(&entry.scope));
 
-		if *target_phase == phase && current {
-			refresh(world);
+		if job.phase == phase && current {
+			(job.refresh)(world);
+		}
+	}
+}
+
+/// Synchronize binding selections before the provider rebuilds its demand union.
+pub(crate) fn synchronize_consumers<C: crate::FluentCatalog>(world: &mut World) {
+	let active = {
+		let Some(mut registry) = world.get_resource_mut::<BindingRegistry>() else {
+			return;
+		};
+
+		if registry.dirty {
+			registry.rebuild();
+		}
+
+		registry.active.clone()
+	};
+
+	for job in active.iter() {
+		if job.root == TypeId::of::<C>() {
+			(job.synchronize_consumers)(world);
 		}
 	}
 }

@@ -19,7 +19,9 @@ use std::{
 /// Bevy component: despawning its entity releases its demand.
 ///
 /// Tokens cannot be cloned; use `Arc<ModuleLease<S>>` for shared ownership of one
-/// token, or call `Localization::hold` again for an independent owner. A token
+/// token, or call `Localization::hold` again for an independent owner.
+/// `Localization::hold` follows the active language; a lease acquired through
+/// `Localization::for_locale_mut` retains that specific language. A token
 /// does not keep the controller or its catalogs alive after the controller drops.
 #[derive(Component, Debug)]
 #[must_use = "keep the lease while its scope is needed; dropping it releases demand"]

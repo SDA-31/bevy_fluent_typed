@@ -1060,6 +1060,8 @@ impl LoadingMode for Other { const FULL: bool = false; }
 
 ## More recipes
 
+- [Several languages](docs/multilocale.md): combine fixed-language and following bindings, or render through `Msg` manually.
+
 - [Custom sources](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/asset-sources.md): supply files through your own reader.
 - [Decimal and percentage arguments](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/formatting.md): reuse ICU4X formatters.
 - [Build API](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/build.md): explicit generation and feature selection.

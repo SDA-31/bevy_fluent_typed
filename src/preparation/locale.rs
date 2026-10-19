@@ -2,6 +2,7 @@
 #[cfg(feature = "manifest")]
 use crate::bevy::prelude::{AssetServer, Handle};
 use crate::bevy::prelude::{Mut, World};
+use crate::state::Acquisition;
 use crate::{FluentCatalog, LoadingMode, Localization, ModuleError, ModuleStatus};
 use std::fmt;
 #[cfg(feature = "manifest")]
@@ -91,8 +92,16 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			return;
 		}
 
-		let mut preparation = Self::new(locale);
+		self.cancel_preparation();
+		let data = self.take_locale(locale);
+		let mut preparation = Self::empty(locale);
+
+		if let Some(data) = data {
+			data.install(&mut preparation);
+		}
+
 		preparation.staged = true;
+		preparation.requests_changed = true;
 		preparation.requested = self.requested.clone();
 		preparation.desired = self.desired();
 		self.preparation = Some(Box::new(preparation));
@@ -117,10 +126,20 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 			return PreparationStatus::Ready;
 		}
 
-		let mut pending = preparation.pending > 0 || !preparation.retry.is_empty();
+		let mut pending = preparation
+			.entries
+			.iter()
+			.any(|(path, entry)| self.desired.contains(path) && entry.pending)
+			|| preparation
+				.retry
+				.iter()
+				.any(|path| self.desired.contains(path));
 		#[cfg(feature = "manifest")]
 		{
-			pending |= !preparation.handoff_pending.is_empty();
+			pending |= preparation
+				.handoff_pending
+				.iter()
+				.any(|path| self.desired.contains(path));
 		}
 
 		for &path in self.desired.iter() {
@@ -174,12 +193,21 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	/// Drops target snapshots and tasks/handles and cancels queued publication.
 	/// External acquisition may continue, but its completion cannot publish a target.
 	pub fn cancel_preparation(&mut self) {
-		self.preparation = None;
+		if let Some(mut target) = self.preparation.take()
+			&& target.locale() != self.locale()
+		{
+			self.retain_locale(crate::state::LocaleData::take(&mut target));
+		}
+
 		self.commit_requested = false;
 		self.switch_when_ready = false;
 	}
 
 	pub(crate) fn synchronize_preparation_requests(&mut self) {
+		let fixed = self
+			.prepared_locale()
+			.and_then(|locale| self.fixed.iter().find(|slot| slot.locale == locale))
+			.map(|slot| slot.fixed.clone());
 		let Some(preparation) = self.preparation.as_mut() else {
 			return;
 		};
@@ -191,7 +219,14 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 		preparation.requested.clone_from(&self.requested);
 		preparation.desired = self.desired.clone();
 		preparation.requests_changed = true;
-		crate::loading::release_unrequested(preparation);
+		let mut state = Acquisition::controller(preparation);
+
+		if let Some(fixed) = fixed.filter(|fixed| !fixed.is_empty()) {
+			state.desired =
+				std::sync::Arc::new(state.desired.iter().chain(fixed.iter()).copied().collect());
+		}
+
+		crate::loading::release_state(&mut state);
 		self.commit_requested = false;
 	}
 }
@@ -248,11 +283,13 @@ pub(crate) fn commit<C: FluentCatalog, M: LoadingMode>(world: &mut World) {
 		#[cfg(feature = "manifest")]
 		activate_file_handles(world, &mut preparation);
 
+		let previous = crate::state::LocaleData::take(&mut localization);
+		localization.retain_locale(previous);
 		localization.store = preparation.store;
 		localization.entries = preparation.entries;
 		localization.retry = preparation.retry;
 		localization.pending = preparation.pending;
-		localization.requests_changed = false;
+		localization.requests_changed = true;
 
 		for &path in localization.desired.iter() {
 			let update = crate::CatalogUpdate::<C>::Loaded {
@@ -298,7 +335,7 @@ fn activate_file_handles<C: FluentCatalog, M: LoadingMode>(
 	};
 
 	for (&path, entry) in &mut preparation.entries {
-		if entry.preparation_handle.is_none() {
+		if entry.preparation_handle.is_none() || entry.pending {
 			continue;
 		}
 
@@ -359,6 +396,15 @@ pub(crate) fn refresh_handoff<C: FluentCatalog, M: LoadingMode>(
 	source: &crate::loading::CatalogSource<C>,
 	server: &AssetServer,
 ) {
+	refresh_acquisition_handoff(&mut Acquisition::controller(preparation), source, server);
+}
+
+#[cfg(feature = "manifest")]
+pub(crate) fn refresh_acquisition_handoff<C: FluentCatalog>(
+	preparation: &mut Acquisition<'_, C>,
+	source: &crate::loading::CatalogSource<C>,
+	server: &AssetServer,
+) {
 	preparation.handoff_pending.clear();
 
 	if source.manifest.embedded_modules().is_some() {
@@ -366,6 +412,15 @@ pub(crate) fn refresh_handoff<C: FluentCatalog, M: LoadingMode>(
 	}
 
 	for &path in preparation.desired.iter() {
+		// This locale may already have a valid normal handle owned by a fixed reader.
+		if preparation
+			.entries
+			.get(path)
+			.is_some_and(|entry| entry.handle.is_some())
+		{
+			continue;
+		}
+
 		let Ok(address) =
 			crate::loading::asset_address(&source.manifest, preparation.locale().as_ref(), path)
 		else {
@@ -385,6 +440,6 @@ pub(crate) fn refresh_handoff<C: FluentCatalog, M: LoadingMode>(
 	}
 
 	if !preparation.handoff_pending.is_empty() {
-		preparation.requests_changed = true;
+		*preparation.requests_changed = true;
 	}
 }
