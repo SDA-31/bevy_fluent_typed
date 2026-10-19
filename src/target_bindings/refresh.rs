@@ -1,7 +1,4 @@
-use super::{
-	engine,
-	state::{Ownership, State},
-};
+use super::{engine, state::State};
 use crate::bevy::prelude::{Entity, World};
 use crate::bindings::Binding;
 use crate::{FluentScope, LocalizationTarget, Localized, TargetUpdatePhase};
@@ -21,10 +18,7 @@ impl<T: LocalizationTarget, S: FluentScope> Binding for Localized<T, S> {
 			let consumer = crate::demand::acquire_binding::<S>(world, locale);
 
 			if let Some(mut state) = world.get_mut::<State<S, T>>(entity) {
-				state.consumer = Some(Ownership {
-					locale,
-					_token: consumer,
-				});
+				state.consumer = Some(consumer);
 			}
 		}
 	}
@@ -80,7 +74,7 @@ fn changed_selections<S: FluentScope, T: LocalizationTarget>(
 			state
 				.consumer
 				.as_ref()
-				.is_none_or(|consumer| consumer.locale != binding.locale)
+				.is_none_or(|consumer| !consumer.matches_locale::<S::Catalog>(binding.locale))
 		})
 		.map(|(entity, binding, _)| (entity, binding.locale))
 		.collect()

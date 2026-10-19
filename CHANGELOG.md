@@ -43,6 +43,12 @@ Release preparation; this version has not been published. See the
 
 ### Changed
 
+- Catalog source versions are captured once per binding pass. Unchanged sources
+  skip repeated snapshot-version lookups during row selection, while Msg identity,
+  locale, target changes and query reentry remain observed. Target updates resolve
+  their selected catalog and version together; snapshot tracking uses compact
+  optional identities and reuses shared language-demand tokens without storing
+  the same ownership locale in each binding again.
 - Large eligible query updates use native Bevy query batching and the existing
   compute pool. Msg formatters and direct query callbacks can run concurrently;
   they must not depend on main-thread identity or entity order. Small updates

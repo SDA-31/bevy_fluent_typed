@@ -286,6 +286,54 @@ fn native_text_and_accessible_label_on_one_entity_use_independent_languages() {
 	assert!(!app.world().contains_resource::<TestCatalog>());
 }
 
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+#[test]
+fn removing_one_target_binding_releases_only_its_language_owner() {
+	use crate::bevy::prelude::AccessibleLabel;
+	let mut app = App::new();
+	app.add_plugins((
+		MinimalPlugins,
+		LocalizationPlugin::<TestCatalog>::from_loader(|locale, _| {
+			std::future::ready(Ok::<_, String>(locale.as_bytes().to_vec()))
+		}),
+	));
+	let message = Msg::<TestCatalog>::new(|scope| scope.0.clone());
+	let entity = app
+		.world_mut()
+		.spawn((
+			Text::default(),
+			AccessibleLabel::default(),
+			Localized::<Text, _>::from(message.clone()).with_locale("es"),
+			Localized::<AccessibleLabel, _>::from(message).with_locale("de"),
+		))
+		.id();
+	pump(&mut app, |world| {
+		world.get::<Text>(entity).unwrap().0 == "es"
+			&& world.get::<AccessibleLabel>(entity).unwrap().0 == "de"
+	});
+
+	app.world_mut()
+		.entity_mut(entity)
+		.remove::<Localized<Text, TestCatalog>>();
+	pump(&mut app, |world| {
+		let localization = world.resource::<Localization<TestCatalog>>();
+		localization.for_locale("es").catalog().is_none()
+			&& localization.for_locale("de").catalog().is_some()
+	});
+	assert_eq!(app.world().get::<AccessibleLabel>(entity).unwrap().0, "de");
+
+	app.world_mut()
+		.entity_mut(entity)
+		.remove::<Localized<AccessibleLabel, TestCatalog>>();
+	pump(&mut app, |world| {
+		world
+			.resource::<Localization<TestCatalog>>()
+			.for_locale("de")
+			.catalog()
+			.is_none()
+	});
+}
+
 #[test]
 fn new_fixed_consumer_uses_an_already_prepared_language_and_releases_its_snapshot() {
 	let mut app = App::new();

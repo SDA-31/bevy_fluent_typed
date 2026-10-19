@@ -4,7 +4,7 @@ use crate::bevy::{
 	prelude::{Commands, World},
 };
 use crate::message::MsgIdentity;
-use crate::state::LocaleSnapshot;
+use crate::state::{LocaleSnapshot, SnapshotStamp};
 use crate::{FluentScope, LocalizationTarget, LocalizationUpdate, Localized};
 use std::sync::Arc;
 
@@ -17,7 +17,7 @@ pub(super) struct Deferred<S: FluentScope> {
 	pub(super) entity: crate::bevy::prelude::Entity,
 	pub(super) message: MsgIdentity<S>,
 	pub(super) locale: Option<<S::Catalog as crate::FluentCatalog>::Locale>,
-	pub(super) snapshot: Option<u64>,
+	pub(super) snapshot: Option<SnapshotStamp>,
 	/// A prepared value, or None while formatting remains lazy.
 	pub(super) text: Option<String>,
 	pub(super) changed: bool,
@@ -157,7 +157,7 @@ fn current<S: FluentScope, T: LocalizationTarget>(
 	let stamp = match binding.locale {
 		None => world.get_resource_ref::<S>().map(|resource| {
 			use crate::bevy::prelude::DetectChanges;
-			u64::from(resource.last_changed().get())
+			SnapshotStamp::from_change_tick(resource.last_changed().get())
 		}),
 		Some(locale) => world
 			.get_resource::<crate::state::LocaleSnapshots<S>>()

@@ -21,6 +21,14 @@ pub(crate) struct Consumer {
 }
 
 impl Consumer {
+	/// Compare a binding's selection with the token's compiled catalog locale.
+	pub(crate) fn matches_locale<C: FluentCatalog>(&self, locale: Option<C::Locale>) -> bool {
+		match self.locale {
+			Some(index) => locale.is_some_and(|locale| C::locales().get(index) == Some(&locale)),
+			None => locale.is_none(),
+		}
+	}
+
 	pub(crate) fn release(&self) {
 		if self.active.swap(false, Ordering::AcqRel) {
 			self.dirty.store(true, Ordering::Release);

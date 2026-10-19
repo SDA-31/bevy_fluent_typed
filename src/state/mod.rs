@@ -10,7 +10,7 @@ pub use controller::Localization;
 pub(crate) use acquisition::Acquisition;
 pub(crate) use controller::RequestedModule;
 pub(crate) use locales::LocaleData;
-pub(crate) use snapshots::{LocaleSnapshot, LocaleSnapshots};
+pub(crate) use snapshots::{LocaleSnapshot, LocaleSnapshots, SnapshotStamp};
 
 #[cfg(test)]
 #[path = "tests/state.rs"]

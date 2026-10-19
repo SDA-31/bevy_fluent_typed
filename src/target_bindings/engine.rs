@@ -11,7 +11,7 @@ use crate::bevy::{
 	utils::Parallel,
 };
 use crate::message::MsgIdentity;
-use crate::state::{LocaleSnapshot, LocaleSnapshots};
+use crate::state::{LocaleSnapshot, LocaleSnapshots, SnapshotStamp};
 use crate::{
 	CachePolicy, FluentScope, LocalizationTarget, LocalizationUpdate, Localized, TargetItem,
 	UpdateResult, cache_policy,
@@ -71,27 +71,51 @@ pub(super) fn unregister<S: FluentScope, T: LocalizationTarget>(world: &mut Worl
 /// Catalog snapshot and invalidation clocks shared by one complete query pass.
 struct Refresh<'a, S: FluentScope> {
 	snapshots: &'a Option<Arc<Vec<LocaleSnapshot<S>>>>,
-	stamp: Option<u64>,
+	stamp: Option<SnapshotStamp>,
 	catalog: &'a Option<S>,
 	changed: bool,
+	sources_changed: bool,
 	previous: u64,
 	current: u64,
 	this_run: u32,
 }
 
 impl<S: FluentScope> Refresh<'_, S> {
-	fn catalog<T: LocalizationTarget>(&self, binding: &Localized<T, S>) -> Option<&S> {
+	fn binding_changed<T: LocalizationTarget>(
+		&self,
+		binding: &Localized<T, S>,
+		state: &State<S, T>,
+	) -> bool {
+		!state.current(&binding.message, self.previous) || state.locale != binding.locale
+	}
+
+	/// Unvisited rows stay invalidated until consumed; clean rows need no lookup
+	/// while neither catalog source's version has changed since its last snapshot.
+	fn invalidated<T: LocalizationTarget>(
+		&self,
+		binding: &Localized<T, S>,
+		state: &State<S, T>,
+	) -> bool {
+		self.binding_changed(binding, state)
+			|| self.sources_changed && state.snapshot != self.stamp(binding)
+	}
+
+	/// Resolve the selected catalog and its identity together, once per update.
+	fn selected<T: LocalizationTarget>(
+		&self,
+		binding: &Localized<T, S>,
+	) -> Option<(&S, SnapshotStamp)> {
 		match binding.locale {
-			None => self.catalog.as_ref(),
+			None => self.catalog.as_ref().zip(self.stamp),
 			Some(locale) => self
 				.snapshots
 				.as_deref()
 				.and_then(|snapshots| snapshots.iter().find(|snapshot| snapshot.locale == locale))
-				.map(|snapshot| &snapshot.value),
+				.map(|snapshot| (&snapshot.value, snapshot.stamp)),
 		}
 	}
 
-	fn stamp<T: LocalizationTarget>(&self, binding: &Localized<T, S>) -> Option<u64> {
+	fn stamp<T: LocalizationTarget>(&self, binding: &Localized<T, S>) -> Option<SnapshotStamp> {
 		match binding.locale {
 			None => self.stamp,
 			Some(locale) => self
@@ -109,9 +133,7 @@ fn needs_update<S: FluentScope, T: LocalizationTarget>(
 	state: &mut State<S, T>,
 	frame: &Refresh<S>,
 ) -> bool {
-	let invalidated = !state.current(&binding.message, frame.previous)
-		|| state.locale != binding.locale
-		|| state.snapshot != frame.stamp(binding);
+	let invalidated = frame.invalidated(binding, state);
 	let changed = invalidated || state.pending;
 	let update = LocalizationUpdate::cached(changed, "").observe(state.observed(), frame.this_run);
 	let needed = T::needs_update(data, &update);
@@ -133,20 +155,14 @@ fn update<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 	frame: &Refresh<S>,
 ) -> (Option<MsgIdentity<S>>, Option<Deferred<S>>) {
 	let Refresh {
-		previous,
-		current,
-		this_run,
-		..
+		current, this_run, ..
 	} = *frame;
-	let invalidated = !state.current(&binding.message, previous)
-		|| state.locale != binding.locale
-		|| state.snapshot != frame.stamp(binding);
+	let selected = frame.selected(binding);
+	let snapshot = selected.map(|(_, stamp)| stamp);
+	let invalidated = frame.binding_changed(binding, state)
+		|| frame.sources_changed && state.snapshot != snapshot;
 	state.pending |= invalidated;
-	let render = || {
-		frame
-			.catalog(binding)
-			.map_or_else(String::new, |scope| binding.message.render(scope))
-	};
+	let render = || selected.map_or_else(String::new, |(scope, _)| binding.message.render(scope));
 
 	let fresh = (CACHE && (invalidated || state.text.is_none())).then(render);
 
@@ -169,7 +185,7 @@ fn update<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 		UpdateResult::Deferred => Some(Deferred {
 			entity,
 			locale: binding.locale,
-			snapshot: frame.stamp(binding),
+			snapshot,
 			message: binding.message.identity(),
 			changed: state.pending,
 			text: context.into_owned(),
@@ -188,7 +204,7 @@ fn update<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 
 	state.pass = current;
 	state.locale = binding.locale;
-	state.snapshot = frame.stamp(binding);
+	state.snapshot = snapshot;
 	let retired = if state
 		.message
 		.as_ref()
@@ -214,26 +230,43 @@ enum RefreshPlan {
 	Parallel { selected: bool },
 }
 
+/// Versions captured before callbacks; comparing them also catches writes made
+/// by this system, which ordinary `is_changed` excludes on its next run.
+#[derive(Default)]
+struct SourceVersions {
+	active: Option<SnapshotStamp>,
+	fixed: Option<u64>,
+}
+
 fn refresh_bindings<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 	mut params: ParamSet<Parameters<S, T>>,
 	mut work: Local<Parallel<Work<S>>>,
 	mut pending: Local<Vec<Entity>>,
 	mut pass: Local<u64>,
-	mut was_ready: Local<bool>,
+	mut versions: Local<SourceVersions>,
 	ticks: SystemChangeTick,
 	mut commands: Commands,
 ) {
 	// Resource entities can also occur in user Data. End that resource borrow first.
-	let (catalog, changed, snapshots, stamp) = {
+	let (catalog, changed, snapshots, sources_changed, stamp) = {
 		let (resource, snapshots) = params.p0();
-		let changed = *was_ready != resource.is_some()
+		let changed = versions.active.is_some() != resource.is_some()
 			|| resource.as_ref().is_some_and(|value| value.is_changed());
-		*was_ready = resource.is_some();
 		let stamp = resource
 			.as_ref()
-			.map(|resource| u64::from(resource.last_changed().get()));
+			.map(|resource| SnapshotStamp::from_change_tick(resource.last_changed().get()));
+		let fixed = snapshots.as_ref().map(|table| table.version());
+		let sources_changed = versions.active != stamp || versions.fixed != fixed;
+		versions.active = stamp;
+		versions.fixed = fixed;
 		let snapshots = snapshots.map(|table| table.ready.clone());
-		(resource.as_deref().cloned(), changed, snapshots, stamp)
+		(
+			resource.as_deref().cloned(),
+			changed,
+			snapshots,
+			sources_changed,
+			stamp,
+		)
 	};
 
 	let mut bindings = params.p1();
@@ -250,6 +283,7 @@ fn refresh_bindings<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 		stamp,
 		catalog: &catalog,
 		changed,
+		sources_changed,
 		previous,
 		current,
 		this_run,
@@ -317,12 +351,7 @@ fn select_pending<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 		}
 
 		dirty += 1;
-		formatting += usize::from(
-			!state.current(&binding.message, frame.previous)
-				|| state.locale != binding.locale
-				|| state.snapshot != frame.stamp(binding)
-				|| !CACHE,
-		);
+		formatting += usize::from(frame.invalidated(binding, state) || !CACHE);
 
 		if parallel {
 			continue;

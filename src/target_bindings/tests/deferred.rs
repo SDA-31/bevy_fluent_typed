@@ -4,7 +4,7 @@ use crate::bevy::{
 	ecs as bevy_ecs,
 	prelude::{Component, DetectChanges, Entity, EntityWorldMut, World},
 };
-use crate::state::LocaleSnapshots;
+use crate::state::{LocaleSnapshots, SnapshotStamp};
 use crate::tests::TestCatalog;
 use crate::{LocalizationTarget, LocalizationUpdate, Localized, Msg};
 use std::sync::Arc;
@@ -41,7 +41,7 @@ fn work(
 	let snapshot = match locale {
 		None => world
 			.get_resource_ref::<TestCatalog>()
-			.map(|resource| u64::from(resource.last_changed().get())),
+			.map(|resource| SnapshotStamp::from_change_tick(resource.last_changed().get())),
 		Some(locale) => world
 			.get_resource::<LocaleSnapshots<TestCatalog>>()
 			.and_then(|snapshots| {

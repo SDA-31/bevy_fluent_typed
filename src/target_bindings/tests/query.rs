@@ -353,6 +353,72 @@ fn typed_data_can_borrow_the_scope_resource_entity_after_snapshotting() {
 	}
 }
 
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+#[derive(Component, Default)]
+struct CatalogWriter(String);
+
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+impl LocalizationTarget for CatalogWriter {
+	type Data = (
+		&'static mut Catalog,
+		crate::bevy::prelude::Mut<'static, Self>,
+	);
+	type Filter = ();
+
+	fn needs_update(
+		(_, target): &TargetItem<'_, '_, Self>,
+		update: &LocalizationUpdate<'_>,
+	) -> bool {
+		update.is_changed() || target.is_changed()
+	}
+
+	fn update(
+		(mut catalog, target): TargetItem<'_, '_, Self>,
+		update: &mut LocalizationUpdate<'_>,
+	) -> crate::UpdateResult {
+		if catalog.0 == "first" {
+			catalog.0 = "second".into();
+		}
+
+		update.set_text(target.map_unchanged(|target| &mut target.0));
+		crate::UpdateResult::Done
+	}
+
+	fn apply(_: &mut EntityWorldMut<'_>, _: &mut LocalizationUpdate<'_>) {
+		panic!("resource-entity target writes through its query");
+	}
+}
+
+#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+#[test]
+fn catalog_writes_inside_the_adapter_invalidate_the_next_refresh() {
+	for policy in [CachePolicy::Rendered, CachePolicy::None] {
+		let mut app = app(policy);
+		let world = app.world_mut();
+		world.insert_resource(Catalog("first".into()));
+		let owner = world
+			.resource_entities()
+			.get(world.component_id::<Catalog>().unwrap())
+			.unwrap();
+		let calls = Arc::new(AtomicUsize::new(0));
+		world.entity_mut(owner).insert((
+			CatalogWriter::default(),
+			Localized::<CatalogWriter, Catalog>::from(message(&calls)),
+		));
+
+		// Match separate publication and update ticks in ordinary frame execution.
+		world.increment_change_tick();
+		refresh::<CatalogWriter>(world);
+		assert_eq!(world.get::<CatalogWriter>(owner).unwrap().0, "first");
+		assert_eq!(world.resource::<Catalog>().0, "second");
+		refresh::<CatalogWriter>(world);
+		assert_eq!(world.get::<CatalogWriter>(owner).unwrap().0, "second");
+		assert_eq!(calls.load(Ordering::Relaxed), 2);
+		refresh::<CatalogWriter>(world);
+		assert_eq!(calls.load(Ordering::Relaxed), 2);
+	}
+}
+
 #[derive(Component)]
 struct Skip;
 

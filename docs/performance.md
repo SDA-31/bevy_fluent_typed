@@ -37,6 +37,12 @@ reads text formats on every eligible refresh under None.
 
 Small eligible updates run sequentially. Large updates can use Bevy's native
 query batching and existing compute pool; structural callbacks remain sequential.
+Catalog source versions are captured once per pass. When they are unchanged,
+selection skips snapshot-version lookups for rows whose Msg, locale and query
+eligibility remain current. Target change observation still runs; adapters that
+request an update resolve the selected catalog and its version together.
+Tracking uses compact optional snapshot identities and the existing shared
+language-demand token, without another ECS component.
 The pass still visits binding metadata, and parallel work completes before the
 refresh returns. There is no startup cost calibration, frame budget or automatic
 spreading across frames. See the [binding contract](bindings.md) for lifecycle,
@@ -48,30 +54,30 @@ A multi-worker compute pool alone does not enable parallel ECS queries.
 ## Measured refresh costs
 
 These measurements describe the 0.4.0 implementation, measured on
-October 19, 2026: Ryzen 5 4600H, Rust 1.99.0, exact Bevy 0.20.0,
+October 20, 2026: Ryzen 5 4600H, Rust 1.99.0, exact Bevy 0.20.0,
 release opt-level 3 and a six-worker compute pool with native multithreading.
 Bindings share one catalog scope. The fixture uses a six-variant enum locale,
 matching generated applications, and supplies already-ready catalogs directly.
 
 | Text bindings | Scenario | Cache policy | Median elapsed time, ms | 95th-percentile elapsed time, ms | Mean aggregate CPU time, ms |
 | ---: | --- | --- | ---: | ---: | ---: |
-| 1,024 | Fluent formatting | Rendered | 0.373 | 0.390 | 0.385 |
-| 100,000 | Unchanged targets | Rendered | 1.049 | 1.170 | 1.062 |
-| 100,000 | String-clone formatter | Rendered | 2.948 | 5.035 | 14.508 |
-| 100,000 | Fluent formatting | Rendered | 13.689 | 16.479 | 75.823 |
-| 100,000 | Reattach the same Msg | Rendered | 1.094 | 1.227 | 1.097 |
-| 100,000 | Replace one Msg | Rendered | 1.052 | 1.245 | 1.077 |
-| 100,000 | Forced long-string growth | Rendered | 57.345 | 61.704 | 264.949 |
-| 100,000 | Repair ordinary text edits | Rendered | 42.429 | 52.877 | 173.348 |
-| 1,048,576 | Unchanged targets | Rendered | 11.450 | 12.095 | 11.193 |
-| 1,048,576 | String-clone formatter | Rendered | 29.333 | 30.595 | 149.428 |
-| 1,048,576 | Fluent formatting | Rendered | 123.241 | 147.506 | 621.995 |
-| 100,000 | Unchanged targets | None | 1.040 | 1.200 | 1.065 |
-| 100,000 | Fluent formatting | None | 11.194 | 11.769 | 51.576 |
-| 100,000 | Forced long-string growth | None | 32.994 | 38.781 | 155.200 |
-| 100,000 | Repair ordinary text edits | None | 61.561 | 66.700 | 246.293 |
-| 100,000 | Unchanged targets across six fixed locale slots | Rendered | 1.093 | 1.217 | 1.121 |
-| 100,000 | Fluent formatting across six fixed locale slots | Rendered | 11.470 | 12.465 | 59.548 |
+| 1,024 | Fluent formatting | Rendered | 0.364 | 0.388 | 0.371 |
+| 100,000 | Unchanged targets | Rendered | 0.858 | 0.955 | 0.921 |
+| 100,000 | String-clone formatter | Rendered | 2.435 | 4.230 | 12.772 |
+| 100,000 | Fluent formatting | Rendered | 10.932 | 13.941 | 67.005 |
+| 100,000 | Reattach the same Msg | Rendered | 0.853 | 1.008 | 0.885 |
+| 100,000 | Replace one Msg | Rendered | 0.852 | 1.000 | 0.911 |
+| 100,000 | Forced long-string growth | Rendered | 57.114 | 61.251 | 262.444 |
+| 100,000 | Repair ordinary text edits | Rendered | 40.616 | 47.520 | 178.864 |
+| 1,048,576 | Unchanged targets | Rendered | 9.325 | 9.735 | 9.366 |
+| 1,048,576 | String-clone formatter | Rendered | 30.127 | 31.220 | 135.609 |
+| 1,048,576 | Fluent formatting | Rendered | 129.558 | 144.366 | 669.227 |
+| 100,000 | Unchanged targets | None | 0.892 | 1.091 | 0.894 |
+| 100,000 | Fluent formatting | None | 10.037 | 11.283 | 54.684 |
+| 100,000 | Forced long-string growth | None | 32.107 | 36.154 | 143.403 |
+| 100,000 | Repair ordinary text edits | None | 60.954 | 67.769 | 222.369 |
+| 100,000 | Unchanged targets across six fixed locale slots | Rendered | 0.858 | 0.997 | 0.926 |
+| 100,000 | Fluent formatting across six fixed locale slots | Rendered | 11.236 | 12.031 | 54.774 |
 
 For ten unchanged bindings, a separate block control measured 1.67 µs
 elapsed and 1.67 µs aggregate CPU per refresh. This is the median of

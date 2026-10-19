@@ -1,7 +1,8 @@
 use crate::bevy::{ecs as bevy_ecs, prelude::Component};
 use crate::message::MsgIdentity;
+use crate::state::SnapshotStamp;
 use crate::{FluentScope, LocalizationTarget, Msg};
-use std::marker::PhantomData;
+use std::{marker::PhantomData, sync::Arc};
 
 /// Invalidation and observation state owned by one entity's (scope, target) binding.
 ///
@@ -13,9 +14,9 @@ use std::marker::PhantomData;
 pub(super) struct State<S: FluentScope, T: LocalizationTarget> {
 	pub(super) message: Option<MsgIdentity<S>>,
 	pub(super) locale: Option<<S::Catalog as crate::FluentCatalog>::Locale>,
-	pub(super) snapshot: Option<u64>,
+	pub(super) snapshot: Option<SnapshotStamp>,
 	/// Binding owners share one demand allocation per scope and language.
-	pub(super) consumer: Option<Ownership<S>>,
+	pub(super) consumer: Option<Arc<crate::demand::Consumer>>,
 	#[allow(
 		clippy::box_collection,
 		reason = "Keep uncached per-binding metadata compact; allocate only for Rendered"
@@ -67,10 +68,4 @@ impl<S: FluentScope, T: LocalizationTarget> State<S, T> {
 				.as_ref()
 				.is_some_and(|value| value.matches(message))
 	}
-}
-
-/// Shared demand ownership and the language for which it was acquired.
-pub(super) struct Ownership<S: FluentScope> {
-	pub(super) locale: Option<<S::Catalog as crate::FluentCatalog>::Locale>,
-	pub(super) _token: std::sync::Arc<crate::demand::Consumer>,
 }
