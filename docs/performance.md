@@ -2,7 +2,7 @@
 
 Automatic bindings avoid unnecessary formatting and target writes, while
 retaining metadata for catalog readiness, Msg identity and query eligibility.
-This page describes the 0.4.0 contract and a measured implementation snapshot;
+This page describes the 0.4.0 contract and measured refresh costs;
 the [changelog](../CHANGELOG.md#040) records release status.
 
 ## Work skipped by automatic bindings
@@ -47,9 +47,8 @@ A multi-worker compute pool alone does not enable parallel ECS queries.
 
 ## Measured refresh costs
 
-These measurements use implementation snapshot
-[`490eb5b`](https://github.com/SDA-31/bevy_fluent_typed/commit/490eb5bb1a457ee947abeb40c7e187a63caf1e05),
-measured on October 19, 2026: Ryzen 5 4600H, Rust 1.99.0, exact Bevy 0.20.0,
+These measurements describe the 0.4.0 implementation, measured on
+October 19, 2026: Ryzen 5 4600H, Rust 1.99.0, exact Bevy 0.20.0,
 release opt-level 3 and a six-worker compute pool with native multithreading.
 Bindings share one catalog scope. The fixture uses a six-variant enum locale,
 matching generated applications, and supplies already-ready catalogs directly.
