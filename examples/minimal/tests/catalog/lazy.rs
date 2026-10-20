@@ -2,8 +2,7 @@
 use crate::{Locale, Translations, texts};
 use localization_runtime::bevy::prelude::*;
 use localization_runtime::{
-	Full, LoadingMode, Localization, LocalizationPlugin, LocalizedText, Manual, Message,
-	ModuleStatus,
+	Full, LoadingMode, Localization, LocalizationPlugin, Localized, Manual, ModuleStatus, Msg,
 };
 use std::time::{Duration, Instant};
 
@@ -106,9 +105,7 @@ fn overlapping_group_leaf_and_root_requests_release_only_their_own_demand() {
 		.world_mut()
 		.spawn((
 			Text::new("stale"),
-			LocalizedText::from(Message::new(|hud: &texts::presentation::Hud| {
-				hud.msg_title()
-			})),
+			Localized::<Text, _>::from(Msg::new(|hud: &texts::presentation::Hud| hud.msg_title())),
 		))
 		.id();
 	app.update();

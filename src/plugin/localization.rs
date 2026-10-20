@@ -1,0 +1,382 @@
+//! Public mode selection and scheduling for independently loaded scopes.
+#[cfg(feature = "manifest")]
+use crate::bevy::prelude::AssetApp;
+use crate::bevy::{
+	ecs as bevy_ecs,
+	prelude::{App, IntoScheduleConfigs, Plugin, PostUpdate, PreUpdate, SystemSet},
+};
+use crate::{
+	FluentCatalog, Lazy, LoadingMode, Localization,
+	bytes::{self, ByteLoader, ByteSource},
+	cache_policy::{CachePolicy, ProviderCachePolicy},
+	compatibility, demand,
+	loading::reload_catalogs,
+	registration::{self, RegistrationSite},
+	resources,
+};
+#[cfg(feature = "manifest")]
+use crate::{
+	LocalizationManifest, Manual,
+	assets::{
+		ModuleAsset, ModuleLoader, PreparationAttempts, PreparedModuleAsset, PreparedModuleLoader,
+	},
+	loading::{CatalogSource, reconcile, report_failures},
+};
+use std::{
+	any::type_name,
+	collections::{HashMap, HashSet},
+	fmt::Display,
+	future::Future,
+	marker::PhantomData,
+	panic::Location,
+	sync::Arc,
+};
+
+/// Ordering boundaries for localization consumers.
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum LocalizationSystems {
+	/// PreUpdate: handle requests/completions and publish ready resources.
+	Publish,
+	/// PostUpdate: refresh text after publication and before engine text layout.
+	Refresh,
+	/// Opt-in progress tracking after publication in PreUpdate and refresh in PostUpdate.
+	Progress,
+}
+
+/// PostUpdate boundary for semantic targets, separate from the native text refresh.
+/// On Bevy 0.19/0.20 it follows UI accessibility producers and precedes export.
+/// Older backends order it after `LocalizationSystems::Refresh` only.
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct LocalizationAccessibilitySet;
+
+/// Configured acquisition source; constructing it performs no I/O.
+enum Source<C: FluentCatalog> {
+	#[cfg(feature = "manifest")]
+	Manifest(LocalizationManifest),
+	Bytes(ByteLoader<C>),
+}
+
+/// Register loading and typed resources from a manifest or application-owned byte source.
+///
+/// Manifest sources require AssetPlugin; byte sources need only MinimalPlugins.
+/// Default Lazy loads scopes used by inserted text bindings. On Bevy 0.19/0.20,
+/// ordinary native `Res<Scope>` consumers are discovered before their schedule's
+/// first execution and wait for readiness. `Option<PassiveCatalog<Scope>>` observes
+/// without demand; plain `Option<Res<Scope>>` is conservatively a consumer because
+/// Bevy exposes the same access metadata for both native forms. On Bevy 0.16–0.18,
+/// direct resource systems use `LocalizationAppExt` or `localized` for readiness
+/// and automatic Lazy demand. Native registrations need application-owned loading
+/// and native readiness conditions on those older backends.
+/// World inspection is passive.
+/// Optional Lazy manual pins retain additional scopes independently. Explicit Full requests
+/// every module; explicit Manual waits for `load` calls. Creating this value
+/// performs no I/O. On Bevy 0.19/0.20, unconfigured startup uses `Deferred`:
+/// independent steps execute once; catalog consumers and their declared
+/// dependents wait, and later startup phases follow only after completion.
+/// Normal frame schedules continue during this wait. Non-catalog resources keep
+/// Bevy's ordinary validation, so applications must guard update systems that
+/// depend on unfinished initialization. `Native` preserves stock startup.
+/// An absent `LocalizationStartupPlugin` is added as an implicit fallback.
+/// An explicit startup plugin can select the shared policy before or after this
+/// plugin, before the first App update; the coordinator is installed only once.
+/// Custom schedules must be registered before an `App::update` discovers them,
+/// before their first manual execution. Already initialized systems retain their
+/// previous behavior; newly added systems are discovered on later updates.
+/// Only one plugin/controller mode may own a given root provider in an App.
+/// A repeated root is rejected with its declared leaf paths, both plugin types
+/// and their constructor locations before configuring the second source.
+/// [`Self::validate_registration`] returns the typed conflict without adding a plugin.
+/// `Localization::set_locale` retains active resources until desired target scopes
+/// validate, then switches automatically at publication.
+pub struct LocalizationPlugin<C: FluentCatalog, M: LoadingMode = Lazy> {
+	source: Source<C>,
+	cache_policy: CachePolicy,
+	created_at: &'static Location<'static>,
+	marker: PhantomData<fn() -> (C, M)>,
+}
+
+impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
+	/// Check whether another plugin already owns this root catalog type.
+	///
+	/// This uses only schema metadata. It does not inspect sources, read bytes,
+	/// compare languages, initialize resources or install systems. Every plugin
+	/// claims its complete root, including leaves absent from its source.
+	/// Distinct root Rust types remain independent namespaces.
+	///
+	/// This is a non-mutating check, not a reservation: adding another plugin
+	/// afterward can change the result. Ordinary Bevy `add_plugins` repeats the
+	/// same check automatically and panics with the formatted error on conflict.
+	///
+	/// # Errors
+	/// Returns [`crate::LocalizationRegistrationError`] when this root is already
+	/// registered, including when loading modes differ.
+	pub fn validate_registration(
+		&self,
+		app: &App,
+	) -> Result<(), crate::LocalizationRegistrationError> {
+		registration::validate::<C>(app, self.registration_site())
+	}
+
+	fn registration_site(&self) -> RegistrationSite {
+		RegistrationSite {
+			plugin: type_name::<Self>(),
+			created_at: self.created_at,
+		}
+	}
+
+	/// Select formatted-output caching for every scope owned by this provider.
+	///
+	/// The default [`CachePolicy::Rendered`] repairs targets without formatting
+	/// again. [`CachePolicy::None`] retains tracking metadata but no output String.
+	/// Built-in text and semantic targets format when needed. Custom adapters
+	/// request text lazily; under None, apply-only adapters format each refresh
+	/// when they read text.
+	/// Loading mode and other providers are unaffected. Select before adding the plugin.
+	pub fn with_cache_policy(mut self, policy: CachePolicy) -> Self {
+		self.cache_policy = policy;
+		self
+	}
+
+	/// Configure the selected loading mode from a ready source contract.
+	/// File origins are Bevy asset addresses; named sources are preserved.
+	/// Generated consumers can pass `texts::manifest()` for their build-configured
+	/// file source when their engine source resolves that origin, or a
+	/// `LocalizationManifest` constant declared by
+	/// `texts::embed_manifest! { const SOURCE = Translations; }` for explicit embedding.
+	/// Pass that constant directly to `new(SOURCE)`; no conversion is needed.
+	#[cfg(feature = "manifest")]
+	#[track_caller]
+	pub fn new(manifest: LocalizationManifest) -> Self {
+		Self {
+			source: Source::Manifest(manifest),
+			cache_policy: CachePolicy::default(),
+			created_at: Location::caller(),
+			marker: PhantomData,
+		}
+	}
+
+	/// Retain readable module bytes, parsing only modules requested by the loading mode.
+	/// Default Lazy waits for inserted bindings or required-resource consumers.
+	/// Each tuple contains a compiled locale, a logical leaf path (e.g. `Hud::PATH`)
+	/// and owned bytes. The provider's default locale is selected initially.
+	/// Missing modules fail when requested. Retained buffers survive `unload`;
+	/// use [`Self::from_loader`] to retrieve and release source buffers on demand.
+	///
+	/// # Errors
+	/// Rejects unknown locales, unknown leaf paths and duplicate `(locale, path)` keys.
+	#[track_caller]
+	pub fn from_bytes<B>(
+		modules: impl IntoIterator<Item = (C::Locale, &'static str, B)>,
+	) -> Result<Self, String>
+	where
+		B: Into<Arc<[u8]>>,
+	{
+		let known: HashSet<_> = C::modules().into_iter().map(|module| module.path).collect();
+		let mut sources = HashMap::new();
+
+		for (locale, path, bytes) in modules {
+			if !C::locales().contains(&locale) || !known.contains(path) {
+				return Err(format!("unknown module {}/{path}", locale.as_ref()));
+			}
+
+			if sources
+				.insert((locale.as_ref().to_owned(), path), bytes.into())
+				.is_some()
+			{
+				return Err(format!("duplicate module {}/{path}", locale.as_ref()));
+			}
+		}
+
+		Ok(Self::from_loader(move |locale, path| {
+			let bytes = sources
+				.get(&(locale.as_ref().to_owned(), path))
+				.cloned()
+				.ok_or_else(|| format!("missing module {}/{path}", locale.as_ref()));
+			std::future::ready(bytes)
+		}))
+	}
+
+	/// Retrieve readable bytes asynchronously for each requested locale and leaf.
+	/// Works with generated or handwritten providers, without a runtime manifest.
+	/// The provider's default locale is selected initially; a preinserted
+	/// [`Localization<C, M>`] may select another compiled locale.
+	///
+	/// The callback and checked parser run on Bevy's I/O task pool. Return owned
+	/// bytes (such as `Vec<u8>`); the temporary input is dropped after parsing.
+	/// Callback futures must be nonblocking: single-threaded backends may poll
+	/// them on the main thread. An async function does not make blocking I/O safe.
+	/// Futures requiring a specific executor must be integrated by the application.
+	///
+	/// Unload and locale changes discard obsolete results. External I/O may continue;
+	/// older Bevy wasm task pools do not cancel the underlying future on task drop.
+	/// Requests are serialized per active leaf, retries coalesce, and a failed
+	/// reload retains the last good same-locale snapshot. There is no source cache,
+	/// automatic retry or fallback. Handwritten providers own their parser checks.
+	#[track_caller]
+	pub fn from_loader<L, F, B, E>(load: L) -> Self
+	where
+		L: Fn(C::Locale, &'static str) -> F + Send + Sync + 'static,
+		F: Future<Output = Result<B, E>> + Send + 'static,
+		B: AsRef<[u8]> + Send + 'static,
+		E: Display,
+	{
+		Self {
+			source: Source::Bytes(ByteLoader::new(load)),
+			cache_policy: CachePolicy::default(),
+			created_at: Location::caller(),
+			marker: PhantomData,
+		}
+	}
+}
+
+#[cfg(feature = "manifest")]
+impl<C: FluentCatalog> LocalizationPlugin<C, Lazy> {
+	/// Short form of `LocalizationPlugin::<C, Manual>::new(manifest)`.
+	#[track_caller]
+	pub fn new_manual(manifest: LocalizationManifest) -> LocalizationPlugin<C, Manual> {
+		LocalizationPlugin::new(manifest)
+	}
+}
+
+impl<C: FluentCatalog, M: LoadingMode> Plugin for LocalizationPlugin<C, M> {
+	fn build(&self, app: &mut App) {
+		if let Err(error) = self.validate_registration(app) {
+			panic!("{error}");
+		}
+
+		let startup = match &self.source {
+			#[cfg(feature = "manifest")]
+			Source::Manifest(manifest) => C::locales()
+				.iter()
+				.copied()
+				.find(|locale| locale.as_ref() == manifest.config().default_language),
+			Source::Bytes(_) => Some(C::default_locale()),
+		};
+
+		if !app.world().contains_resource::<Localization<C, M>>() {
+			app.insert_resource(Localization::<C, M>::new(
+				startup.unwrap_or_else(C::default_locale),
+			));
+		}
+
+		app.init_resource::<Localization<C, M>>();
+		app.insert_resource(ProviderCachePolicy::<C>::new(self.cache_policy));
+		#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+		{
+			if !app.is_plugin_added::<crate::LocalizationStartupPlugin>() {
+				app.add_plugins(crate::LocalizationStartupPlugin::fallback());
+			}
+		}
+		compatibility::register_notifications::<C>(app);
+		crate::progress::register::<C, M>(app, self.registration_site());
+
+		for scope in C::scopes() {
+			#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17", feature = "bevy-0-18"))]
+			crate::legacy_systems::CatalogReadiness::register::<C, M>(app.world_mut(), &scope);
+			#[cfg(any(feature = "bevy-0-19", feature = "bevy-0-20"))]
+			crate::scheduling::CatalogReadiness::register::<C, M>(app.world_mut(), &scope);
+			(scope.bindings)(app, M::AUTOMATIC);
+		}
+
+		match &self.source {
+			Source::Bytes(loader) => configure_bytes::<C, M>(app, loader),
+			#[cfg(feature = "manifest")]
+			Source::Manifest(manifest) => configure_manifest::<C, M>(app, manifest, startup),
+		}
+	}
+
+	fn is_unique(&self) -> bool {
+		// Report structural conflicts ourselves instead of Bevy's name-only error.
+		false
+	}
+}
+
+fn configure_bytes<C: FluentCatalog, M: LoadingMode>(app: &mut App, loader: &ByteLoader<C>) {
+	app.insert_resource(ByteSource::<C> {
+		loader: loader.clone(),
+		modules: C::modules()
+			.into_iter()
+			.map(|module| (module.path, module))
+			.collect(),
+	})
+	.add_systems(
+		PreUpdate,
+		(
+			demand::synchronize::<C, M>,
+			reload_catalogs::<C, M>,
+			bytes::reconcile::<C, M>,
+			crate::preparation::commit::<C, M>,
+			resources::synchronize::<C, M>,
+		)
+			.chain()
+			.in_set(LocalizationSystems::Publish),
+	)
+	.add_systems(
+		PostUpdate,
+		(
+			demand::synchronize::<C, M>,
+			bytes::reconcile::<C, M>,
+			resources::synchronize::<C, M>,
+		)
+			.chain()
+			.before(LocalizationSystems::Refresh),
+	);
+}
+
+#[cfg(feature = "manifest")]
+fn configure_manifest<C: FluentCatalog, M: LoadingMode>(
+	app: &mut App,
+	manifest: &LocalizationManifest,
+	startup: Option<C::Locale>,
+) {
+	let error = if manifest.config().source_language != C::source_locale().as_ref() {
+		Some("manifest source-language differs from the compiled schema".into())
+	} else if startup.is_none() {
+		Some("manifest default-language is not a compiled locale".into())
+	} else {
+		None
+	};
+
+	let attempts = PreparationAttempts::<C>::default();
+	app.insert_resource(CatalogSource::<C> {
+		attempts: attempts.clone(),
+		manifest: manifest.clone(),
+		modules: C::modules()
+			.into_iter()
+			.map(|module| (module.path, module))
+			.collect(),
+		error,
+		marker: PhantomData,
+	})
+	.init_asset::<ModuleAsset<C>>()
+	.init_asset::<PreparedModuleAsset<C>>()
+	.register_asset_loader(ModuleLoader::<C>::new(manifest))
+	.register_asset_loader(PreparedModuleLoader {
+		loader: ModuleLoader::<C>::new(manifest),
+		attempts,
+	});
+
+	app.add_systems(
+		PreUpdate,
+		(
+			demand::synchronize::<C, M>,
+			reload_catalogs::<C, M>,
+			report_failures::<C, M>,
+			reconcile::<C, M>,
+			crate::preparation::commit::<C, M>,
+			resources::synchronize::<C, M>,
+		)
+			.chain()
+			.in_set(LocalizationSystems::Publish),
+	)
+	.add_systems(
+		PostUpdate,
+		(
+			demand::synchronize::<C, M>,
+			reconcile::<C, M>,
+			resources::synchronize::<C, M>,
+		)
+			.chain()
+			.before(LocalizationSystems::Refresh),
+	);
+}

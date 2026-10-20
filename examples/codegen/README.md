@@ -42,7 +42,7 @@ messages, typed arguments and live edits see the larger [integration suite](../m
 
 The application declares `const EMBEDDED = Translations;` inside
 `texts::embed_manifest!`, passes that manifest to the plugin and parses the
-selected language when its inserted `LocalizedText<Greeting>` needs it during an update. [tests/output.rs](tests/output.rs) checks the executable's three greetings; there is no test collection wrapper in main.
+selected language when its inserted `Localized<Text, Greeting>` needs it during an update. [tests/output.rs](tests/output.rs) checks the executable's three greetings; there is no test collection wrapper in main.
 
 [MIT](LICENSE).
 
@@ -59,7 +59,7 @@ to `LocalizationPlugin::from_bytes` and prints the same three greetings using
 ordinary generated resources. It deliberately embeds its small input with
 `include_bytes!`; no runtime manifest or AssetPlugin is required. The buffers
 are retained for repeat loads. Default Lazy requests the greeting scope through
-the inserted `LocalizedText<Greeting>` binding and keeps it ready while that
+the inserted `Localized<Text, Greeting>` binding and keeps it ready while that
 binding exists. World inspection alone does not create demand. For on-demand
 file reading and module lifetime, use [Lazy](../../GUIDE.md#automatic-module-lifetime)
 and Bevy's asset system;
@@ -101,3 +101,10 @@ or recurring tracker. Passive count queries and optional `diagnostics` do not
 activate it. See [loading progress](../../GUIDE.md#observe-loading-progress) for your
 application's UI and [optional module details](../../GUIDE.md#optional-module-details)
 when individual paths or attempt errors are needed.
+
+## Control text updates explicitly
+
+The [ownership guide](../../docs/bindings.md#cases-that-do-not-establish-automatic-ownership)
+explains how ordinary `Text`/`AccessibleLabel` components remain under application
+control. Read the catalog through `Res<Scope>` and pass the resolved String to
+your component when the application chooses to update it.

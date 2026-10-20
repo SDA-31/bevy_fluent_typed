@@ -3,11 +3,13 @@ use super::tracking::StoreVersion;
 use crate::{FluentCatalog, LoadingMode, Localization};
 use std::{collections::BTreeSet, sync::Arc};
 
+/// Borrowed active/target controller state used to test cached progress stamps.
 pub(super) struct Version<'a, L> {
 	active: StoreView<'a, L>,
 	preparation: Option<StoreView<'a, L>>,
 }
 
+/// Borrowed identity, demand and attempt state for one side of a locale transition.
 struct StoreView<'a, L> {
 	store: &'a StoreVersion,
 	locale: L,
@@ -38,7 +40,7 @@ impl<'a, L: Copy + Eq> StoreView<'a, L> {
 		Self {
 			store: &state.store.progress_version,
 			locale: state.locale(),
-			desired: &state.desired,
+			desired: state.progress_desired(),
 			pending: state.pending,
 			retry: state.retry.revision,
 			handoff,
@@ -46,11 +48,14 @@ impl<'a, L: Copy + Eq> StoreView<'a, L> {
 	}
 }
 
+/// Owned comparison stamp retained by one progress view between publications.
 pub(super) struct Stamp<L> {
 	active: StoreStamp<L>,
 	preparation: Option<StoreStamp<L>>,
 }
 
+/// Owned store/demand identities and scalar attempt state, allowing comparisons
+/// without rescanning module statuses or copying the desired-path set.
 struct StoreStamp<L> {
 	identity: Arc<()>,
 	revision: u64,

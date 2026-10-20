@@ -51,9 +51,12 @@ impl<'w, T: FluentScope> PassiveCatalog<'w, T> {
 	}
 }
 
+/// Registered access marker distinguishing a passive scope borrow from active Res demand.
+/// It contributes scheduler metadata and is not inserted on application entities.
 #[derive(Component)]
 pub(crate) struct PassiveCatalogMarker<T: FluentScope>(PhantomData<fn() -> T>);
 
+/// Scope-to-marker index used when classifying native system access metadata.
 #[derive(Resource, Default)]
 pub(crate) struct PassiveCatalogMarkers(pub(crate) HashMap<TypeId, ComponentId>);
 

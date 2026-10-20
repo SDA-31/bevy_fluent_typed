@@ -1,13 +1,16 @@
 //! Reconcile logical requests with the selected language's concrete assets.
 #[cfg(feature = "manifest")]
 use crate::assets::{ModuleAsset, PreparedModuleAsset};
-use crate::bevy::prelude::*;
+use crate::bevy::prelude::ResMut;
+#[cfg(feature = "manifest")]
+use crate::bevy::prelude::{AssetServer, Assets, Res, Resource};
 #[cfg(feature = "manifest")]
 use crate::bevy::{
 	asset::{AssetEvent, AssetLoadFailedEvent, AssetPath},
 	ecs as bevy_ecs,
 };
 use crate::compatibility::{MessageReader, MessageWriter};
+use crate::state::Acquisition;
 #[cfg(feature = "manifest")]
 use crate::state::RequestedModule;
 use crate::{
@@ -18,6 +21,8 @@ use crate::{LocalizationManifest, Module, addresses};
 #[cfg(feature = "manifest")]
 use std::{collections::HashMap, marker::PhantomData, path::Path};
 
+/// Provider-specific manifest, checked schema index and preparation attempt registry.
+/// A source-contract error is published through normal leaf failure handling.
 #[cfg(feature = "manifest")]
 #[derive(Resource)]
 pub(crate) struct CatalogSource<C: FluentCatalog> {
@@ -32,17 +37,16 @@ pub(crate) fn reload_catalogs<C: FluentCatalog, M: LoadingMode>(
 	mut requests: MessageReader<ReloadCatalogs<C>>,
 	mut localization: ResMut<Localization<C, M>>,
 ) {
-	if requests.read().count() > 0 {
-		let desired = localization.desired();
-		localization.retry.extend(desired.iter().copied());
-		localization.commit_requested = false;
-
-		if let Some(preparation) = localization.preparation.as_mut() {
-			preparation.retry.extend(desired.iter().copied());
-		}
+	if requests.read().count() == 0 {
+		return;
 	}
+
+	localization.commit_requested = false;
+	localization.visit_acquisitions(|state| state.retry.extend(state.desired().iter().copied()));
 }
 
+/// Asset snapshots and event cursors used by one provider's reconciliation system.
+/// Events identify real changes; pending reads are polled without waiting for an event flush.
 #[cfg(feature = "manifest")]
 #[derive(crate::bevy::ecs::system::SystemParam)]
 pub(crate) struct CatalogAssets<'w, 's, C: FluentCatalog> {
@@ -73,50 +77,26 @@ pub(crate) fn reconcile<C: FluentCatalog, M: LoadingMode>(
 	// completion can publish before Bevy flushes its asset-event queue.
 	let assets_changed = assets.changes.read().count() + assets.prepared_changes.read().count() > 0;
 
-	let needs_reconcile = |state: &Localization<C, M>| {
-		state.requests_changed || !state.retry.is_empty() || state.pending > 0 || assets_changed
-	};
-	let target_needs_reconcile = localization
-		.preparation
-		.as_ref()
-		.is_some_and(|preparation| {
-			preparation.locale() != localization.locale() && needs_reconcile(preparation)
-		});
-
-	if !needs_reconcile(&localization) && !target_needs_reconcile {
+	if !localization.acquisition_needed(assets_changed) {
 		return;
 	}
 
-	reconcile_state(
-		&mut localization,
-		&source,
-		&assets.server,
-		&assets.loaded,
-		&assets.prepared,
-		assets_changed,
-		&mut updates,
-	);
-
-	if localization
-		.prepared_locale()
-		.is_some_and(|locale| locale != localization.locale())
-		&& let Some(preparation) = localization.preparation.as_mut()
-	{
+	localization.visit_acquisitions(|state| {
 		reconcile_state(
-			preparation,
+			state,
 			&source,
 			&assets.server,
 			&assets.loaded,
 			&assets.prepared,
 			assets_changed,
 			&mut updates,
-		);
-	}
+		)
+	});
 }
 
 #[cfg(feature = "manifest")]
-fn reconcile_state<C: FluentCatalog, M: LoadingMode>(
-	localization: &mut Localization<C, M>,
+fn reconcile_state<C: FluentCatalog>(
+	localization: &mut Acquisition<'_, C>,
 	source: &CatalogSource<C>,
 	server: &AssetServer,
 	assets: &Assets<ModuleAsset<C>>,
@@ -124,22 +104,20 @@ fn reconcile_state<C: FluentCatalog, M: LoadingMode>(
 	assets_changed: bool,
 	updates: &mut MessageWriter<CatalogUpdate<C>>,
 ) {
-	if !localization.requests_changed
+	if !*localization.requests_changed
 		&& localization.retry.is_empty()
-		&& localization.pending == 0
+		&& *localization.pending == 0
 		&& !assets_changed
 	{
 		return;
 	}
 
-	if localization.requests_changed {
-		localization.requests_changed = false;
+	if *localization.requests_changed {
+		*localization.requests_changed = false;
 	}
 
-	release_unrequested(localization);
+	release_state(localization);
 	let desired = localization.desired();
-
-	let locale = localization.locale();
 
 	for path in desired.iter() {
 		let Some(module) = source.modules.get(path) else {
@@ -157,158 +135,206 @@ fn reconcile_state<C: FluentCatalog, M: LoadingMode>(
 			localization.retry.remove(path);
 		}
 
-		if initial || retry {
-			localization.store.set_status(path, ModuleStatus::Loading);
-
-			if let Some(error) = &source.error {
-				localization
-					.entries
-					.insert(path, RequestedModule::new(locale));
-				publish(localization, path, Err(error.clone()), updates);
-				continue;
-			}
-
-			if source.manifest.embedded_modules().is_some() {
-				localization
-					.entries
-					.insert(path, RequestedModule::new(locale));
-				let candidate = source
-					.manifest
-					.read(locale.as_ref(), path)
-					.map_err(|error| error.to_string())
-					.and_then(|bytes| (module.parse)(locale, &bytes));
-				publish(localization, path, candidate, updates);
-				continue;
-			}
-
-			match asset_address(&source.manifest, locale.as_ref(), path) {
-				Ok(address) => {
-					// Settings are immutable for a living Bevy path handle. Retire
-					// the old target handle before allocating a fresh attempt, so
-					// canceled/late work cannot acquire a replacement's identity.
-					if localization.staged {
-						localization.entries.remove(path);
-
-						if server.get_path_ids(address.clone()).iter().any(|id| {
-							id.type_id() == std::any::TypeId::of::<PreparedModuleAsset<C>>()
-						}) {
-							localization.requests_changed = true;
-							continue;
-						}
-					}
-
-					let preparation_request = localization
-						.staged
-						.then(crate::preparation::next_asset_request);
-					let (handle, preparation_handle, preparation_attempt) =
-						if let Some(request) = preparation_request {
-							let (handle, attempt) = crate::preparation::load_asset::<C>(
-								server,
-								address,
-								request,
-								&source.attempts,
-							);
-							(None, Some(handle), Some(attempt))
-						} else if let Some(handle) = localization
-							.entries
-							.get(path)
-							.and_then(|entry| entry.handle.clone())
-						{
-							// Reuse the active handle; reload requests are serialized per leaf.
-							server.reload(address);
-							(Some(handle), None, None)
-						} else {
-							(Some(server.load(address)), None, None)
-						};
-					let accepted = localization
-						.entries
-						.get(path)
-						.and_then(|entry| entry.accepted);
-					localization.pending += 1;
-					localization.entries.insert(
-						path,
-						RequestedModule {
-							handle,
-							accepted,
-							preparation_request,
-							preparation_handle,
-							preparation_attempt,
-							pending: true,
-							..RequestedModule::new(locale)
-						},
-					);
-				}
-				Err(error) => {
-					localization.entries.insert(
-						path,
-						RequestedModule {
-							handle: None,
-							accepted: None,
-							pending: false,
-							..RequestedModule::new(locale)
-						},
-					);
-					publish(localization, path, Err(error), updates);
-				}
-			}
-		}
-
-		let Some(entry) = localization.entries.get(path) else {
-			continue;
-		};
-		let asset = if localization.staged {
-			entry
-				.preparation_handle
-				.as_ref()
-				.and_then(|handle| prepared_assets.get(handle))
-				.map(|asset| (&asset.asset, Some(asset.request)))
-		} else {
-			entry
-				.handle
-				.as_ref()
-				.and_then(|handle| assets.get(handle))
-				.map(|asset| (asset, None))
-		};
-		let Some((asset, request)) = asset else {
-			if localization.staged
-				&& entry.pending
-				&& entry
-					.preparation_attempt
-					.as_ref()
-					.is_some_and(|attempt| attempt.finished_without_loader())
-			{
-				localization.finish_request(path);
-				publish(localization, path, Err("locale preparation completed without the expected catalog loader; check source acquisition and asset metadata".into()), updates);
-			}
-
-			continue;
-		};
-
-		// Revisions order loader invocations, not completion. External overlapping
-		// reads delayed before AssetLoader::load have no public Bevy request identity.
-		if (localization.staged && entry.preparation_request != request)
-			|| asset.locale != locale
-			|| asset.path != path
-			|| entry
-				.accepted
-				.is_some_and(|revision| asset.revision <= revision)
-		{
+		if (initial || retry)
+			&& matches!(
+				begin_request(localization, source, server, module, updates),
+				RequestStep::NextModule
+			) {
 			continue;
 		}
 
-		let entry = localization.finish_request(path);
-		entry.accepted = Some(asset.revision);
-		publish(localization, path, asset.candidate.clone(), updates);
+		poll_asset(localization, assets, prepared_assets, path, updates);
 	}
 
 	if localization.staged {
-		crate::preparation::refresh_handoff(localization, source, server);
+		crate::preparation::refresh_acquisition_handoff(localization, source, server);
 	}
 }
 
-pub(crate) fn release_unrequested<C: FluentCatalog, M: LoadingMode>(
-	localization: &mut Localization<C, M>,
+/// Whether starting a leaf request permits polling its asset in the same pass.
+#[cfg(feature = "manifest")]
+enum RequestStep {
+	/// File setup completed, including a reported address failure with no handle.
+	Poll,
+	/// Embedded/error publication finished, or an old staged handle must retire.
+	NextModule,
+}
+
+#[cfg(feature = "manifest")]
+fn begin_request<C: FluentCatalog>(
+	localization: &mut Acquisition<'_, C>,
+	source: &CatalogSource<C>,
+	server: &AssetServer,
+	module: &Module<C>,
+	updates: &mut MessageWriter<CatalogUpdate<C>>,
+) -> RequestStep {
+	let path = module.path;
+	let locale = localization.locale();
+	localization.store.set_status(path, ModuleStatus::Loading);
+
+	if let Some(error) = &source.error {
+		localization
+			.entries
+			.insert(path, RequestedModule::new(locale));
+		publish(localization, path, Err(error.clone()), updates);
+		return RequestStep::NextModule;
+	}
+
+	if source.manifest.embedded_modules().is_some() {
+		localization
+			.entries
+			.insert(path, RequestedModule::new(locale));
+		let candidate = source
+			.manifest
+			.read(locale.as_ref(), path)
+			.map_err(|error| error.to_string())
+			.and_then(|bytes| (module.parse)(locale, &bytes));
+		publish(localization, path, candidate, updates);
+		return RequestStep::NextModule;
+	}
+
+	start_file_request(localization, source, server, path, updates)
+}
+
+#[cfg(feature = "manifest")]
+fn start_file_request<C: FluentCatalog>(
+	localization: &mut Acquisition<'_, C>,
+	source: &CatalogSource<C>,
+	server: &AssetServer,
+	path: &'static str,
+	updates: &mut MessageWriter<CatalogUpdate<C>>,
+) -> RequestStep {
+	let locale = localization.locale();
+	let address = match asset_address(&source.manifest, locale.as_ref(), path) {
+		Ok(address) => address,
+		Err(error) => {
+			localization.entries.insert(
+				path,
+				RequestedModule {
+					handle: None,
+					accepted: None,
+					pending: false,
+					..RequestedModule::new(locale)
+				},
+			);
+			publish(localization, path, Err(error), updates);
+			return RequestStep::Poll;
+		}
+	};
+
+	// Settings are immutable for a living Bevy path handle. Retire the old
+	// target before allocating an identity for its replacement attempt.
+	if localization.staged {
+		localization.entries.remove(path);
+
+		if server
+			.get_path_ids(address.clone())
+			.iter()
+			.any(|id| id.type_id() == std::any::TypeId::of::<PreparedModuleAsset<C>>())
+		{
+			*localization.requests_changed = true;
+			return RequestStep::NextModule;
+		}
+	}
+
+	let preparation_request = localization
+		.staged
+		.then(crate::preparation::next_asset_request);
+	let (handle, preparation_handle, preparation_attempt) =
+		if let Some(request) = preparation_request {
+			let (handle, attempt) =
+				crate::preparation::load_asset::<C>(server, address, request, &source.attempts);
+			(None, Some(handle), Some(attempt))
+		} else if let Some(handle) = localization
+			.entries
+			.get(path)
+			.and_then(|entry| entry.handle.clone())
+		{
+			// Reuse the active handle; reload requests are serialized per leaf.
+			server.reload(address);
+			(Some(handle), None, None)
+		} else {
+			(Some(server.load(address)), None, None)
+		};
+	let accepted = localization
+		.entries
+		.get(path)
+		.and_then(|entry| entry.accepted);
+	*localization.pending += 1;
+	localization.entries.insert(
+		path,
+		RequestedModule {
+			handle,
+			accepted,
+			preparation_request,
+			preparation_handle,
+			preparation_attempt,
+			pending: true,
+			..RequestedModule::new(locale)
+		},
+	);
+	RequestStep::Poll
+}
+
+#[cfg(feature = "manifest")]
+fn poll_asset<C: FluentCatalog>(
+	localization: &mut Acquisition<'_, C>,
+	assets: &Assets<ModuleAsset<C>>,
+	prepared_assets: &Assets<PreparedModuleAsset<C>>,
+	path: &'static str,
+	updates: &mut MessageWriter<CatalogUpdate<C>>,
 ) {
+	let locale = localization.locale();
+	let Some(entry) = localization.entries.get(path) else {
+		return;
+	};
+	let staged_entry = entry.preparation_handle.is_some();
+	let asset = if staged_entry {
+		entry
+			.preparation_handle
+			.as_ref()
+			.and_then(|handle| prepared_assets.get(handle))
+			.map(|asset| (&asset.asset, Some(asset.request)))
+	} else {
+		entry
+			.handle
+			.as_ref()
+			.and_then(|handle| assets.get(handle))
+			.map(|asset| (asset, None))
+	};
+	let Some((asset, request)) = asset else {
+		if staged_entry
+			&& entry.pending
+			&& entry
+				.preparation_attempt
+				.as_ref()
+				.is_some_and(|attempt| attempt.finished_without_loader())
+		{
+			localization.finish_request(path);
+			publish(localization, path, Err("locale preparation completed without the expected catalog loader; check source acquisition and asset metadata".into()), updates);
+		}
+
+		return;
+	};
+
+	// Revisions order loader invocations, not completion. External overlapping
+	// reads delayed before AssetLoader::load have no public Bevy request identity.
+	if (staged_entry && entry.preparation_request != request)
+		|| asset.locale != locale
+		|| asset.path != path
+		|| entry
+			.accepted
+			.is_some_and(|revision| asset.revision <= revision)
+	{
+		return;
+	}
+
+	let entry = localization.finish_request(path);
+	entry.accepted = Some(asset.revision);
+	publish(localization, path, asset.candidate.clone(), updates);
+}
+
+pub(crate) fn release_state<C: FluentCatalog>(localization: &mut Acquisition<'_, C>) {
 	let desired = localization.desired();
 	let removed: std::collections::BTreeSet<_> = localization
 		.entries
@@ -330,7 +356,7 @@ pub(crate) fn release_unrequested<C: FluentCatalog, M: LoadingMode>(
 			.remove(path)
 			.is_some_and(|entry| entry.pending)
 		{
-			localization.pending -= 1;
+			*localization.pending -= 1;
 		}
 
 		localization.retry.remove(path);
@@ -344,8 +370,8 @@ pub(crate) fn release_unrequested<C: FluentCatalog, M: LoadingMode>(
 	}
 }
 
-pub(crate) fn publish<C: FluentCatalog, M: LoadingMode>(
-	localization: &mut Localization<C, M>,
+pub(crate) fn publish<C: FluentCatalog>(
+	localization: &mut Acquisition<'_, C>,
 	path: &'static str,
 	candidate: Result<crate::catalog::SharedScope, String>,
 	updates: &mut MessageWriter<CatalogUpdate<C>>,
@@ -399,37 +425,31 @@ pub(crate) fn report_failures<C: FluentCatalog, M: LoadingMode>(
 	}
 
 	for event in events.read() {
-		report_failure(&mut localization, event, &mut updates);
+		localization.visit_acquisitions(|state| report_failure(state, event, &mut updates));
 	}
 
 	for event in prepared_events.read() {
-		let Some(preparation) = localization.preparation.as_mut() else {
-			continue;
-		};
-		let desired = preparation.desired();
-		let path = preparation.entries.iter().find_map(|(path, entry)| {
-			entry
-				.preparation_handle
-				.as_ref()
-				.filter(|handle| desired.contains(path) && handle.id() == event.id)
-				.map(|_| *path)
+		localization.visit_acquisitions(|state| {
+			let desired = state.desired();
+			let path = state.entries.iter().find_map(|(path, entry)| {
+				entry
+					.preparation_handle
+					.as_ref()
+					.filter(|handle| desired.contains(path) && handle.id() == event.id)
+					.map(|_| *path)
+			});
+			let Some(path) = path else {
+				return;
+			};
+			state.finish_request(path);
+			publish(state, path, Err(event.error.to_string()), &mut updates);
 		});
-
-		if let Some(path) = path {
-			preparation.finish_request(path);
-			publish(
-				preparation,
-				path,
-				Err(event.error.to_string()),
-				&mut updates,
-			);
-		}
 	}
 }
 
 #[cfg(feature = "manifest")]
-fn report_failure<C: FluentCatalog, M: LoadingMode>(
-	localization: &mut Localization<C, M>,
+fn report_failure<C: FluentCatalog>(
+	localization: &mut Acquisition<'_, C>,
 	event: &AssetLoadFailedEvent<ModuleAsset<C>>,
 	updates: &mut MessageWriter<CatalogUpdate<C>>,
 ) {

@@ -33,6 +33,8 @@ impl<C: FluentCatalog> TypePath for PreparedModuleAsset<C> {
 	}
 }
 
+/// Private typed asset namespace delegating parsing to the normal module loader.
+/// Attempt registration detects acquisition that bypasses this expected loader.
 pub(crate) struct PreparedModuleLoader<C: FluentCatalog> {
 	pub(crate) loader: ModuleLoader<C>,
 	pub(crate) attempts: PreparationAttempts<C>,
@@ -125,10 +127,15 @@ impl<C: FluentCatalog> PreparationAttempts<C> {
 	}
 }
 
+/// Atomic stages of one prepared-file acquisition, held by its controller entry.
 /// A completed task which never entered this catalog's loader cannot publish its asset.
+/// Registry and guard links are weak, so canceled attempts are not kept alive.
 pub(crate) struct AssetAttempt {
+	/// The asset load accepted this attempt's immutable settings.
 	pub(crate) settings_applied: AtomicBool,
+	/// The expected provider-specific prepared loader was entered.
 	started: AtomicBool,
+	/// The asset acquisition guard dropped, including paths that bypassed the loader.
 	finished: AtomicBool,
 	request: u64,
 	registry: Weak<AttemptMap>,
@@ -151,6 +158,8 @@ impl Drop for AssetAttempt {
 	}
 }
 
+/// Task-lifetime sentinel that records completion even without a loader invocation.
+/// Its weak link cannot extend the lifetime of a canceled controller attempt.
 pub(crate) struct PreparationGuard(pub(crate) Weak<AssetAttempt>);
 
 impl Drop for PreparationGuard {

@@ -16,28 +16,35 @@ use std::{
 	sync::Arc,
 };
 
+/// Immutable parsed/assembled snapshot plus its contributing leaf revisions.
+/// Its publication revision changes when the ready value is replaced or rebuilt.
 pub(crate) struct ReadyScope {
 	pub(crate) value: SharedScope,
 	pub(crate) signature: Vec<(&'static str, u64)>,
+	/// Publication stamp of this snapshot within its owning store.
 	pub(crate) revision: u64,
 }
 
 /// Read-only access to ready scopes for typed navigation and provider assembly.
 pub struct ModuleStore<C: FluentCatalog> {
 	pub(crate) locale: C::Locale,
+	/// Ready leaf and assembled-group snapshots keyed by nominal Rust type.
 	pub(crate) values: HashMap<TypeId, ReadyScope>,
 	pub(crate) states: BTreeMap<&'static str, ModuleStatus>,
-	pub(crate) leaves: BTreeMap<&'static str, TypeId>,
+	pub(crate) leaves: Arc<BTreeMap<&'static str, TypeId>>,
 	pub(crate) scopes: Arc<[ScopeRegistration<C>]>,
-	pub(crate) scope_indices: HashMap<TypeId, usize>,
+	/// Index into the immutable schema, avoiding a scan during Idle restoration checks.
+	pub(crate) scope_indices: Arc<HashMap<TypeId, usize>>,
+	/// Monotonic active publication clock; staged stores are rebased before commit.
 	pub(crate) revision: u64,
+	/// Separate opt-in bookkeeping for loading-progress observers.
 	pub(crate) progress_version: crate::progress::StoreVersion,
 }
 
 impl<C: FluentCatalog> ModuleStore<C> {
 	pub(crate) fn new(locale: C::Locale) -> Self {
 		let scopes: Arc<[ScopeRegistration<C>]> = C::scopes().into();
-		let scope_indices = scopes
+		let scope_indices: HashMap<_, _> = scopes
 			.iter()
 			.enumerate()
 			.map(|(index, scope)| (scope.id, index))
@@ -47,14 +54,30 @@ impl<C: FluentCatalog> ModuleStore<C> {
 			locale,
 			values: HashMap::new(),
 			states: BTreeMap::new(),
-			leaves: C::modules()
-				.into_iter()
-				.map(|module| (module.path, module.scope))
-				.collect(),
+			leaves: Arc::new(
+				C::modules()
+					.into_iter()
+					.map(|module| (module.path, module.scope))
+					.collect(),
+			),
 			revision: 0,
 			progress_version: crate::progress::StoreVersion::default(),
 			scopes,
-			scope_indices,
+			scope_indices: Arc::new(scope_indices),
+		}
+	}
+
+	/// Allocate empty locale data while reusing compiled schema metadata.
+	pub(crate) fn empty_for(&self, locale: C::Locale) -> Self {
+		Self {
+			locale,
+			values: HashMap::new(),
+			states: BTreeMap::new(),
+			leaves: self.leaves.clone(),
+			scopes: self.scopes.clone(),
+			scope_indices: self.scope_indices.clone(),
+			revision: 0,
+			progress_version: crate::progress::StoreVersion::default(),
 		}
 	}
 
@@ -182,7 +205,9 @@ impl<C: FluentCatalog> ModuleStore<C> {
 	)
 )]
 pub struct ScopeRegistration<C: FluentCatalog> {
+	pub(crate) publish_locale: fn(&mut World, C::Locale, Option<&SharedScope>),
 	pub(crate) id: TypeId,
+	/// Immediate schema parent; missing metadata falls back to the catalog root.
 	pub(crate) parent: Option<TypeId>,
 	pub(crate) progress: fn() -> crate::progress::Subscription<C>,
 	#[cfg(any(feature = "bevy-0-16", feature = "bevy-0-17", feature = "bevy-0-18"))]
@@ -192,9 +217,13 @@ pub struct ScopeRegistration<C: FluentCatalog> {
 	pub(crate) publish: fn(&SharedScope, &mut World),
 	pub(crate) remove: fn(&mut World),
 	pub(crate) exists: fn(&World) -> bool,
+	/// Registers precisely the scope-resource reads used by readiness probes.
 	pub(crate) ready_access: fn(&mut FilteredResourcesBuilder),
+	/// Checks presence through the same access-checked resource view.
 	pub(crate) ready_exists: fn(&FilteredResources) -> bool,
+	/// Enables the shared binding dispatcher for this scope and loading mode.
 	pub(crate) bindings: fn(&mut App, bool),
+	/// Acquires an independent automatic lifetime token for this scope.
 	pub(crate) consumer: fn(&mut World) -> Arc<crate::demand::Consumer>,
 }
 
@@ -202,6 +231,7 @@ impl<C: FluentCatalog> ScopeRegistration<C> {
 	/// Register one scope's assembly, resources and deferred text bindings.
 	pub fn new<S: FluentScope<Catalog = C>>() -> Self {
 		Self {
+			publish_locale: crate::state::LocaleSnapshots::<S>::publish,
 			id: TypeId::of::<S>(),
 			parent: None,
 			progress: crate::progress::Subscription::new::<S>,

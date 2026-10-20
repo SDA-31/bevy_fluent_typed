@@ -33,6 +33,9 @@ use std::{
 	},
 };
 
+/// Completion and demand state shared by one wrapped system and its conditions.
+/// Weak predecessor/barrier links do not retain removed nodes; actual demand owners
+/// belong to the live wrappers and gates.
 pub(super) struct NodeState {
 	pub(super) startup: bool,
 	pub(super) complete_in_gate: bool,
@@ -163,6 +166,8 @@ macro_rules! delegate {
 	};
 }
 
+/// Native system wrapper preserving initialization/access metadata and consumer lifetime.
+/// Discovery does not initialize the underlying system a second time.
 pub(super) struct DiscoveredSystem {
 	inner: ScheduleSystem,
 	state: Arc<NodeState>,
@@ -227,10 +232,16 @@ impl System for DiscoveredSystem {
 	}
 }
 
+/// Current descendants shared by all wrapped predicates belonging to a native set.
 pub(super) type Members = Arc<Mutex<Vec<Arc<NodeState>>>>;
+/// Catalog reads captured once by a shared predicate and inherited by later descendants.
 pub(super) type Probes = Arc<Mutex<Vec<Arc<Probe>>>>;
+/// Strong demand tokens retained by a readiness gate for its system-state lifetime.
 pub(super) type GateOwners = Arc<Mutex<Vec<Arc<Consumer>>>>;
 
+/// Read-only native predicate wrapper gated by readiness and external ordering.
+/// Startup predicates cache their result; shared set membership remains mutable
+/// so systems added after initialization inherit the same discovered catalog reads.
 pub(super) struct TrackedCondition {
 	inner: BoxedCondition,
 	states: Members,
@@ -260,6 +271,29 @@ impl TrackedCondition {
 			catalog_gate: None,
 		}
 	}
+}
+
+/// A shared condition may run once any unfinished member's external predecessors finish.
+/// Internal set edges must not block the shared predicate (A -> outside C -> B).
+fn condition_eligible(states: &[Arc<NodeState>], shared_set: bool) -> bool {
+	states.iter().any(|state| {
+		if !state.startup {
+			return true;
+		}
+
+		if state.done.load(Ordering::Acquire) {
+			return false;
+		}
+
+		state.predecessors.lock().unwrap().iter().all(|previous| {
+			let Some(previous) = previous.upgrade() else {
+				return true;
+			};
+
+			previous.done.load(Ordering::Acquire)
+				|| (shared_set && states.iter().any(|member| Arc::ptr_eq(member, &previous)))
+		})
+	})
 }
 
 impl System for TrackedCondition {
@@ -295,17 +329,7 @@ impl System for TrackedCondition {
 		// Bevy evaluates all predicates even when a preceding readiness gate is false.
 		// A shared set can start as soon as one member's external predecessors finish;
 		// requiring every member would deadlock A -> outside C -> B in the same set.
-		let eligible = states.iter().any(|state| {
-			!state.startup
-				|| (!state.done.load(Ordering::Acquire)
-					&& state.predecessors.lock().unwrap().iter().all(|previous| {
-						previous.upgrade().is_none_or(|previous| {
-							previous.done.load(Ordering::Acquire)
-								|| (self.shared_probes.is_some()
-									&& states.iter().any(|member| Arc::ptr_eq(member, &previous)))
-						})
-					}))
-		});
+		let eligible = condition_eligible(&states, self.shared_probes.is_some());
 		if !eligible {
 			return Ok(false);
 		}

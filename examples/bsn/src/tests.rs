@@ -1,7 +1,7 @@
 use crate::{greeting_scene, texts};
 use bevy::{asset::AssetPlugin, prelude::*, scene::ScenePlugin};
 use bevy_fluent_typed::{
-	Localization, LocalizationPlugin, LocalizedText, Message, ModuleStatus, ReloadCatalogs,
+	Localization, LocalizationPlugin, Localized, ModuleStatus, Msg, ReloadCatalogs,
 };
 use std::{
 	collections::HashMap,
@@ -12,6 +12,9 @@ use texts::presentation::Hud as Interface;
 
 #[path = "tests/native/bevy_0_20.rs"]
 mod native;
+
+mod buttons;
+mod locales;
 
 type Source = Arc<Mutex<HashMap<String, Vec<u8>>>>;
 
@@ -75,7 +78,7 @@ fn pair_ready(world: &World, pair: (Entity, Entity), prefix: &str) -> bool {
 fn native_bsn_bindings_request_switch_locale_and_release_after_last_removal() {
 	let (mut app, _) = test_app();
 	let name = String::from("Ada");
-	let binding = LocalizedText::<Interface>::new(move |hud| hud.msg_hello(&name));
+	let binding = Msg::<Interface>::new(move |hud| hud.msg_hello(&name));
 	let pair = native::spawn(app.world_mut(), binding);
 	assert!(!app.world().contains_resource::<Interface>());
 	assert!(
@@ -104,7 +107,7 @@ fn native_bsn_bindings_request_switch_locale_and_release_after_last_removal() {
 
 	app.world_mut()
 		.entity_mut(pair.0)
-		.remove::<LocalizedText<Interface>>();
+		.remove::<Localized<Text, Interface>>();
 	app.update();
 	assert!(app.world().contains_resource::<Interface>());
 	assert!(
@@ -116,12 +119,12 @@ fn native_bsn_bindings_request_switch_locale_and_release_after_last_removal() {
 	);
 	app.world_mut()
 		.entity_mut(pair.1)
-		.remove::<LocalizedText<Interface>>();
+		.remove::<Localized<Text2d, Interface>>();
 	app.update();
 	assert!(!app.world().contains_resource::<Interface>());
 	app.world_mut()
 		.entity_mut(pair.0)
-		.insert(LocalizedText::<Interface>::new(|hud| {
+		.insert(Localized::<Text, Interface>::new(|hud| {
 			hud.msg_hello("Grace")
 		}));
 	pump(&mut app, |world| {
@@ -136,7 +139,7 @@ fn native_bsn_reload_preserves_last_good_text_and_recovers() {
 	let (mut app, source) = test_app();
 	let pair = native::spawn(
 		app.world_mut(),
-		LocalizedText::<Interface>::new(|hud| hud.msg_hello("Lin")),
+		Msg::<Interface>::new(|hud| hud.msg_hello("Lin")),
 	);
 	pump(&mut app, |world| pair_ready(world, pair, "Hello"));
 	source
@@ -211,13 +214,13 @@ fn common_scene_factory_keeps_each_instances_owned_arguments() {
 fn inline_from_constructors_preserve_message_and_component_arguments() {
 	let (mut app, _) = test_app();
 	let name = String::from("Ada");
-	let message = Message::<Interface>::new(move |hud| hud.msg_hello(&name));
-	let binding = LocalizedText::from(message.clone());
+	let message = Msg::<Interface>::new(move |hud| hud.msg_hello(&name));
+	let binding = Localized::<Text, _>::from(message.clone());
 	let label = app
 		.world_mut()
 		.spawn_scene(bsn! {
 			Text2d
-			LocalizedText::<_>::from(message)
+			Localized::<Text2d, _>::from(message)
 		})
 		.unwrap()
 		.id();
@@ -225,7 +228,7 @@ fn inline_from_constructors_preserve_message_and_component_arguments() {
 		.world_mut()
 		.spawn_scene(bsn! {
 			Text
-			LocalizedText::<Interface>::from(binding)
+			Localized::<Text, Interface>::from(binding)
 		})
 		.unwrap()
 		.id();
@@ -264,13 +267,13 @@ fn scene_without_a_message_formatter_returns_an_error() {
 	let (mut app, _) = test_app();
 	let result = app.world_mut().spawn_scene(bsn! {
 		Text
-		LocalizedText::<Interface>
+		Localized::<Text, Interface>
 	});
 	let error = result.err().expect("a message formatter is mandatory");
 	assert!(
 		error
 			.to_string()
-			.contains("LocalizedText requires a formatting closure or Message")
+			.contains("Localized requires a formatting closure or Msg")
 	);
 }
 
@@ -282,7 +285,7 @@ fn native_scene_span_updates_without_inserting_a_root_text() {
 		.world_mut()
 		.spawn_scene(bsn! {
 			TextSpan
-			LocalizedText::<Interface>::new(|hud| hud.msg_hello("Ada"))
+			Localized::<TextSpan, Interface>::new(|hud| hud.msg_hello("Ada"))
 		})
 		.unwrap()
 		.id();

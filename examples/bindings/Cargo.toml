@@ -1,0 +1,18 @@
+[package]
+default-run = "localization-bindings-example"
+name = "localization-bindings-example"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+license = "MIT"
+publish = false
+
+[dependencies]
+bevy = { version = "0.20.0", default-features = false, features = ["bevy_ui_widgets"] }
+bevy_fluent_typed = { path = "../..", features = ["codegen"] }
+
+[build-dependencies]
+bevy_fluent_typed = { path = "../..", default-features = false, features = ["build"] }
+
+[package.metadata.localization]
+catalog = "assets/localizations/localization.toml"

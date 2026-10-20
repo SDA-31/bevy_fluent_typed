@@ -27,6 +27,7 @@ impl<'a> Fixture<'a> {
 			"GUIDE.md",
 			".rustfmt.toml",
 			"src",
+			"tests",
 			"docs",
 			"examples/minimal",
 			"examples/codegen",
@@ -43,7 +44,11 @@ impl<'a> Fixture<'a> {
 
 		if bsn {
 			copy(&source.join("examples/bsn"), &path.join("examples/bsn"))?;
-			generated_examples.push("bsn");
+			copy(
+				&source.join("examples/bindings"),
+				&path.join("examples/bindings"),
+			)?;
+			generated_examples.extend(["bsn", "bindings"]);
 		}
 
 		// Keep the smallest example free of backend-forwarding features: forwarding
@@ -101,23 +106,31 @@ impl<'a> Fixture<'a> {
 		}
 
 		if bsn {
-			let manifest = path.join("examples/bsn/Cargo.toml");
-			let original = fs::read_to_string(&manifest)?;
-			let scene_dependency = "bevy = { version = \"0.20.0\"";
+			for example in ["bsn", "bindings"] {
+				let manifest = path.join(format!("examples/{example}/Cargo.toml"));
+				let original = fs::read_to_string(&manifest)?;
+				let scene_dependency = "bevy = { version = \"0.20.0\"";
 
-			if !original.contains(scene_dependency) {
-				return Err("BSN example's scene dependency changed".into());
+				if !original.contains(scene_dependency) {
+					return Err("Example's Bevy dependency changed".into());
+				}
+
+				fs::write(
+					manifest,
+					original.replace(
+						scene_dependency,
+						&format!("bevy = {{ version = \"{version}\""),
+					),
+				)?;
 			}
 
-			fs::write(
-				manifest,
-				original.replace(
-					scene_dependency,
-					&format!("bevy = {{ version = \"{version}\""),
-				),
-			)?;
-
 			if backend == "bevy-0-19" {
+				let buttons = path.join("examples/bsn/src/buttons.rs");
+				fs::write(
+					&buttons,
+					fs::read_to_string(&buttons)?
+						.replace("buttons/native/bevy_0_20.rs", "buttons/native/bevy_0_19.rs"),
+				)?;
 				let tests = path.join("examples/bsn/src/tests.rs");
 				fs::write(
 					&tests,
@@ -127,7 +140,11 @@ impl<'a> Fixture<'a> {
 			}
 		}
 
-		let bsn_member = if bsn { ", \"examples/bsn\"" } else { "" };
+		let bsn_member = if bsn {
+			", \"examples/bsn\", \"examples/bindings\""
+		} else {
+			""
+		};
 
 		let manifest = path.join("Cargo.toml");
 		let generator = serde_json::to_string(&options.generator.to_string_lossy())?;
@@ -248,4 +265,33 @@ fn copy(source: &Path, destination: &Path) -> Result<()> {
 	}
 
 	Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+	use super::Fixture;
+	use crate::Options;
+	use std::{fs, path::PathBuf};
+
+	#[test]
+	fn current_repository_prepares_fixtures_for_every_backend() {
+		let source = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+			.join("../..")
+			.canonicalize()
+			.unwrap();
+		// Fixture setup only serializes this path; this check invokes no Cargo build.
+		let generator = tempfile::tempdir().unwrap();
+		let options = Options {
+			generator: generator.path().to_path_buf(),
+			target: None,
+			offline: true,
+			versions: Vec::new(),
+		};
+
+		for version in ["0.16.1", "0.17.0", "0.18.0", "0.19.0", "0.20.0"] {
+			let fixture = Fixture::new(&source, &options, version)
+				.unwrap_or_else(|error| panic!("cannot prepare Bevy {version}: {error}"));
+			fs::remove_dir_all(&fixture.path).unwrap();
+		}
+	}
 }

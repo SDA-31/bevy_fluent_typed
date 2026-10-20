@@ -40,9 +40,43 @@ Use `LocalizationPlugin::<texts::Translations>::new(texts::manifest())` for the
 usual automatic path. With no consumers, manual pins or leases, no FTL modules
 are read or parsed.
 A scope requests complete FTL leaves, not individual messages. Creating an
-unattached `Message` or binding, inspecting the world, or navigating a controller
+unattached `Msg` or binding, inspecting the world, or navigating a controller
 view is passive. Lazy also supports optional manual pins; Full has no
 `load` or `unload` methods.
+
+### Registration conflicts
+
+Install one `LocalizationPlugin` per root catalog type. Every plugin claims its
+complete root schema, including leaves absent from its source. Repeating that
+root is a configuration error even with disjoint embedded subsets, different
+languages, source kinds or loading modes. Branches are represented by their FTL
+leaf paths; only schema structure participates in this check.
+
+Ordinary `app.add_plugins(plugin)` checks this during plugin setup. A conflict
+panics with the root catalog name, sorted leaf paths, both concrete plugin types
+and the locations where the plugin values were constructed. The second provider's
+localization resources and systems are not installed. The check does not read
+translation files, invoke loaders or compare FTL contents.
+
+To handle the typed error before calling Bevy registration:
+
+```rust,ignore
+use bevy_fluent_typed::{LocalizationPlugin, LocalizationRegistrationError};
+
+fn install_localization(app: &mut App) -> Result<(), LocalizationRegistrationError> {
+    let plugin = LocalizationPlugin::<texts::Translations>::new(texts::manifest());
+    plugin.validate_registration(app)?;
+    app.add_plugins(plugin);
+    Ok(())
+}
+```
+
+This preliminary check does not reserve the catalog; `add_plugins` checks again.
+The error exposes the catalog's `TypeId` and readable name, its leaf paths, both
+plugin types and constructor locations. Distinct root Rust types remain independent
+namespaces, even when their leaf paths match. Declare `translations!` once for a
+shared catalog and import or re-export that module: separate declarations create
+separate types rather than a shared provider.
 
 ## Automatic module lifetime
 
@@ -51,11 +85,11 @@ Insert a binding and let the plugin manage its scope:
 ```rust,ignore
 commands.spawn((
     Text::default(),
-    LocalizedText::<texts::presentation::Hud>::new(|hud| hud.msg_title()),
+    Localized::<Text, texts::presentation::Hud>::new(|hud| hud.msg_title()),
 ));
 ```
 
-In `Lazy`, every inserted `LocalizedText<Scope>` requests and retains its scope.
+In `Lazy`, every inserted `Localized<Text, Scope>` requests and retains its scope.
 Removing the last binding releases that demand. Other bindings, native resource
 consumers on 0.19/0.20 and helper-registered consumers on 0.16–0.18 keep
 overlapping scopes loaded. No explicit screen-entry or screen-exit loading calls
@@ -176,7 +210,7 @@ that load, then the plugin publishes its typed resource. All modes use
 Bevy's asynchronous loading; Manual lets the application choose which scopes to
 request and retain. No additional parsing is deferred until accessor use.
 
-Use the same 0.3.1 facade in both normal and build dependencies for this recipe.
+Use the same 0.4.0 facade in both normal and build dependencies for this recipe.
 Then embed only the HUD by declaring its source next to `translations!`:
 
 ```rust,ignore
@@ -217,7 +251,7 @@ use localization::{HUD, Interface, Translations};
 app.add_plugins(LocalizationPlugin::<Translations>::new(HUD));
 ```
 
-Insert `LocalizedText<Interface>` or register a `Res<Interface>` consumer with
+Insert `Localized<Text, Interface>` or register a `Res<Interface>` consumer with
 `add_systems` on Bevy 0.19/0.20; Lazy requests its scope without manual calls.
 `Interface` names the catalog resource; `HUD` describes its embedded source.
 The macro's selectors always use the original relative schema names. Multiple
@@ -356,7 +390,7 @@ fn setup_hud(mut commands: Commands, hud: Res<texts::presentation::Hud>) {
 Independent steps execute once. Catalog consumers wait; steps ordered after them
 wait too. `PostStartup` follows completed `Startup`. A completed or normally
 condition-skipped step does not rerun. Temporary demand is released after deferred
-commands apply, including when the function returns an error. Use `LocalizedText`
+commands apply, including when the function returns an error. Use `Localized`
 for text that must follow later language changes.
 
 Frame schedules keep running while startup waits so Bevy can load assets.
@@ -366,23 +400,9 @@ Put asset-source/bootstrap setup before consumers: a `PreStartup` catalog consum
 cannot wait for a loader that the application starts only in a later startup phase.
 Failed loads remain observable through `status` and wait until explicitly retried.
 
-Select another policy on the same localization plugin:
-
-```rust,ignore
-use bevy_fluent_typed::StartupStrategy;
-
-app.add_plugins(
-    LocalizationPlugin::<texts::Translations>::new(texts::manifest())
-        .with_startup_strategy(StartupStrategy::Native),
-);
-```
-
-**Native** preserves ordinary one-shot startup and native missing-resource
-validation. Startup catalog reads do not request or wait automatically in this
-policy; use already-ready catalogs or create bindings without reading one.
-Recurring consumers and inserted bindings remain automatic in Lazy.
-
-To configure startup in a separate application module, add the public plugin:
+Startup policy belongs to the whole App and is configured through
+`LocalizationStartupPlugin`. Localization source plugins inherit that policy.
+Select **Native** to preserve ordinary one-shot startup:
 
 ```rust,ignore
 use bevy_fluent_typed::{LocalizationStartupPlugin, StartupStrategy};
@@ -390,37 +410,36 @@ use bevy_fluent_typed::{LocalizationStartupPlugin, StartupStrategy};
 app.add_plugins(LocalizationStartupPlugin::new(StartupStrategy::Native));
 ```
 
-Register it before or after `LocalizationPlugin`, before the first App update.
-If absent, `LocalizationPlugin` adds an implicit Deferred fallback. An explicit
-startup plugin added later selects the policy without installing a second
-coordinator or executing startup twice. The existing root-plugin builders remain
-available and configure the same policy.
+**Native** preserves ordinary one-shot startup and native missing-resource
+validation. Startup catalog reads do not request or wait automatically in this
+policy; use already-ready catalogs or create bindings without reading one.
+Recurring consumers and inserted bindings remain automatic in Lazy.
 
-**Barrier** waits for the selected set's combined catalog requirements:
+Register the startup plugin before or after `LocalizationPlugin`, before the
+first App update. If absent, `LocalizationPlugin` adds an implicit Deferred
+fallback. An explicit startup plugin added later selects the policy without
+installing a second coordinator or executing startup twice.
+
+Alternatively, **Barrier** waits for the selected set's combined catalog
+requirements:
 
 ```rust,ignore
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct AppStartup;
 
-app.add_plugins(
-    LocalizationPlugin::<texts::Translations>::new(texts::manifest())
-        .with_startup_barrier(AppStartup),
-);
+app.add_plugins(LocalizationStartupPlugin::barrier(AppStartup));
 app.add_systems(Startup, (setup_hud, setup_buttons).in_set(AppStartup));
 ```
 
-The separate plugin can select the same barrier with
-`LocalizationStartupPlugin::barrier(AppStartup)`.
-
 Startup outside the set may proceed while its catalogs load, subject to ordinary
-ordering. Use the barrier builder to select the set; passing `StartupStrategy::Barrier`
-to `with_startup_strategy` is rejected. Loading mode and startup strategy are
-independent: a Manual barrier still needs application-owned requests.
+ordering. Use `LocalizationStartupPlugin::barrier` to select the set; passing
+`StartupStrategy::Barrier` to `LocalizationStartupPlugin::new` is rejected.
+Loading mode and startup strategy are independent: a Manual barrier still needs
+application-owned requests.
 
-Startup policy belongs to the App. Unconfigured roots inherit the explicit choice
-from startup plugins or root builders regardless of registration order. Without
-an explicit choice, the App uses Deferred. Matching explicit choices are accepted;
-contradictory choices and changes after startup begins are rejected.
+All roots share the explicit choice regardless of registration order. Without
+an explicit choice, the App uses Deferred. Matching explicit startup plugins are
+accepted; contradictory choices and changes after startup begins are rejected.
 
 ### Older Bevy backends
 
@@ -455,7 +474,7 @@ Ordinary `add_systems` does not gain resource discovery on these older backends.
 For application-owned loading through Full, pins or leases, native
 `resource_exists::<Scope>` remains available as a readiness condition. Native
 Startup, OnEnter and custom one-shot schedules do not retry skipped consumers.
-`LocalizedText` owns its scope automatically in Lazy on every backend. Startup
+`Localized` owns its scope automatically in Lazy on every backend. Startup
 strategies and `PassiveCatalog` remain exclusive to Bevy 0.19/0.20.
 
 `Localization::new(locale)` and `Default` create a controller, not a ready catalog.
@@ -571,7 +590,7 @@ Enable the default-off `diagnostics` feature only when you need individual
 module paths, attempt errors or snapshot availability:
 
 ```toml
-bevy_fluent_typed = { version = "0.3.1", features = ["codegen", "diagnostics"] }
+bevy_fluent_typed = { version = "0.4.0", features = ["codegen", "diagnostics"] }
 ```
 
 Keep the build dependency unchanged. During explicit inspection:
@@ -627,17 +646,17 @@ Register that system with `app.add_systems(Update, inspect_complete)` on Bevy 0.
 
 ## Bind text without keeping an old translation
 
-A `LocalizedText<Scope>` component stores a closure. The plugin renders it using
-the current resource and updates the existing `Text`, `Text2d` or `TextSpan`
-component when the language, module or binding changes:
+A `Localized<Text, Scope>` component stores a closure. The plugin renders it using
+the current resource and updates the selected target when the language, module
+or message changes. Select `Text`, `Text2d` or `TextSpan` explicitly:
 
 ```rust,ignore
-use bevy_fluent_typed::LocalizedText;
+use bevy_fluent_typed::Localized;
 
 fn spawn_title(mut commands: Commands) {
     commands.spawn((
         Text::default(),
-        LocalizedText::<texts::presentation::Hud>::new(|hud| hud.msg_title()),
+        Localized::<Text, texts::presentation::Hud>::new(|hud| hud.msg_title()),
     ));
 }
 ```
@@ -647,24 +666,29 @@ module loads. In Lazy, insertion requests the HUD and removal releases that
 binding's demand. Your application owns the usual Bevy UI/camera/font setup.
 Missing or unloaded resources clear bound text, and it
 refreshes when the resource becomes available. Bind to the smallest scope the
-message uses: a `LocalizedText<Translations>` would wait for the entire tree.
+message uses: a `Localized<Text, Translations>` would wait for the entire tree.
 
 Bindings can be cloned and used in native Bevy 0.19/0.20 scenes; see the
 [BSN recipe](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bsn.md) for the syntax of each backend and child text spans.
+Use `Localized<TextSpan, Scope>` for spans and `Localized<Text2d, Scope>` for world
+labels. Supply the target component alongside its binding; `Default` is not
+required and no target is created automatically. If the target is missing when
+the deferred add callback runs, the binding is removed with a warning. Supplied
+components keep their settings. See [target bindings](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bindings.md).
 A span binding owns its scope just like a root binding in Lazy. Its parent
 `Text`/`Text2d`, hierarchy and styles belong to the application; refreshing a
 span does not insert a root `Text`. All three targets keep their active-language
 content while a new locale loads or fails validation.
 
-For stored notices, use `Message<Scope>` and render only when its scope is ready.
-A stored message does not establish demand until inserted as a `LocalizedText`
+For stored notices, use `Msg<Scope>` and render only when its scope is ready.
+A stored message does not establish demand until inserted as a `Localized`
 binding; render it in a native required-resource system on Bevy 0.19/0.20 when needed:
 
 ```rust,ignore
-use bevy_fluent_typed::Message;
+use bevy_fluent_typed::Msg;
 
-let message = Message::new(|hud: &texts::presentation::Hud| hud.msg_title());
-// Or: Message::<texts::presentation::Hud>::new(|hud| hud.msg_title())
+let message = Msg::new(|hud: &texts::presentation::Hud| hud.msg_title());
+// Or: Msg::<texts::presentation::Hud>::new(|hud| hud.msg_title())
 
 if let Ok(hud) = localization.modules().presentation().hud() {
     let text = message.render(hud);
@@ -675,6 +699,12 @@ Capture owned message arguments, not a translated string or an old module
 snapshot. Replace the binding when captured values change. Editable text drafts
 should use separate components: localization replaces bound text. Number
 formatting stays application-owned; see the ICU4X example.
+The [complete Msg update rules](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bindings.md#every-msg-rendering-and-update-path)
+separate formatter invalidation, cached target repair and application-owned snapshots.
+The provider defaults to `CachePolicy::Rendered`. Use
+`.with_cache_policy(CachePolicy::None)` to retain tracking metadata without an
+additional formatted-output cache; see [cache policies](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bindings.md#choose-a-providers-cache-policy)
+for native repair, custom-adapter costs and paired accessibility handling.
 
 ## Change language and reload files
 
@@ -734,7 +764,10 @@ if let PreparationStatus::Ready = localization.preparation_status() {
 requested with `set_locale`: it stops automatic switching. Preparation follows
 current automatic consumers, manual pins and leases in Lazy, pins and leases in
 Manual, or the whole language in Full, using the existing source and checked parsers.
-Target leaves remain private until commit. `commit_locale()` returns
+Target leaves do not replace active native resources or following bindings until
+commit. Ready target scopes can already be read through `for_locale`; independent
+fixed-language consumers can use that language while preparation is pending.
+`commit_locale()` returns
 `CommitLocaleError::NotPrepared`, `Pending` or `Failed(ModuleError)` until every
 requested target leaf passes its latest attempt. A retained earlier good target
 snapshot does not satisfy a failed retry. Success queues the coordinated swap
@@ -750,8 +783,10 @@ Publication rechecks source readiness. Automatic `set_locale` intent instead
 continues through demand changes and explicit retries, and commits when ready.
 
 `cancel_preparation()` cancels both manual preparation and pending automatic
-switching, dropping target snapshots and tasks/handles. External I/O may finish
-later, but canceled attempts cannot publish a replacement target. Preparing the
+switching, releasing target snapshots and tasks/handles that no independent
+fixed-language consumer still needs. Fixed-language pins, leases and bindings
+keep their own demand and ready snapshots. External I/O may finish later, but
+canceled attempts cannot replace the active language. Preparing the
 active locale is immediately ready and performs no additional I/O. An empty
 Lazy/Manual demand also needs no module acquisition.
 
@@ -882,7 +917,7 @@ For Bevy 0.20, the minimal dependency is:
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.3.1", default-features = false, features = ["bevy-0-20"] }
+bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["bevy-0-20"] }
 ```
 
 There is no build-dependency, `build.rs`, `translations!`, TOML manifest or
@@ -982,7 +1017,7 @@ asset configuration and event loop, as in the quickstart.
 
 ## Migration from registry 0.1.3
 
-Follow the [migration guide to 0.3.1](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) for dependency updates, before/after
+Follow the [migration guide to 0.4.0](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) for dependency updates, before/after
 initialization, readiness handling, optional Manual adoption and handwritten providers.
 The standard upgrade uses Lazy with inserted bindings and native resource systems;
 choose explicit Full to preserve eager loading or direct world polling.
@@ -1030,6 +1065,16 @@ impl LoadingMode for Other { const FULL: bool = false; }
 
 ## More recipes
 
+- [Several languages](docs/multilocale.md): combine fixed-language and following bindings, or render through `Msg` manually.
+
 - [Custom sources](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/asset-sources.md): supply files through your own reader.
 - [Decimal and percentage arguments](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/formatting.md): reuse ICU4X formatters.
 - [Build API](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/build.md): explicit generation and feature selection.
+
+## Custom components and semantic labels
+
+See [application-defined bindings](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bindings.md)
+for `Localized<Target, Scope>` on custom components and their String fields.
+Bindings retain scope demand by entity presence in Lazy, without registration
+or a user refresh system. The same interface
+updates immutable AccessibleLabel on Bevy 0.19/0.20 after UI accessibility producers.

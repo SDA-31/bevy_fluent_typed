@@ -4,12 +4,10 @@ use icu_decimal::{DecimalFormatter, input::Decimal};
 use icu_locale_core::Locale as IcuLocale;
 use icu_plurals::{PluralCategory, PluralRules};
 use localization_runtime::bevy::prelude::*;
-use localization_runtime::{
-	FluentCatalog, Localization, LocalizationPlugin, LocalizedText, Message,
-};
+use localization_runtime::{FluentCatalog, Localization, LocalizationPlugin, Localized, Msg};
 use std::time::{Duration, Instant};
 
-fn message(value: Decimal) -> Message<Translations> {
+fn message(value: Decimal) -> Msg<Translations> {
 	let formatters: Vec<_> = Translations::locales()
 		.iter()
 		.map(|&locale| {
@@ -21,7 +19,7 @@ fn message(value: Decimal) -> Message<Translations> {
 		})
 		.collect();
 
-	Message::new(move |catalog: &Translations| {
+	Msg::new(move |catalog: &Translations| {
 		let (_, formatter, rules) = formatters
 			.iter()
 			.find(|(locale, _, _)| *locale == catalog.locale())
@@ -51,7 +49,7 @@ fn deferred_decimal_text_and_plural_category_follow_language_switches() {
 		.world_mut()
 		.spawn((
 			Text::new(""),
-			LocalizedText::from(message(Decimal::from(22))),
+			Localized::<Text, _>::from(message(Decimal::from(22))),
 		))
 		.id();
 	app.finish();

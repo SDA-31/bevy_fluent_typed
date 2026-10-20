@@ -21,14 +21,17 @@ use crate::bevy::ecs::component::Tick;
 #[cfg(not(feature = "bevy-0-16"))]
 use crate::bevy::ecs::query::FilteredAccessSet as SystemAccess;
 
+/// Strong consumer tokens held for a legacy system's parameter-state lifetime.
 pub(crate) type Consumers = Arc<[Arc<Consumer>]>;
 
+/// Legacy checked-read registration and readiness predicate, with optional automatic demand.
 pub(crate) struct Probe {
 	pub(crate) access: Box<dyn Fn(&mut FilteredResourcesBuilder) + Send + Sync>,
 	pub(crate) ready: Box<dyn Fn(&FilteredResources) -> bool + Send + Sync>,
 	pub(crate) consumer: Option<fn(&mut World) -> Arc<Consumer>>,
 }
 
+/// Read-only parameter borrowing exactly the resources registered by its probes.
 pub(crate) struct Readiness<'w, 's, P> {
 	resources: FilteredResources<'w, 's>,
 	probes: &'s [Arc<Probe>],
@@ -44,6 +47,7 @@ impl<P> Readiness<'_, '_, P> {
 	}
 }
 
+/// Persistent native parameter state and consumer tokens; dropping the system releases demand.
 pub(crate) struct ReadinessState {
 	resources: <FilteredResources<'static, 'static> as SystemParam>::State,
 	probes: Vec<Arc<Probe>>,

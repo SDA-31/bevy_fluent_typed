@@ -25,19 +25,27 @@ For application dependencies and the native syntax for each backend, see the
 1. [Cargo.toml](Cargo.toml) enables `bevy_scene` on the application's Bevy
    dependency and uses the normal `codegen`/build-only `build` split.
 2. [build.rs](build.rs) explicitly generates `texts::presentation::Hud`.
-3. [scene.rs](src/scene.rs) captures an owned name in a `LocalizedText<Interface>`
+3. [scene.rs](src/scene.rs) captures an owned name in a `Localized<Text, Interface>`
    and returns a native `bsn!` scene with an explicit `Text` target. `Interface` is an ordinary imported alias.
 4. [app.rs](src/app.rs) installs the asset, scene and localization plugins. Lazy
    loading uses the generated manifest helper.
 5. [main.rs](src/main.rs) spawns the scene and prints its label after the required
    `Res<Interface>` is ready and text refresh has run.
 
+[buttons.rs](src/buttons.rs) demonstrates Msg-taking buttons: visible text
+lives on a child, while an explicit `AccessibleLabel` and its binding supply the
+root's semantic name. Caption slots accept a Scene or boxed SceneList, including an
+icon-only caption. [Button tests](src/tests/buttons.rs) check EN/ES/RU names,
+native scene-call/list syntax and scope release after removing the controls.
+
 Creating a scene or cloning an unattached binding is passive. Inserting its
-`LocalizedText<Interface>` requests and retains the scope in default Lazy.
+`Localized<Text, Interface>` requests and retains the scope in default Lazy.
 Removing the last binding releases that demand unless another consumer, manual
 pin or lease remains.
-Explicit Manual still requires manual requests. Clones share the formatter and
-arguments; each inserted label follows the current translations independently.
+Explicit Manual still requires manual requests. If you want to reuse a formatter
+and its arguments, keeping a separate `Msg` and cloning it can be convenient;
+you can construct each `Localized` where it is attached. Each inserted label
+follows the current translations independently.
 
 ## Verification
 
@@ -46,6 +54,14 @@ all three locales, unload/reload, invalid translation rejection and recovery,
 independent scene-instance arguments, inline message input and rejection of
 scenes that omit their formatter. The runnable application reads files;
 it does not keep a test byte map in memory.
+
+[Locale tests](src/tests/locales.rs) verify fixed languages beside following
+labels, cloned binding conversion, replacement from a retained message,
+switching, reload and release, including
+Text2d, TextSpan and independent AccessibleLabel selection. The native syntax
+helpers cover a prepared binding through `Localized::from` on Bevy 0.19 and
+inline `with_locale` chains on 0.20. See the
+[several-language guide](../../docs/multilocale.md) for both forms.
 
 [The process test](tests/output.rs) checks the rendered output and bounds the
 headless runner with a test-only timeout.

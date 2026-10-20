@@ -24,6 +24,8 @@ concurrency:
 env:
   # Test a pinned generator checkout, not a game workspace or moving branch.
   GENERATOR_REV: cf1adf539be391c6001ec92625054eb0c874ae0a
+  # Keep the version paired with that checkout when changing the pinned revision.
+  GENERATOR_VERSION: '0.2.2'
   # Compile-fail probes inspect rustc diagnostics without ANSI escape sequences.
   CARGO_TERM_COLOR: never
   CARGO_INCREMENTAL: 0
@@ -66,19 +68,20 @@ jobs:
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: ~/.cargo/registry
-          key: bevy-registry-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('runtime/**/Cargo.toml') }}
+          key: bevy-registry-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('runtime/**/Cargo.toml', 'runtime/**/Cargo.lock') }}
           restore-keys: |
             bevy-registry-v2-${{ runner.os }}-${{ runner.arch }}-
       - name: Check formatting in every package
         run: |
-          for manifest in Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml examples/bsn/Cargo.toml tools/compatibility/Cargo.toml; do
+          for manifest in Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml examples/bsn/Cargo.toml examples/bindings/Cargo.toml tools/compatibility/Cargo.toml; do
             cargo fmt --manifest-path "$manifest" --all -- --check
           done
-      - name: Resolve independent package graphs
+      - name: Apply the pinned generator to locked package graphs
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
-          for manifest in Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml examples/bsn/Cargo.toml tools/compatibility/Cargo.toml; do
-            cargo generate-lockfile --manifest-path "$manifest" --config "$generator_config"
+          # Switch only the generator source; retain the other locked versions.
+          for manifest in Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml examples/bsn/Cargo.toml examples/bindings/Cargo.toml; do
+            cargo update --manifest-path "$manifest" --package fluent_typed_codegen --precise "$GENERATOR_VERSION" --config "$generator_config"
           done
       - name: Restore compiled dependencies
         id: dependencies
@@ -97,8 +100,9 @@ jobs:
           cargo clippy --locked --all-targets --no-default-features --features bevy-0-19,codegen,watch,diagnostics --config "$generator_config" -- -D warnings
           cargo clippy --locked --all-targets --no-default-features --features build --config "$generator_config" -- -D warnings
           cargo clippy --locked --manifest-path examples/minimal/Cargo.toml --all-targets --config "$generator_config" -- -D warnings
+          cargo clippy --locked --manifest-path examples/no_codegen/Cargo.toml --all-targets -- -D warnings
           cargo clippy --locked --manifest-path tools/compatibility/Cargo.toml --all-targets -- -D warnings
-          for manifest in examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml examples/bsn/Cargo.toml; do
+          for manifest in examples/codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml examples/bsn/Cargo.toml examples/bindings/Cargo.toml; do
             cargo clippy --locked --manifest-path "$manifest" --all-targets --config "$generator_config" -- -D warnings
           done
       - name: Test build facade and maintainer tool
@@ -132,7 +136,9 @@ jobs:
       - name: Inspect library archives without uploading
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
-          cargo package --locked --list --config "$generator_config" > "$CARGO_TARGET_DIR/runtime-package.txt"
+          # Selecting the pinned generator intentionally changes Cargo.lock.
+          # This step lists archive contents only; it does not upload a package.
+          cargo package --locked --list --allow-dirty --config "$generator_config" > "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx LICENSE "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/quickstart.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/runtime.md "$CARGO_TARGET_DIR/runtime-package.txt"
@@ -141,8 +147,7 @@ jobs:
           grep -Fx docs/build.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/formatting.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/migration-0.3.md "$CARGO_TARGET_DIR/runtime-package.txt"
-          # The already-published generator is the runtime's only localization
-          # package dependency. No separate bridge release is needed.
+          grep -Fx docs/migration-0.4.0.md "$CARGO_TARGET_DIR/runtime-package.txt"
           if grep -E '^(examples|tools/compatibility)/' "$CARGO_TARGET_DIR/runtime-package.txt"; then
             echo 'A nested package leaked into the runtime archive.' >&2
             exit 1
@@ -153,8 +158,11 @@ jobs:
         if: ${{ (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feat/bevy-0.20-stable') && steps.dependencies.outputs.cache-hit != 'true' }}
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
-          for manifest in Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/no_codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml examples/bsn/Cargo.toml tools/compatibility/Cargo.toml; do
+          for manifest in Cargo.toml examples/minimal/Cargo.toml examples/codegen/Cargo.toml examples/icu/Cargo.toml examples/asset_source/Cargo.toml examples/bsn/Cargo.toml examples/bindings/Cargo.toml; do
             cargo clean --locked --offline --workspace --manifest-path "$manifest" --target-dir "$CARGO_TARGET_DIR" --config "$generator_config"
+          done
+          for manifest in examples/no_codegen/Cargo.toml tools/compatibility/Cargo.toml; do
+            cargo clean --locked --offline --workspace --manifest-path "$manifest" --target-dir "$CARGO_TARGET_DIR"
           done
           cargo clean --locked --offline --doc --target-dir "$CARGO_TARGET_DIR" --config "$generator_config"
       - name: Save compiled dependencies for descendant PRs
@@ -228,15 +236,13 @@ jobs:
         uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
         with:
           path: ~/.cargo/registry
-          key: bevy-registry-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('runtime/**/Cargo.toml') }}
+          key: bevy-registry-v2-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('runtime/**/Cargo.toml', 'runtime/**/Cargo.lock') }}
           restore-keys: |
             bevy-registry-v2-${{ runner.os }}-${{ runner.arch }}-
-      - name: Resolve the maintainer tool
-        run: cargo generate-lockfile --manifest-path tools/compatibility/Cargo.toml
-      - name: Resolve runtime dependency inputs for the cache
+      - name: Apply the pinned generator to the locked runtime graph
         run: |
           generator_config="patch.crates-io.fluent_typed_codegen.path='$GITHUB_WORKSPACE/generator'"
-          cargo generate-lockfile --manifest-path Cargo.toml --config "$generator_config"
+          cargo update --manifest-path Cargo.toml --package fluent_typed_codegen --precise "$GENERATOR_VERSION" --config "$generator_config"
       - name: Restore compiled dependencies
         id: dependencies
         uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5
