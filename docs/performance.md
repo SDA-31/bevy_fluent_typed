@@ -61,23 +61,23 @@ matching generated applications, and supplies already-ready catalogs directly.
 
 | Text bindings | Scenario | Cache policy | Median elapsed time, ms | 95th-percentile elapsed time, ms | Mean aggregate CPU time, ms |
 | ---: | --- | --- | ---: | ---: | ---: |
-| 1,024 | Fluent formatting | Rendered | 0.364 | 0.374 | 0.372 |
-| 100,000 | Unchanged targets | Rendered | 0.870 | 1.025 | 0.878 |
-| 100,000 | String-clone formatter | Rendered | 2.498 | 4.617 | 13.274 |
-| 100,000 | Fluent formatting | Rendered | 12.152 | 13.205 | 64.021 |
-| 100,000 | Reattach the same Msg | Rendered | 0.854 | 0.931 | 0.879 |
-| 100,000 | Replace one Msg | Rendered | 0.865 | 0.976 | 0.924 |
-| 100,000 | Forced long-string growth | Rendered | 57.860 | 61.871 | 273.630 |
-| 100,000 | Repair ordinary text edits | Rendered | 38.617 | 47.291 | 166.716 |
-| 1,048,576 | Unchanged targets | Rendered | 9.597 | 10.379 | 9.363 |
-| 1,048,576 | String-clone formatter | Rendered | 27.783 | 29.433 | 132.263 |
-| 1,048,576 | Fluent formatting | Rendered | 131.682 | 164.485 | 618.697 |
-| 100,000 | Unchanged targets | None | 0.894 | 1.036 | 0.899 |
-| 100,000 | Fluent formatting | None | 11.059 | 11.318 | 51.958 |
-| 100,000 | Forced long-string growth | None | 30.925 | 35.281 | 149.175 |
-| 100,000 | Repair ordinary text edits | None | 58.970 | 68.654 | 247.693 |
-| 100,000 | Unchanged targets across six fixed locale slots | Rendered | 0.895 | 1.001 | 0.916 |
-| 100,000 | Fluent formatting across six fixed locale slots | Rendered | 11.335 | 12.454 | 52.696 |
+| 1,024 | Fluent formatting | Rendered | 0.368 | 0.402 | 0.393 |
+| 100,000 | Unchanged targets | Rendered | 0.901 | 1.053 | 0.905 |
+| 100,000 | String-clone formatter | Rendered | 2.944 | 4.559 | 13.531 |
+| 100,000 | Fluent formatting | Rendered | 13.893 | 15.887 | 69.218 |
+| 100,000 | Reattach the same Msg | Rendered | 0.867 | 1.004 | 0.890 |
+| 100,000 | Replace one Msg | Rendered | 0.860 | 1.042 | 0.925 |
+| 100,000 | Forced long-string growth | Rendered | 57.768 | 62.065 | 267.044 |
+| 100,000 | Repair ordinary text edits | Rendered | 44.881 | 52.844 | 180.690 |
+| 1,048,576 | Unchanged targets | Rendered | 9.169 | 9.983 | 9.247 |
+| 1,048,576 | String-clone formatter | Rendered | 27.799 | 29.540 | 136.815 |
+| 1,048,576 | Fluent formatting | Rendered | 113.222 | 117.853 | 642.726 |
+| 100,000 | Unchanged targets | None | 0.876 | 1.083 | 0.887 |
+| 100,000 | Fluent formatting | None | 10.025 | 11.182 | 49.996 |
+| 100,000 | Forced long-string growth | None | 31.648 | 36.908 | 149.353 |
+| 100,000 | Repair ordinary text edits | None | 61.577 | 69.235 | 250.987 |
+| 100,000 | Unchanged targets across six fixed locale slots | Rendered | 0.871 | 0.999 | 0.877 |
+| 100,000 | Fluent formatting across six fixed locale slots | Rendered | 11.030 | 12.053 | 62.642 |
 
 For ten unchanged bindings, a separate block control measured 1.65 µs
 elapsed and 1.65 µs aggregate CPU per refresh. This is the median of

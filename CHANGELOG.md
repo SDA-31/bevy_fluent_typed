@@ -95,6 +95,8 @@ Release preparation; this version has not been published. See the
 
 ### Fixed
 
+- Preserve component-change observation across Bevy tick aging and wraparound
+  for long-lived bindings, including fixed-language adapters.
 - Retain binding catalog demand while Bevy's built-in or application-defined
   disabling components exclude target updates, including bindings first attached
   while disabled and language changes made before reactivation.

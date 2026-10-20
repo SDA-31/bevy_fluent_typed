@@ -1,7 +1,7 @@
 use super::state::State;
 use crate::bevy::{
 	ecs::query::QueryState,
-	prelude::{Commands, World},
+	prelude::{Commands, DetectChangesMut, World},
 };
 use crate::message::MsgIdentity;
 use crate::state::{LocaleSnapshot, SnapshotStamp};
@@ -46,10 +46,8 @@ pub(super) fn queue<S: FluentScope, T: LocalizationTarget>(
 
 		// Earlier rows can be changed by hooks belonging to later rows. Confirm
 		// only after all structural callbacks, using the adapter's same Query.
-		let observed = world.change_tick().get();
-
 		for item in batch {
-			confirm_one::<S, T>(world, &mut query, item, observed);
+			confirm_one::<S, T>(world, &mut query, item);
 		}
 
 		// Later application writes must remain distinguishable from this batch.
@@ -86,7 +84,10 @@ fn apply_one<S: FluentScope, T: LocalizationTarget>(
 	};
 
 	let message = binding.message.clone();
-	let observed = entity.get::<State<S, T>>().and_then(State::observed);
+	let observed = entity
+		.get_ref::<State<S, T>>()
+		.as_ref()
+		.and_then(State::observed);
 	let selected = match item.locale {
 		None => catalog.as_ref(),
 		Some(locale) => snapshots
@@ -111,7 +112,6 @@ fn confirm_one<S: FluentScope, T: LocalizationTarget>(
 	world: &mut World,
 	query: &mut QueryState<T::Data, T::Filter>,
 	item: Deferred<S>,
-	observed: u32,
 ) {
 	let Some(binding) = world.get::<Localized<T, S>>(item.entity) else {
 		return;
@@ -134,14 +134,14 @@ fn confirm_one<S: FluentScope, T: LocalizationTarget>(
 	if !item.applied {
 		// A filter can exclude this row and return within one batch.
 		// Its query visit cannot acknowledge a write that never ran.
-		state.pending = true;
+		state.bypass_change_detection().pending = true;
 		return;
 	}
 
-	state.pending &= !item.read;
+	state.bypass_change_detection().pending &= !item.read;
 
 	if confirmed {
-		state.confirm(observed);
+		State::confirm(&mut state);
 	}
 }
 

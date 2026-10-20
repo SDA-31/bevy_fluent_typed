@@ -1,14 +1,20 @@
-use crate::bevy::{ecs as bevy_ecs, prelude::Component};
+use crate::bevy::{
+	ecs as bevy_ecs,
+	prelude::{Component, DetectChanges, Mut},
+};
 use crate::message::MsgIdentity;
 use crate::state::SnapshotStamp;
 use crate::{FluentScope, LocalizationTarget, Msg};
-use std::{marker::PhantomData, sync::Arc};
+use std::{marker::PhantomData, ops::Deref, sync::Arc};
 
 /// Invalidation and observation state owned by one entity's (scope, target) binding.
 ///
 /// Query-pass counters track eligibility reentry; Bevy change ticks distinguish
 /// application edits from confirmed adapter writes. Output retention is optional,
 /// but identity and unread invalidations survive with either cache policy.
+/// The component's native changed tick records the last confirmed observation;
+/// Bevy ages it automatically, including while this adapter is not running.
+/// Other metadata mutations must bypass change detection to preserve that clock.
 #[derive(Component)]
 #[component(storage = "SparseSet")]
 pub(super) struct State<S: FluentScope, T: LocalizationTarget> {
@@ -25,8 +31,6 @@ pub(super) struct State<S: FluentScope, T: LocalizationTarget> {
 	pub(super) text: Option<Box<String>>,
 	/// Last acknowledged query pass, independent of Bevy's change ticks.
 	pub(super) pass: u64,
-	/// Last confirmed adapter write/observation tick, valid only when confirmed.
-	observed: u32,
 	/// Whether an observed tick has been established for this binding lifetime.
 	confirmed: bool,
 	/// Invalidation remains pending until an applicable callback consumes its text.
@@ -43,7 +47,6 @@ impl<S: FluentScope, T: LocalizationTarget> Default for State<S, T> {
 			consumer: None,
 			text: None,
 			pass: 0,
-			observed: 0,
 			confirmed: false,
 			pending: true,
 			marker: PhantomData,
@@ -52,13 +55,13 @@ impl<S: FluentScope, T: LocalizationTarget> Default for State<S, T> {
 }
 
 impl<S: FluentScope, T: LocalizationTarget> State<S, T> {
-	pub(super) fn observed(&self) -> Option<u32> {
-		self.confirmed.then_some(self.observed)
+	pub(super) fn observed(state: &(impl DetectChanges + Deref<Target = Self>)) -> Option<u32> {
+		state.confirmed.then_some(state.last_changed().get())
 	}
 
-	pub(super) fn confirm(&mut self, tick: u32) {
-		self.observed = tick;
-		self.confirmed = true;
+	/// This normal Mut write records the caller's native query or World tick.
+	pub(super) fn confirm(state: &mut Mut<'_, Self>) {
+		state.confirmed = true;
 	}
 
 	pub(super) fn current(&self, message: &Msg<S>, pass: u64) -> bool {

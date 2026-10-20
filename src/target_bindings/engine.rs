@@ -6,7 +6,7 @@ use super::{
 use crate::bevy::{
 	ecs::system::SystemChangeTick,
 	prelude::{
-		Commands, DetectChanges, DetectChangesMut, Entity, Local, ParamSet, Query, Res, World,
+		Commands, DetectChanges, DetectChangesMut, Entity, Local, Mut, ParamSet, Query, Res, World,
 	},
 	utils::Parallel,
 };
@@ -130,18 +130,19 @@ impl<S: FluentScope> Refresh<'_, S> {
 fn needs_update<S: FluentScope, T: LocalizationTarget>(
 	binding: &Localized<T, S>,
 	data: &TargetItem<'_, '_, T>,
-	state: &mut State<S, T>,
+	state: &mut Mut<'_, State<S, T>>,
 	frame: &Refresh<S>,
 ) -> bool {
 	let invalidated = frame.invalidated(binding, state);
 	let changed = invalidated || state.pending;
-	let update = LocalizationUpdate::cached(changed, "").observe(state.observed(), frame.this_run);
+	let update =
+		LocalizationUpdate::cached(changed, "").observe(State::observed(state), frame.this_run);
 	let needed = T::needs_update(data, &update);
 
 	// A predicate can suspend work across catalog changes. Keep the old visit
 	// until that invalidation is handled, so a later pass uses the latest value.
 	if !needed && !invalidated {
-		state.pass = frame.current;
+		state.bypass_change_detection().pass = frame.current;
 	}
 
 	needed
@@ -151,12 +152,14 @@ fn update<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 	entity: Entity,
 	binding: &Localized<T, S>,
 	data: TargetItem<'_, '_, T>,
-	state: &mut State<S, T>,
+	mut tracking: Mut<'_, State<S, T>>,
 	frame: &Refresh<S>,
 ) -> (Option<MsgIdentity<S>>, Option<Deferred<S>>) {
 	let Refresh {
 		current, this_run, ..
 	} = *frame;
+	let observed = State::observed(&tracking);
+	let state = tracking.bypass_change_detection();
 	let selected = frame.selected(binding);
 	let snapshot = selected.map(|(_, stamp)| stamp);
 	let invalidated = frame.binding_changed(binding, state)
@@ -166,7 +169,6 @@ fn update<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 
 	let fresh = (CACHE && (invalidated || state.text.is_none())).then(render);
 
-	let observed = state.observed();
 	let mut context = if CACHE {
 		LocalizationUpdate::cached_update(
 			state.pending,
@@ -198,10 +200,6 @@ fn update<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 		state.pending = false;
 	}
 
-	if matches!(result, UpdateResult::Done) {
-		state.confirm(this_run);
-	}
-
 	state.pass = current;
 	state.locale = binding.locale;
 	state.snapshot = snapshot;
@@ -214,6 +212,11 @@ fn update<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 	} else {
 		state.message.replace(binding.message.identity())
 	};
+
+	if matches!(result, UpdateResult::Done) {
+		State::confirm(&mut tracking);
+	}
+
 	(retired, deferred)
 }
 
@@ -344,14 +347,12 @@ fn select_pending<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 	let mut parallel = false;
 
 	for (entity, binding, data, mut state) in bindings {
-		let state = state.bypass_change_detection();
-
-		if !needs_update(binding, &data, state, frame) {
+		if !needs_update(binding, &data, &mut state, frame) {
 			continue;
 		}
 
 		dirty += 1;
-		formatting += usize::from(frame.invalidated(binding, state) || !CACHE);
+		formatting += usize::from(frame.invalidated(binding, &state) || !CACHE);
 
 		if parallel {
 			continue;
@@ -386,16 +387,10 @@ fn refresh_pending<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 	let mut deferred = Vec::new();
 
 	for entity in pending.drain(..) {
-		let Ok((_, binding, data, mut state)) = bindings.get_mut(entity) else {
+		let Ok((_, binding, data, state)) = bindings.get_mut(entity) else {
 			continue;
 		};
-		let (retired, item) = update::<S, T, CACHE>(
-			entity,
-			binding,
-			data,
-			state.bypass_change_detection(),
-			frame,
-		);
+		let (retired, item) = update::<S, T, CACHE>(entity, binding, data, state, frame);
 
 		drop(retired);
 		deferred.extend(item);
@@ -411,9 +406,7 @@ fn refresh_sequential<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 	let mut deferred = Vec::new();
 
 	for (entity, binding, data, mut state) in bindings {
-		let state = state.bypass_change_detection();
-
-		if !needs_update(binding, &data, state, frame) {
+		if !needs_update(binding, &data, &mut state, frame) {
 			continue;
 		}
 
@@ -435,13 +428,11 @@ fn refresh_parallel<S: FluentScope, T: LocalizationTarget, const CACHE: bool>(
 	bindings.par_iter_mut().for_each_init(
 		|| work.borrow_local_mut(),
 		|work, (entity, binding, data, mut state)| {
-			let state = state.bypass_change_detection();
-
 			if selected && state.pass == frame.current {
 				return;
 			}
 
-			if !needs_update(binding, &data, state, frame) {
+			if !needs_update(binding, &data, &mut state, frame) {
 				return;
 			}
 

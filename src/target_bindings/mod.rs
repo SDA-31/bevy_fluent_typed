@@ -20,6 +20,10 @@ pub use context::LocalizationUpdate;
 mod contract_tests;
 
 #[cfg(test)]
+#[path = "tests/observation.rs"]
+mod observation_tests;
+
+#[cfg(test)]
 #[path = "tests/native.rs"]
 mod tests;
 

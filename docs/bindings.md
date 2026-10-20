@@ -374,7 +374,7 @@ budget or automatic spreading across frames. Formatting and component updates
 are only part of a language switch's cost: Bevy must still process changed text
 and layout. The runtime does not create a separate worker pool.
 See the [performance reference](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/performance.md)
-for formatter counts, cache tradeoffs and scoped measurements against 0.3.1.
+for formatter counts, cache tradeoffs and measured refresh costs.
 
 BeforeLayout targets run in `LocalizationSystems::Refresh`. AfterLayout targets
 run in `LocalizationAccessibilitySet`; the AccessibleLabel adapter uses that

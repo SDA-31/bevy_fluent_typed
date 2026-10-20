@@ -1,7 +1,7 @@
 use super::{engine, state::State};
 use crate::bevy::{
 	ecs::{entity_disabling::DefaultQueryFilters, query::QueryState},
-	prelude::{Changed, Entity, FromWorld, Local, Mut, World},
+	prelude::{Changed, DetectChangesMut, Entity, FromWorld, Local, Mut, World},
 };
 use crate::bindings::Binding;
 use crate::{FluentScope, LocalizationTarget, Localized, TargetUpdatePhase};
@@ -21,7 +21,7 @@ impl<T: LocalizationTarget, S: FluentScope> Binding for Localized<T, S> {
 			let consumer = crate::demand::acquire_binding::<S>(world, locale);
 
 			if let Some(mut state) = world.get_mut::<State<S, T>>(entity) {
-				state.consumer = Some(consumer);
+				state.bypass_change_detection().consumer = Some(consumer);
 			}
 		}
 	}
