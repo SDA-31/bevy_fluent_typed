@@ -1,13 +1,13 @@
 # Migrate from bevy_fluent_typed 0.2.1 to 0.4.0
 
-[All migration guides](README.md)
+[Migration Guide](README.md)
 
-Also apply the [explicit target and Msg migration](from-0.3.1.md) when replacing older text bindings.
+Also apply the [explicit target and Msg migration](migration-0.3.1.md) when replacing older text bindings.
 
 This guide covers generation paths and selective embedding. The current runtime
 0.4.0 defaults to Lazy; explicit Full/Manual loading remains available. See
-[automatic loading](from-0.2.2.md#adopt-automatic-module-loading) for the default
-change and [resource registration](from-0.3.0.md#register-required-catalog-consumers-normally)
+[automatic loading](migration-0.2.2.md#adopt-automatic-module-loading) for the default
+change and [resource registration](migration-0.3.0.md#register-required-catalog-consumers-normally)
 for native systems and older-backend registration helpers.
 
 ## Update both facade dependencies
@@ -21,7 +21,7 @@ bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["
 ```
 
 These dependency snippets target runtime 0.4.0. Follow the
-[loading and backend migration](from-0.2.2.md) to select Bevy 0.20 or retain an older backend.
+[loading and backend migration](migration-0.2.2.md) to select Bevy 0.20 or retain an older backend.
 The facade requires generator 0.2.2; no separate bridge package is needed.
 Keep `bevy_fluent_typed::build()` in
 `build.rs` and the `translations!` declaration. Remove local overrides when
@@ -88,7 +88,7 @@ Leaf-name helper macros and selector expression arguments are removed.
 Embedding includes only selected source bytes, including in debug builds.
 Lazy consumers or explicit Full/Manual govern parsing and module lifetime; selected static bytes remain
 for the executable's lifetime. Byte inputs and native resource waiting retain
-their APIs; follow [language switching](from-0.2.2.md#let-language-changes-finish-automatically)
+their APIs; follow [language switching](migration-0.2.2.md#let-language-changes-finish-automatically)
 for the active-until-ready `set_locale` contract. Test file/ZIP origins and locale
 switches after migration. See the [changelog](../../CHANGELOG.md).
 

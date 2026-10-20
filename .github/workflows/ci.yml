@@ -153,12 +153,12 @@ jobs:
           grep -Fx docs/migration-0.3.1.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/migration-0.4.0.md "$CARGO_TARGET_DIR/runtime-package.txt"
           grep -Fx docs/migrations/README.md "$CARGO_TARGET_DIR/runtime-package.txt"
-          grep -Fx docs/migrations/from-0.1.3.md "$CARGO_TARGET_DIR/runtime-package.txt"
-          grep -Fx docs/migrations/from-0.2.0.md "$CARGO_TARGET_DIR/runtime-package.txt"
-          grep -Fx docs/migrations/from-0.2.1.md "$CARGO_TARGET_DIR/runtime-package.txt"
-          grep -Fx docs/migrations/from-0.2.2.md "$CARGO_TARGET_DIR/runtime-package.txt"
-          grep -Fx docs/migrations/from-0.3.0.md "$CARGO_TARGET_DIR/runtime-package.txt"
-          grep -Fx docs/migrations/from-0.3.1.md "$CARGO_TARGET_DIR/runtime-package.txt"
+          grep -Fx docs/migrations/migration-0.1.3.md "$CARGO_TARGET_DIR/runtime-package.txt"
+          grep -Fx docs/migrations/migration-0.2.0.md "$CARGO_TARGET_DIR/runtime-package.txt"
+          grep -Fx docs/migrations/migration-0.2.1.md "$CARGO_TARGET_DIR/runtime-package.txt"
+          grep -Fx docs/migrations/migration-0.2.2.md "$CARGO_TARGET_DIR/runtime-package.txt"
+          grep -Fx docs/migrations/migration-0.3.0.md "$CARGO_TARGET_DIR/runtime-package.txt"
+          grep -Fx docs/migrations/migration-0.3.1.md "$CARGO_TARGET_DIR/runtime-package.txt"
           if grep -E '^(examples|tools/compatibility)/' "$CARGO_TARGET_DIR/runtime-package.txt"; then
             echo 'A nested package leaked into the runtime archive.' >&2
             exit 1

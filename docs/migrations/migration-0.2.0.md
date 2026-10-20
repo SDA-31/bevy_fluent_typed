@@ -1,8 +1,8 @@
 # Migrate from bevy_fluent_typed 0.2.0 to 0.4.0
 
-[All migration guides](README.md)
+[Migration Guide](README.md)
 
-Also apply the [explicit target and Msg migration](from-0.3.1.md) when replacing older text bindings.
+Also apply the [explicit target and Msg migration](migration-0.3.1.md) when replacing older text bindings.
 
 Use runtime 0.4.0 with matching normal and build dependencies. On Bevy 0.19/0.20,
 ordinary registrations discover catalog demand and wait for native `Res<Scope>`:
@@ -27,7 +27,7 @@ Use the generated `texts::manifest()` contract prepared by the explicit build ca
 The helper reads no files and embeds no FTL. Existing explicit manifests and
 `embed_manifest!` remain available for different runtime storage.
 
-See the [startup and resource registration migration](from-0.3.0.md) for startup strategies and the
+See the [startup and resource registration migration](migration-0.3.0.md) for startup strategies and the
 [resource reference](../../GUIDE.md#read-resources-and-handle-readiness) for schedule
 discovery boundaries, passive observers and older-backend registration helpers.
 
@@ -50,7 +50,7 @@ Bindings follow locale switches; a string copied into `Text` during startup does
 ## Byte sources and optional manifest support
 
 For catalog path and selective embedding changes, follow the
-[catalog path and embedding migration](from-0.2.1.md). The build adapter remains inside the public
+[catalog path and embedding migration](migration-0.2.1.md). The build adapter remains inside the public
 runtime crate: no direct bridge dependency is needed. Backend-only handwritten
 providers support bytes without the generator; add `manifest` for TOML constructors.
 See the [feature table](../build.md#features).

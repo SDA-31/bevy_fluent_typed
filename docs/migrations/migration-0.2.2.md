@@ -1,8 +1,8 @@
 # Migrate from bevy_fluent_typed 0.2.2 to 0.4.0
 
-[All migration guides](README.md)
+[Migration Guide](README.md)
 
-Also apply the [explicit target and Msg migration](from-0.3.1.md) when replacing older text bindings.
+Also apply the [explicit target and Msg migration](migration-0.3.1.md) when replacing older text bindings.
 
 Runtime 0.4.0 supports stable Bevy 0.20 and requires Rust 1.97.1 or newer.
 The generator stays at 0.2.2. Constructor signatures, native resources and
@@ -27,7 +27,7 @@ Ordinary `Startup` uses Deferred by default: each catalog consumer and its
 ordered dependents wait, execute once and release temporary demand after deferred
 commands apply. Bindings take over their demand without an unloading gap.
 Use `LocalizationStartupPlugin` for Native or a selected-set Barrier.
-See the [startup and resource registration migration](from-0.3.0.md) for these scheduling changes.
+See the [startup and resource registration migration](migration-0.3.0.md) for these scheduling changes.
 
 No consumers, manual pins or leases means no module reads or parsing.
 `World::get_resource` inspection and unattached messages remain passive.

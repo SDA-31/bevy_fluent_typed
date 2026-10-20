@@ -1,8 +1,8 @@
 # Migrate from bevy_fluent_typed 0.3.0 to 0.4.0
 
-[All migration guides](README.md)
+[Migration Guide](README.md)
 
-Also apply the [explicit target and Msg migration](from-0.3.1.md) when replacing older text bindings.
+Also apply the [explicit target and Msg migration](migration-0.3.1.md) when replacing older text bindings.
 
 Runtime 0.4.0 keeps the loading modes, provider contract and generator 0.2.2.
 On Bevy 0.19/0.20, catalog consumers now use ordinary native system registration.

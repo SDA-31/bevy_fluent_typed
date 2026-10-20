@@ -268,7 +268,7 @@ transports, fonts and shaping remain application responsibilities.
   and named Bevy sources.
 - [Number formatting](docs/formatting.md): application-owned ICU4X formatters.
 - [Build API](docs/build.md): explicit generation and dependency feature isolation.
-- [Migration Guides](docs/migrations/README.md): choose the upgrade path from your current version.
+- [Migration Guide](docs/migrations/README.md): choose the upgrade path from your current version.
 - [Custom bindings](docs/bindings.md): custom components, semantic names and provider cache policies.
 - [Performance](docs/performance.md): skipped work, cache tradeoffs and measured costs.
 - [Changelog](CHANGELOG.md): notable changes grouped by release.

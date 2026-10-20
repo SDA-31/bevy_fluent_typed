@@ -197,5 +197,5 @@ for a minimal runtime and a handwritten provider.
 - [Loading progress](https://github.com/SDA-31/bevy_fluent_typed/blob/main/GUIDE.md#observe-loading-progress): optional native progress subtrees and module details.
 - [Custom bindings](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/bindings.md): custom components, semantic labels and provider cache policies.
 - [Performance](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/performance.md): skipped work, cache tradeoffs and measured costs.
-- [Migration Guides](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migrations/README.md): choose the upgrade path from your current version.
+- [Migration Guide](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migrations/README.md): choose the upgrade path from your current version.
 - [Changelog](https://github.com/SDA-31/bevy_fluent_typed/blob/main/CHANGELOG.md).

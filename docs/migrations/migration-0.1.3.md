@@ -1,8 +1,8 @@
 # Migrate from bevy_fluent_typed 0.1.3 to 0.4.0
 
-[All migration guides](README.md)
+[Migration Guide](README.md)
 
-Also apply the [explicit target and Msg migration](from-0.3.1.md) when replacing older text bindings.
+Also apply the [explicit target and Msg migration](migration-0.3.1.md) when replacing older text bindings.
 
 This guide upgrades runtime 0.1.3 to 0.4.0.
 It includes the generated manifest helper and native required-resource waiting.
@@ -28,7 +28,7 @@ bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["
 The dependency snippet selects Bevy 0.20 by default. Upgrade the application's
 Bevy dependency to `"0.20"`, or retain Bevy 0.16, 0.17, 0.18 or 0.19 by selecting
 its matching backend with `default-features = false` on the normal dependency.
-See the [loading and backend migration](from-0.2.2.md) for both setups. Rust 1.97.1 is required.
+See the [loading and backend migration](migration-0.2.2.md) for both setups. Rust 1.97.1 is required.
 Use Cargo resolver 2 or 3 and update localization metadata as shown in
 [Catalog-only build configuration](#catalog-only-build-configuration).
 
@@ -116,7 +116,7 @@ app.add_systems(Startup, setup_hud);
 Default Deferred startup waits for its catalogs, preserves declared dependencies
 and runs each completed step once. Frame updates continue during loading.
 For a complete application, follow the [quickstart](../../README.md#setup).
-The [startup and resource registration migration](from-0.3.0.md) covers startup policies and passive reads.
+The [startup and resource registration migration](migration-0.3.0.md) covers startup policies and passive reads.
 Bevy 0.16–0.18 instead use their [registration helpers](../../GUIDE.md#older-bevy-backends).
 
 A full-tree consumer can likewise request `Res<texts::Translations>` through
@@ -202,7 +202,7 @@ For selective constant manifests, follow the
 
 Same-language reloads have no all-files transaction or automatic fallback.
 `set_locale` retains active resources while validating and automatically publishing
-the desired target scopes; see [language switching](from-0.2.2.md#let-language-changes-finish-automatically). Keep source files
+the desired target scopes; see [language switching](migration-0.2.2.md#let-language-changes-finish-automatically). Keep source files
 coherent when distributing a translation pack. `CatalogUpdate` identifies the
 locale and logical leaf path; update exhaustive event matches for the new shape.
 After a failed same-language reload, `ModuleStatus::Failed` can coexist with a
@@ -258,7 +258,7 @@ settings, keep only `Settings { catalog: ... }`. Generated `CATALOG_PATH` replac
 and `translations-directory` still cannot escape their declared scope.
 
 Use runtime 0.4.0 with generator 0.2.2. See the
-[catalog path and embedding migration](from-0.2.1.md) for the complete changes.
+[catalog path and embedding migration](migration-0.2.1.md) for the complete changes.
 
 `texts::manifest()` retains `CATALOG_PATH` verbatim. Configure the application's
 Bevy asset source root so that origin resolves, or supply a contract with the

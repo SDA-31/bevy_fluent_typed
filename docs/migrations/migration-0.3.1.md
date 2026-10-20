@@ -1,6 +1,6 @@
 # Migrate from bevy_fluent_typed 0.3.1 to 0.4.0
 
-[All migration guides](README.md)
+[Migration Guide](README.md)
 
 This migration replaces implicit text targets with explicit bindings. Loading
 modes, generated catalogs, startup strategies, supported Bevy families and the
