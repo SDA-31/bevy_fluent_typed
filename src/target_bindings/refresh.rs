@@ -1,5 +1,8 @@
 use super::{engine, state::State};
-use crate::bevy::prelude::{Entity, World};
+use crate::bevy::{
+	ecs::{entity_disabling::DefaultQueryFilters, query::QueryState},
+	prelude::{Changed, Entity, FromWorld, Local, Mut, World},
+};
 use crate::bindings::Binding;
 use crate::{FluentScope, LocalizationTarget, Localized, TargetUpdatePhase};
 use std::any::type_name;
@@ -66,10 +69,12 @@ impl<T: LocalizationTarget, S: FluentScope> Binding for Localized<T, S> {
 
 /// Changed bindings update demand once; unchanged frames allocate no owner list entries.
 fn changed_selections<S: FluentScope, T: LocalizationTarget>(
-	bindings: SelectionChanges<'_, '_, S, T>,
+	world: &mut World,
+	mut bindings: Local<SelectionChanges<S, T>>,
 ) -> Vec<(Entity, Option<<S::Catalog as crate::FluentCatalog>::Locale>)> {
 	bindings
-		.iter()
+		.query
+		.iter(world)
 		.filter(|(_, binding, state)| {
 			state
 				.consumer
@@ -80,10 +85,27 @@ fn changed_selections<S: FluentScope, T: LocalizationTarget>(
 		.collect()
 }
 
-/// Only changed binding metadata is inspected for demand ownership changes.
-type SelectionChanges<'w, 's, S, T> = crate::bevy::prelude::Query<
-	'w,
-	's,
-	(Entity, &'static Localized<T, S>, &'static State<S, T>),
-	crate::bevy::prelude::Changed<Localized<T, S>>,
->;
+/// Only binding metadata is needed to synchronize catalog ownership.
+type SelectionQuery<S, T> =
+	QueryState<(Entity, &'static Localized<T, S>, &'static State<S, T>), Changed<Localized<T, S>>>;
+
+/// Ownership follows changed bindings even while target queries exclude them.
+///
+/// Build this cache once without default disabling filters, including custom
+/// application filters. Target refresh queries retain their ordinary filters.
+struct SelectionChanges<S: FluentScope, T: LocalizationTarget> {
+	query: SelectionQuery<S, T>,
+}
+
+impl<S: FluentScope, T: LocalizationTarget> FromWorld for SelectionChanges<S, T> {
+	fn from_world(world: &mut World) -> Self {
+		let build = |world: &mut World| world.query_filtered();
+		let query = if world.contains_resource::<DefaultQueryFilters>() {
+			world.resource_scope(|world, _: Mut<DefaultQueryFilters>| build(world))
+		} else {
+			build(world)
+		};
+
+		Self { query }
+	}
+}

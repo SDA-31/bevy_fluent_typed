@@ -97,7 +97,7 @@ is ready again. Replace a binding when its captured arguments change.
 For a fixed-language binding, configure `with_locale` before the macro on
 Bevy 0.19 and pass the binding through `Localized::from`. Bevy 0.20 also permits
 the chained modifier inside `bsn!`; see
-[several-language scenes](multilocale.md).
+[several-language scenes](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/multilocale.md).
 
 ## Localize a text span
 

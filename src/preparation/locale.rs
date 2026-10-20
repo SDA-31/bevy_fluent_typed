@@ -53,7 +53,7 @@ impl std::error::Error for CommitLocaleError {
 }
 
 impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
-	/// Prepare the currently requested scopes in another locale without publishing them.
+	/// Prepare requested scopes in another locale without replacing active resources.
 	/// Repeating the target is idempotent and retries failed leaves. A different target
 	/// replaces the previous preparation. Preparing the active locale performs no I/O.
 	/// This advanced call takes over manual publication control, even for a target
@@ -61,7 +61,9 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	/// Preparation follows the current consumers and manual pins in Lazy, manual
 	/// requests in Manual, or all modules in Full. Manual failures are inspected
 	/// through `preparation_status`, without `Rejected` notifications; successful
-	/// leaves publish on commit. Active resources remain available throughout.
+	/// leaves replace active resources on commit. Ready target scopes are already
+	/// readable through `for_locale` and usable by independent fixed-language consumers.
+	/// Active resources remain available throughout.
 	///
 	/// # Panics
 	/// Panics if the locale is not declared by the provider.
@@ -190,8 +192,10 @@ impl<C: FluentCatalog, M: LoadingMode> Localization<C, M> {
 	}
 
 	/// Cancel manual preparation or pending automatic switching; keep the active locale.
-	/// Drops target snapshots and tasks/handles and cancels queued publication.
-	/// External acquisition may continue, but its completion cannot publish a target.
+	/// Cancel queued publication and release target snapshots and tasks/handles that
+	/// no independent fixed-language owner still needs. Fixed pins, leases and bindings
+	/// retain their own demand and snapshots. External acquisition may continue, but
+	/// its completion cannot replace the active language.
 	pub fn cancel_preparation(&mut self) {
 		if let Some(mut target) = self.preparation.take()
 			&& target.locale() != self.locale()

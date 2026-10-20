@@ -95,6 +95,9 @@ Release preparation; this version has not been published. See the
 
 ### Fixed
 
+- Retain binding catalog demand while Bevy's built-in or application-defined
+  disabling components exclude target updates, including bindings first attached
+  while disabled and language changes made before reactivation.
 - Preserve pending catalog invalidation while adapter predicates or query
   filters suspend work, including filter changes during structural callbacks.
 - Confirm deferred writes after the whole callback batch and its hooks, without

@@ -334,6 +334,125 @@ fn disabled_native_and_custom_bindings_keep_demand_and_resume_together() {
 	assert!(!app.world().contains_resource::<TestCatalog>());
 }
 
+/// Application-defined disabling must affect target writes, never ownership.
+#[derive(Component)]
+struct Dormant;
+
+#[test]
+fn initially_disabled_bindings_acquire_demand_before_being_enabled() {
+	use crate::bevy::ecs::entity_disabling::Disabled;
+
+	for custom in [false, true] {
+		for policy in [crate::CachePolicy::Rendered, crate::CachePolicy::None] {
+			let mut app = App::new();
+			app.add_plugins((MinimalPlugins, plugin().with_cache_policy(policy)));
+			app.world_mut().register_disabling_component::<Dormant>();
+			let owner = app
+				.world_mut()
+				.spawn((
+					Caption::default(),
+					binding(),
+					Text::default(),
+					Localized::<Text, TestCatalog>::new(|catalog| catalog.0.clone()),
+				))
+				.id();
+
+			if custom {
+				app.world_mut().entity_mut(owner).insert(Dormant);
+			} else {
+				app.world_mut().entity_mut(owner).insert(Disabled);
+			}
+
+			pump(&mut app, |world| world.contains_resource::<TestCatalog>());
+			app.update();
+			assert!(app.world().get::<Text>(owner).unwrap().0.is_empty());
+			assert!(app.world().get::<Caption>(owner).unwrap().0.is_empty());
+
+			if custom {
+				app.world_mut().entity_mut(owner).remove::<Dormant>();
+			} else {
+				app.world_mut().entity_mut(owner).remove::<Disabled>();
+			}
+
+			pump(&mut app, |world| {
+				world.get::<Text>(owner).unwrap().0 == "Japanese"
+					&& world.get::<Caption>(owner).unwrap().0 == "Japanese"
+			});
+			app.world_mut().despawn(owner);
+			app.update();
+			assert!(!app.world().contains_resource::<TestCatalog>());
+		}
+	}
+}
+
+#[test]
+fn disabled_binding_selection_releases_the_old_language_and_retains_the_new_one() {
+	use crate::bevy::ecs::entity_disabling::Disabled;
+
+	for custom in [false, true] {
+		let mut app = App::new();
+		app.add_plugins((MinimalPlugins, plugin()));
+		app.world_mut().register_disabling_component::<Dormant>();
+		let message = Msg::<TestCatalog>::new(|catalog| catalog.0.clone());
+		let owner = app
+			.world_mut()
+			.spawn((
+				Text::default(),
+				Localized::<Text, _>::from(message.clone()).with_locale("es"),
+			))
+			.id();
+		pump(&mut app, |world| {
+			world.get::<Text>(owner).unwrap().0 == "Spanish"
+		});
+
+		if custom {
+			app.world_mut().entity_mut(owner).insert(Dormant);
+		} else {
+			app.world_mut().entity_mut(owner).insert(Disabled);
+		}
+
+		app.update();
+		*app.world_mut()
+			.get_mut::<Localized<Text, TestCatalog>>(owner)
+			.unwrap() = Localized::from(message).with_locale("ja");
+		pump(&mut app, |world| {
+			let localization = world.resource::<Localization<TestCatalog>>();
+			localization.for_locale("ja").catalog().is_some()
+				&& localization.for_locale("es").catalog().is_none()
+		});
+		assert_eq!(app.world().get::<Text>(owner).unwrap().0, "Spanish");
+
+		if custom {
+			app.world_mut().entity_mut(owner).remove::<Dormant>();
+		} else {
+			app.world_mut().entity_mut(owner).remove::<Disabled>();
+		}
+
+		pump(&mut app, |world| {
+			world.get::<Text>(owner).unwrap().0 == "Japanese"
+		});
+	}
+}
+
+#[test]
+fn binding_ownership_works_without_the_default_query_filter_resource() {
+	use crate::bevy::ecs::entity_disabling::DefaultQueryFilters;
+
+	let mut app = App::new();
+	app.add_plugins((MinimalPlugins, plugin()));
+	app.world_mut().remove_resource::<DefaultQueryFilters>();
+	let owner = app
+		.world_mut()
+		.spawn((
+			Text::default(),
+			Localized::<Text, TestCatalog>::new(|catalog| catalog.0.clone()),
+		))
+		.id();
+	pump(&mut app, |world| {
+		world.get::<Text>(owner).unwrap().0 == "Japanese"
+	});
+}
+
 #[test]
 fn custom_and_native_bindings_release_their_scope_only_after_the_last_owner() {
 	let mut app = App::new();

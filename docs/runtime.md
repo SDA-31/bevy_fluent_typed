@@ -737,7 +737,10 @@ if let PreparationStatus::Ready = localization.preparation_status() {
 requested with `set_locale`: it stops automatic switching. Preparation follows
 current automatic consumers, manual pins and leases in Lazy, pins and leases in
 Manual, or the whole language in Full, using the existing source and checked parsers.
-Target leaves remain private until commit. `commit_locale()` returns
+Target leaves do not replace active native resources or following bindings until
+commit. Ready target scopes can already be read through `for_locale`; independent
+fixed-language consumers can use that language while preparation is pending.
+`commit_locale()` returns
 `CommitLocaleError::NotPrepared`, `Pending` or `Failed(ModuleError)` until every
 requested target leaf passes its latest attempt. A retained earlier good target
 snapshot does not satisfy a failed retry. Success queues the coordinated swap
@@ -753,8 +756,10 @@ Publication rechecks source readiness. Automatic `set_locale` intent instead
 continues through demand changes and explicit retries, and commits when ready.
 
 `cancel_preparation()` cancels both manual preparation and pending automatic
-switching, dropping target snapshots and tasks/handles. External I/O may finish
-later, but canceled attempts cannot publish a replacement target. Preparing the
+switching, releasing target snapshots and tasks/handles that no independent
+fixed-language consumer still needs. Fixed-language pins, leases and bindings
+keep their own demand and ready snapshots. External I/O may finish later, but
+canceled attempts cannot replace the active language. Preparing the
 active locale is immediately ready and performs no additional I/O. An empty
 Lazy/Manual demand also needs no module acquisition.
 
