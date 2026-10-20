@@ -244,7 +244,7 @@ minimal runtime and a handwritten provider.
 | Files are not found | The manifest origin is relative to Bevy's asset root. Do not prefix it with `assets/` when `AssetPlugin` already points there. |
 | Editing the TOML has no runtime effect | The plugin receives a parsed contract and does not reload TOML. Rebuild this quickstart or construct a new contract during application setup. |
 | Cargo reports incompatible engine APIs | Select one matching Bevy backend, on the normal dependency only. Do not enable all features. |
-| The quickstart does not compile | Match the dependencies shown in [Setup](#setup). For an existing application, follow the [migration guide](docs/migration-0.4.0.md). |
+| The quickstart does not compile | Match the dependencies shown in [Setup](#setup). For an existing application, follow the [migration guides](docs/migrations/README.md). |
 
 ## Known limits
 
@@ -268,13 +268,9 @@ transports, fonts and shaping remain application responsibilities.
   and named Bevy sources.
 - [Number formatting](docs/formatting.md): application-owned ICU4X formatters.
 - [Build API](docs/build.md): explicit generation and dependency feature isolation.
-- [Migration to 0.4.0](docs/migration-0.4.0.md): explicit target bindings, Msg and cache policies.
-- [Upgrade from 0.2.2](docs/migration-0.3.md): loading defaults, Bevy 0.20, Rust minimum and older backends.
-- [Migration from 0.1](docs/migration-0.2.md): update an older application.
+- [Migration Guides](docs/migrations/README.md): choose the upgrade path from your current version.
 - [Custom bindings](docs/bindings.md): custom components, semantic names and provider cache policies.
 - [Performance](docs/performance.md): skipped work, cache tradeoffs and measured costs.
-- [Upgrade from 0.3.0](docs/migration-0.3.1.md): ordinary system registration
-  and startup strategies on Bevy 0.19/0.20, followed by the 0.4.0 binding changes.
 - [Changelog](CHANGELOG.md): notable changes grouped by release.
 
 Runnable headless examples live in [examples/codegen](examples/codegen),

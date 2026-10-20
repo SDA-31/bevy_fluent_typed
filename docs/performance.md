@@ -3,7 +3,7 @@
 Automatic bindings avoid unnecessary formatting and target writes, while
 retaining metadata for catalog readiness, Msg identity and query eligibility.
 This page describes the 0.4.0 contract and measured refresh costs;
-the [changelog](../CHANGELOG.md#040) records release status.
+the [changelog](../CHANGELOG.md#040---2026-10-20) records release status.
 
 ## Work skipped by automatic bindings
 

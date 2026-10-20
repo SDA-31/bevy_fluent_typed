@@ -7,7 +7,7 @@ before 1.0, a minor release can introduce incompatible API changes.
 
 ## [0.4.0] - 2026-10-20
 
-See the [migration from 0.3.1](docs/migration-0.4.0.md). The generator remains
+See the [migration from 0.3.1](docs/migrations/from-0.3.1.md). The generator remains
 `fluent_typed_codegen` 0.2.2.
 
 ### Added
@@ -87,7 +87,7 @@ See the [migration from 0.3.1](docs/migration-0.4.0.md). The generator remains
   `LocalizationPlugin::with_startup_barrier` on Bevy 0.19/0.20. Configure the
   App-wide policy through `LocalizationStartupPlugin::new` or `::barrier`;
   source plugins inherit it. The implicit Deferred fallback and single
-  coordinator are preserved. See the [startup migration](docs/migration-0.4.0.md#configure-startup-through-the-application-plugin).
+  coordinator are preserved. See the [startup migration](docs/migrations/from-0.3.1.md#configure-startup-through-the-application-plugin).
 - **Breaking:** `LocalizedText<Scope>`. Select the destination explicitly with
   `Localized<Text, Scope>`, `Localized<Text2d, Scope>` or
   `Localized<TextSpan, Scope>`, including in BSN scenes.
@@ -108,7 +108,7 @@ See the [migration from 0.3.1](docs/migration-0.4.0.md). The generator remains
 
 ## [0.3.1] - 2026-10-11
 
-See the [migration from 0.3.0](docs/migration-0.3.1.md). The generator remains
+See the [migration from 0.3.0](docs/migrations/from-0.3.0.md). The generator remains
 `fluent_typed_codegen` 0.2.2.
 
 ### Added
@@ -152,7 +152,7 @@ See the [migration from 0.3.0](docs/migration-0.3.1.md). The generator remains
 
 ## [0.3.0] - 2026-10-09
 
-See the [migration from 0.2.2](docs/migration-0.3.md). The generator dependency
+See the [migration from 0.2.2](docs/migrations/from-0.2.2.md). The generator dependency
 remains `fluent_typed_codegen` 0.2.2.
 
 ### Added
@@ -200,13 +200,13 @@ remains `fluent_typed_codegen` 0.2.2.
   latest target wins, selecting the active language cancels the pending switch,
   and explicit retries avoid per-frame retry loops. `locale()` reports the active
   language; target inspection uses `prepared_locale`/`preparation_status`. See the
-  [migration guide](docs/migration-0.3.md#let-language-changes-finish-automatically).
+  [migration guide](docs/migrations/from-0.2.2.md#let-language-changes-finish-automatically).
 - **Breaking:** plugin and controller loading default to `Lazy` instead of
   `Full`. Inserted text bindings and localized required-resource systems request
   and retain only their scopes; without consumers, manual pins or leases, modules are
   not loaded.
   Select explicit `Full` for eager loading or direct world polling, or retain
-  explicit `Manual` for manual requests. See the [migration guide](docs/migration-0.3.md).
+  explicit `Manual` for manual requests. See the [migration guide](docs/migrations/from-0.2.2.md).
 - **Breaking:** the previous explicit-request `Lazy` mode is renamed to `Manual`,
   and `new_lazy` becomes `new_manual`. The new default `Lazy` loads scopes
   automatically from consumers; `Full` keeps its eager behavior.
@@ -235,7 +235,7 @@ remains `fluent_typed_codegen` 0.2.2.
 ## [0.2.2] - 2026-10-06
 
 Runtime and its build adapter require generator 0.2.2. See the
-[migration from 0.2.1](docs/migration-0.2.2.md).
+[migration from 0.2.1](docs/migrations/from-0.2.1.md).
 
 ### Added
 
@@ -290,7 +290,7 @@ runtime crate; no separate bridge release is required.
   configuration; tuples wait independently.
 - `add_localized_startup_systems` runs deferred initialization once after its
   catalogs are ready, preserving commands and ordinary error handling.
-- [Optional adoption from 0.2.0](docs/migration-0.2.1.md), including startup,
+- [Optional adoption from 0.2.0](docs/migrations/from-0.2.0.md), including startup,
   scheduling and parameter-shape limitations.
 
 ### Changed
@@ -301,7 +301,7 @@ runtime crate; no separate bridge release is required.
 - **Feature migration:** manifest constructors and types require `manifest`,
   enabled by default and by `codegen`. Handwritten providers using defaults
   disabled must add `manifest` to retain those APIs, or choose byte sources.
-  See [migration details](docs/migration-0.2.1.md#byte-sources-and-optional-manifest-support).
+  See [migration details](docs/migrations/from-0.2.0.md#byte-sources-and-optional-manifest-support).
 
 ### Fixed
 
@@ -321,7 +321,7 @@ runtime crate; no separate bridge release is required.
 ## [0.2.0] - 2026-09-28
 
 This release updates runtime and bridge to 0.2.0. Follow the
-[migration from 0.1.3](docs/migration-0.2.md) for the minimal Full-mode upgrade,
+[migration from 0.1.3](docs/migrations/from-0.1.3.md) for the minimal Full-mode upgrade,
 optional Lazy loading and handwritten providers.
 
 ### Added

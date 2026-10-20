@@ -1017,7 +1017,7 @@ asset configuration and event loop, as in the quickstart.
 
 ## Migration from registry 0.1.3
 
-Follow the [migration guide to 0.4.0](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migration-0.2.md) for dependency updates, before/after
+Follow the [migration guide to 0.4.0](https://github.com/SDA-31/bevy_fluent_typed/blob/main/docs/migrations/from-0.1.3.md) for dependency updates, before/after
 initialization, readiness handling, optional Manual adoption and handwritten providers.
 The standard upgrade uses Lazy with inserted bindings and native resource systems;
 choose explicit Full to preserve eager loading or direct world polling.

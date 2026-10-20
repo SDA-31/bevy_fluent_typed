@@ -21,6 +21,6 @@ fn registry_setup_uses_matching_versions_without_source_overrides() {
 		}
 
 		assert!(!source.contains("[patch.crates-io]"), "{name}");
-		assert!(source.contains("migration-0.3.1.md"), "{name}");
+		assert!(source.contains("migrations/README.md"), "{name}");
 	}
 }
