@@ -61,26 +61,26 @@ matching generated applications, and supplies already-ready catalogs directly.
 
 | Text bindings | Scenario | Cache policy | Median elapsed time, ms | 95th-percentile elapsed time, ms | Mean aggregate CPU time, ms |
 | ---: | --- | --- | ---: | ---: | ---: |
-| 1,024 | Fluent formatting | Rendered | 0.364 | 0.388 | 0.371 |
-| 100,000 | Unchanged targets | Rendered | 0.858 | 0.955 | 0.921 |
-| 100,000 | String-clone formatter | Rendered | 2.435 | 4.230 | 12.772 |
-| 100,000 | Fluent formatting | Rendered | 10.932 | 13.941 | 67.005 |
-| 100,000 | Reattach the same Msg | Rendered | 0.853 | 1.008 | 0.885 |
-| 100,000 | Replace one Msg | Rendered | 0.852 | 1.000 | 0.911 |
-| 100,000 | Forced long-string growth | Rendered | 57.114 | 61.251 | 262.444 |
-| 100,000 | Repair ordinary text edits | Rendered | 40.616 | 47.520 | 178.864 |
-| 1,048,576 | Unchanged targets | Rendered | 9.325 | 9.735 | 9.366 |
-| 1,048,576 | String-clone formatter | Rendered | 30.127 | 31.220 | 135.609 |
-| 1,048,576 | Fluent formatting | Rendered | 129.558 | 144.366 | 669.227 |
-| 100,000 | Unchanged targets | None | 0.892 | 1.091 | 0.894 |
-| 100,000 | Fluent formatting | None | 10.037 | 11.283 | 54.684 |
-| 100,000 | Forced long-string growth | None | 32.107 | 36.154 | 143.403 |
-| 100,000 | Repair ordinary text edits | None | 60.954 | 67.769 | 222.369 |
-| 100,000 | Unchanged targets across six fixed locale slots | Rendered | 0.858 | 0.997 | 0.926 |
-| 100,000 | Fluent formatting across six fixed locale slots | Rendered | 11.236 | 12.031 | 54.774 |
+| 1,024 | Fluent formatting | Rendered | 0.364 | 0.374 | 0.372 |
+| 100,000 | Unchanged targets | Rendered | 0.870 | 1.025 | 0.878 |
+| 100,000 | String-clone formatter | Rendered | 2.498 | 4.617 | 13.274 |
+| 100,000 | Fluent formatting | Rendered | 12.152 | 13.205 | 64.021 |
+| 100,000 | Reattach the same Msg | Rendered | 0.854 | 0.931 | 0.879 |
+| 100,000 | Replace one Msg | Rendered | 0.865 | 0.976 | 0.924 |
+| 100,000 | Forced long-string growth | Rendered | 57.860 | 61.871 | 273.630 |
+| 100,000 | Repair ordinary text edits | Rendered | 38.617 | 47.291 | 166.716 |
+| 1,048,576 | Unchanged targets | Rendered | 9.597 | 10.379 | 9.363 |
+| 1,048,576 | String-clone formatter | Rendered | 27.783 | 29.433 | 132.263 |
+| 1,048,576 | Fluent formatting | Rendered | 131.682 | 164.485 | 618.697 |
+| 100,000 | Unchanged targets | None | 0.894 | 1.036 | 0.899 |
+| 100,000 | Fluent formatting | None | 11.059 | 11.318 | 51.958 |
+| 100,000 | Forced long-string growth | None | 30.925 | 35.281 | 149.175 |
+| 100,000 | Repair ordinary text edits | None | 58.970 | 68.654 | 247.693 |
+| 100,000 | Unchanged targets across six fixed locale slots | Rendered | 0.895 | 1.001 | 0.916 |
+| 100,000 | Fluent formatting across six fixed locale slots | Rendered | 11.335 | 12.454 | 52.696 |
 
-For ten unchanged bindings, a separate block control measured 1.67 µs
-elapsed and 1.67 µs aggregate CPU per refresh. This is the median of
+For ten unchanged bindings, a separate block control measured 1.65 µs
+elapsed and 1.65 µs aggregate CPU per refresh. This is the median of
 five process means, each from fifteen blocks of 2,048 refreshes; batching
 amortizes CPU-clock overhead for this small workload.
 
@@ -90,13 +90,15 @@ of three process medians; the percentile column likewise reports the median
 of three within-process percentiles. Each process records at least 64 refreshes
 for the main workloads and 32 at one million targets. Fast workloads continue
 toward a 150 ms observation window, with a 4,096-sample cap that can end it
-earlier. Warmup is excluded; measured outliers are retained. These
-are descriptive samples, not confidence intervals or worst-case bounds.
+earlier. Warmup and output validation are outside the timer; measured outliers
+are retained. These are descriptive samples, not confidence intervals or
+worst-case bounds.
 
 CPU is recorded in a separate trial. It sums all process threads during the
 refresh interval, including the caller and workers. Each process contributes
 its mean, and the table reports the median of those three means. CPU time is
 not added to elapsed time; lower latency can require more aggregate CPU.
+CPU-clock overhead is retained in the samples.
 
 Spawn, input preparation, catalog loading/demand coordination, layout,
 renderer and validation are outside the refresh timer. This is an isolated
