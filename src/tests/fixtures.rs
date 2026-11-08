@@ -39,7 +39,7 @@ impl FluentCatalog for TestCatalog {
 
 	fn modules() -> Vec<Module<Self>> {
 		vec![Module::new::<Self>("ui.ftl", |_, bytes| {
-			String::from_utf8(bytes.to_vec())
+			String::from_utf8(bytes)
 				.map(Self)
 				.map_err(|error| error.to_string())
 		})]

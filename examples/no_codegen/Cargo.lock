@@ -200,9 +200,9 @@ dependencies = [
 
 [[package]]
 name = "async-executor"
-version = "1.14.0"
+version = "1.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c96bf972d85afc50bf5ab8fe2d54d1586b4e0b46c97c50a0c9e71e2f7bcd812a"
+checksum = "f426a31126c735126297bc5ea7a521263c9faff4f63ca415267ee625651c4f37"
 dependencies = [
  "async-task",
  "concurrent-queue",
@@ -1653,7 +1653,7 @@ dependencies = [
 
 [[package]]
 name = "bevy_fluent_typed"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "bevy 0.16.1",
  "bevy 0.17.3",
@@ -5477,13 +5477,14 @@ dependencies = [
 
 [[package]]
 name = "fluent-typed"
-version = "0.9.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a891d692f4ae340e0c0f31dc5825b4e6ce35293326dba5ef4fae37a27de19aa0"
+checksum = "b389a6c714abfda4fdc11ee10705c24f829ed57b8ea24f9e1d0d0105544f4bd9"
 dependencies = [
  "fluent-bundle",
  "fluent-syntax",
  "icu_locale_core",
+ "rustc-hash 2.1.3",
  "unic-langid",
 ]
 

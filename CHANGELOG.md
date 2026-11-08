@@ -5,6 +5,42 @@ Notable changes to the runtime (and its former companion bridge) are recorded he
 Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html);
 before 1.0, a minor release can introduce incompatible API changes.
 
+## [0.5.0] - 2026-11-08
+
+See the [migration from 0.4.0](docs/migrations/migration-0.4.0.md).
+This release uses fluent_typed_codegen 0.3.0 and fluent-typed 0.10.1.
+
+### Added
+
+- Generated catalog scopes implement `Debug`.
+
+### Changed
+
+- **Breaking:** `LocalizationPlugin::from_loader` results now convert through
+  `Into<Vec<u8>>`; `Module::new` passes Vec<u8> to its checked parser. Fresh
+  Vec/String buffers transfer ownership through the ordinary methods.
+  Handwritten parsers can move the buffer into Fluent or borrow it locally.
+- **Breaking:** generated `new` / `new_unchecked` constructors follow the same
+  `Into<Vec<u8>>` contract. Replace `&Vec<u8>` with `.as_slice()` to retain input.
+- **Breaking:** generated structured `(Element)` accessors now use the `msg_`
+  prefix, such as `msg_prompt`, matching plain messages. Their return types and
+  the Localized/Msg binding API are unchanged.
+- Generated providers and file loaders preserve source-buffer ownership through
+  checked parsing, removing an extra full-source allocation and copy. Shared
+  `from_bytes` and embedded inputs retain their existing source lifetime.
+- Upstream's stronger contract validation rejects additional invalid references,
+  functions and argument usage before a checked catalog is published. Invalid
+  build-time translations may lose their accessor until FTL is corrected.
+
+### Fixed
+
+- Use fluent-typed 0.10.1 for generated-code and build-diagnostic fixes,
+  including keyword arguments, generated-name collisions and language names.
+- Repository and example lock files use async-executor 1.14.1 instead of yanked
+  1.14.0, which has an upstream use-after-free during executor shutdown. Existing
+  applications retaining that version should update the affected lock entry;
+  see the migration guide.
+
 ## [0.4.0] - 2026-10-20
 
 See the [migration from 0.3.1](docs/migrations/migration-0.3.1.md). The generator remains
@@ -380,6 +416,7 @@ This documentation release changes no public runtime API or behavior.
 Bridge 0.1.3 changes only dependency minimums and documentation.
 Earlier releases predate this changelog; their source is retained in Git tags.
 
+[0.5.0]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/SDA-31/bevy_fluent_typed/compare/v0.2.2...v0.3.0

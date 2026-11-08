@@ -1,10 +1,13 @@
-# Migrate from bevy_fluent_typed 0.2.0 to 0.4.0
+# Migrate from bevy_fluent_typed 0.2.0 to 0.5.0
 
 [Migration Guide](README.md)
 
+Also apply the [0.4.0 → 0.5.0 changes](migration-0.4.0.md): structured
+message names, owned parser inputs and stricter translation validation.
+
 Also apply the [explicit target and Msg migration](migration-0.3.1.md) when replacing older text bindings.
 
-Use runtime 0.4.0 with matching normal and build dependencies. On Bevy 0.19/0.20,
+Use runtime 0.5.0 with matching normal and build dependencies. On Bevy 0.19/0.20,
 ordinary registrations discover catalog demand and wait for native `Res<Scope>`:
 
 ```rust,ignore

@@ -190,7 +190,7 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 		Ok(Self::from_loader(move |locale, path| {
 			let bytes = sources
 				.get(&(locale.as_ref().to_owned(), path))
-				.cloned()
+				.map(|bytes: &Arc<[u8]>| bytes.as_ref().to_vec())
 				.ok_or_else(|| format!("missing module {}/{path}", locale.as_ref()));
 			std::future::ready(bytes)
 		}))
@@ -201,8 +201,9 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 	/// The provider's default locale is selected initially; a preinserted
 	/// [`Localization<C, M>`] may select another compiled locale.
 	///
-	/// The callback and checked parser run on Bevy's I/O task pool. Return owned
-	/// bytes (such as `Vec<u8>`); the temporary input is dropped after parsing.
+	/// The callback and checked parser run on Bevy's I/O task pool. Results convert
+	/// through `Into<Vec<u8>>`: `Vec<u8>` and `String` transfer their allocation;
+	/// slices are copied. The checked parser receives that owned buffer.
 	/// Callback futures must be nonblocking: single-threaded backends may poll
 	/// them on the main thread. An async function does not make blocking I/O safe.
 	/// Futures requiring a specific executor must be integrated by the application.
@@ -217,7 +218,7 @@ impl<C: FluentCatalog, M: LoadingMode> LocalizationPlugin<C, M> {
 	where
 		L: Fn(C::Locale, &'static str) -> F + Send + Sync + 'static,
 		F: Future<Output = Result<B, E>> + Send + 'static,
-		B: AsRef<[u8]> + Send + 'static,
+		B: Into<Vec<u8>> + Send + 'static,
 		E: Display,
 	{
 		Self {

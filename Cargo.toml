@@ -1,6 +1,6 @@
 [package]
 name = "bevy_fluent_typed"
-version = "0.4.0"
+version = "0.5.0"
 edition = "2024"
 rust-version = "1.97.1"
 description = "Typed Fluent catalog bindings and transactional hot reload for Bevy"
@@ -33,9 +33,9 @@ watch = ["bevy_0_16?/file_watcher", "bevy_0_16?/multi_threaded", "bevy_0_17?/fil
 [dependencies]
 indexmap = { version = "2.14.2", optional = true }
 tracing = { version = "0.1.44", default-features = false, features = ["std"], optional = true }
-fluent_typed_codegen = { version = "0.2.2", default-features = false, optional = true }
+fluent_typed_codegen = { version = "0.3.0", default-features = false, optional = true }
 fluent-syntax = { version = "0.12.0", optional = true }
-fluent-typed = { version = "0.9.0", optional = true, default-features = false, features = ["langneg"] }
+fluent-typed = { version = "0.10.1", optional = true, default-features = false, features = ["langneg"] }
 # Select exactly one backend. Each admits patches within its own Bevy minor.
 bevy_0_16 = { package = "bevy", version = "0.16.1", optional = true, default-features = false, features = ["std", "async_executor", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }
 bevy_0_17 = { package = "bevy", version = "0.17.0", optional = true, default-features = false, features = ["std", "async_executor", "bevy_asset", "bevy_text", "bevy_ui", "bevy_sprite"] }

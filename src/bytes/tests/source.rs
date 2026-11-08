@@ -10,6 +10,8 @@ use std::{
 	task::{Poll, Waker},
 };
 
+#[path = "source/owned.rs"]
+mod owned;
 #[path = "source/progress.rs"]
 mod progress;
 #[path = "source/tree.rs"]
@@ -293,9 +295,9 @@ struct Buffer {
 	live: Arc<AtomicUsize>,
 }
 
-impl AsRef<[u8]> for Buffer {
-	fn as_ref(&self) -> &[u8] {
-		&self.bytes
+impl From<Buffer> for Vec<u8> {
+	fn from(mut buffer: Buffer) -> Self {
+		std::mem::take(&mut buffer.bytes)
 	}
 }
 

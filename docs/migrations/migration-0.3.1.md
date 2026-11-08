@@ -1,22 +1,26 @@
-# Migrate from bevy_fluent_typed 0.3.1 to 0.4.0
+# Migrate from bevy_fluent_typed 0.3.1 to 0.5.0
 
 [Migration Guide](README.md)
 
+Also apply the [0.4.0 → 0.5.0 changes](migration-0.4.0.md): structured
+message names, owned parser inputs and stricter translation validation.
+
 This migration replaces implicit text targets with explicit bindings. Loading
-modes, generated catalogs, startup strategies, supported Bevy families and the
-Rust 1.97.1 minimum remain unchanged. The generator stays at 0.2.2.
+modes and startup strategies retain their behavior. Rust 1.97.1 remains the
+minimum; select one supported Bevy backend (0.16.1–0.20). The generator is now
+0.3.0; apply the linked changes to generated calls and handwritten parsers.
 Startup configuration now belongs exclusively to `LocalizationStartupPlugin`.
-The [changelog](../../CHANGELOG.md#040---2026-10-20) records this version's release status.
+The [changelog](../../CHANGELOG.md) records the changes in each release.
 
 ## Update both dependency entries
 
 ```toml
 [dependencies]
 bevy = "0.20"
-bevy_fluent_typed = { version = "0.4.0", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.5.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.5.0", default-features = false, features = ["build"] }
 ```
 
 Select another Bevy backend on the normal dependency with defaults disabled,

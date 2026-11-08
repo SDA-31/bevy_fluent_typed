@@ -1,13 +1,17 @@
-# Migrate from bevy_fluent_typed 0.2.2 to 0.4.0
+# Migrate from bevy_fluent_typed 0.2.2 to 0.5.0
 
 [Migration Guide](README.md)
 
+Also apply the [0.4.0 → 0.5.0 changes](migration-0.4.0.md): structured
+message names, owned parser inputs and stricter translation validation.
+
 Also apply the [explicit target and Msg migration](migration-0.3.1.md) when replacing older text bindings.
 
-Runtime 0.4.0 supports stable Bevy 0.20 and requires Rust 1.97.1 or newer.
-The generator stays at 0.2.2. Constructor signatures, native resources and
-embedded manifest declarations remain available, but the default loading mode
-changes from eager Full to consumer-driven Lazy.
+Runtime 0.5.0 supports stable Bevy 0.20 and requires Rust 1.97.1 or newer.
+The generator is now 0.3.0. Native catalog resources and embedded manifest
+declarations remain available. The default loading mode changes from eager Full
+to consumer-driven Lazy. Constructors that parse source bytes now accept owned
+input; apply the linked 0.4.0 migration as well.
 
 ## Adopt automatic module loading
 
@@ -131,10 +135,10 @@ Update both facade dependencies and the application's Bevy dependency:
 ```toml
 [dependencies]
 bevy = "0.20"
-bevy_fluent_typed = { version = "0.4.0", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.5.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.5.0", default-features = false, features = ["build"] }
 ```
 
 Keep `bevy_fluent_typed::build()` in `build.rs` and your `translations!`
@@ -149,10 +153,10 @@ The default backend changed. To retain Bevy 0.19, select it explicitly:
 ```toml
 [dependencies]
 bevy = "0.19"
-bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["bevy-0-19", "codegen"] }
+bevy_fluent_typed = { version = "0.5.0", default-features = false, features = ["bevy-0-19", "codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.5.0", default-features = false, features = ["build"] }
 ```
 
 The same pattern supports `bevy-0-16` (minimum 0.16.1), `bevy-0-17` and
@@ -166,7 +170,7 @@ generator 0.2.2 if you need Rust 1.95.
 
 ## Move from the compatibility preview
 
-Replace Git dependencies on `compat/bevy-0.20` with the 0.4.0 facade entries
+Replace Git dependencies on `compat/bevy-0.20` with the 0.5.0 facade entries
 above, and replace exact Bevy RC requirements with `bevy = "0.20"`.
 The final preview snapshots are preserved as `bevy-0.20.0-rc.1` and
 `bevy-0.20.0-rc.2`. The stable backend admits compatible patches.

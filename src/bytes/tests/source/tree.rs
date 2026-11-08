@@ -137,9 +137,13 @@ impl FluentCatalog for Root {
 
 	fn modules() -> Vec<Module<Self>> {
 		vec![
-			Module::new::<Hud>(Hud::module_paths()[0], |_, bytes| parse(bytes).map(Hud)),
-			Module::new::<Panel>(Panel::module_paths()[0], |_, bytes| parse(bytes).map(Panel)),
-			Module::new::<Other>(Other::module_paths()[0], |_, bytes| parse(bytes).map(Other)),
+			Module::new::<Hud>(Hud::module_paths()[0], |_, bytes| parse(&bytes).map(Hud)),
+			Module::new::<Panel>(Panel::module_paths()[0], |_, bytes| {
+				parse(&bytes).map(Panel)
+			}),
+			Module::new::<Other>(Other::module_paths()[0], |_, bytes| {
+				parse(&bytes).map(Other)
+			}),
 		]
 	}
 
