@@ -10,8 +10,8 @@ use std::{
 pub(crate) type SharedScope = Arc<dyn Any + Send + Sync>;
 
 /// Checked parser for one compiled leaf, retaining validation errors as ordinary failures.
-type Parser<C> =
-	dyn Fn(<C as FluentCatalog>::Locale, &[u8]) -> Result<SharedScope, String> + Send + Sync;
+pub(crate) type Parser<C> =
+	dyn Fn(<C as FluentCatalog>::Locale, Vec<u8>) -> Result<SharedScope, String> + Send + Sync;
 
 /// A checked leaf parser associated with a logical FTL path.
 pub struct Module<C: FluentCatalog> {
@@ -23,9 +23,12 @@ pub struct Module<C: FluentCatalog> {
 
 impl<C: FluentCatalog> Module<C> {
 	/// Describe a leaf and its checked parser, without loading any source bytes.
+	///
+	/// The parser receives an owned buffer. File and callback loaders transfer it
+	/// directly; shared or embedded input is copied once to keep its source reusable.
 	pub fn new<S: FluentScope<Catalog = C>>(
 		path: &'static str,
-		parse: impl Fn(C::Locale, &[u8]) -> Result<S, String> + Send + Sync + 'static,
+		parse: impl Fn(C::Locale, Vec<u8>) -> Result<S, String> + Send + Sync + 'static,
 	) -> Self {
 		Self {
 			path,

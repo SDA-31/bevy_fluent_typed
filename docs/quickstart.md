@@ -11,10 +11,10 @@ Add these dependencies to `Cargo.toml`:
 ```toml
 [dependencies]
 bevy = "0.20"
-bevy_fluent_typed = { version = "0.4.0", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.5.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.5.0", default-features = false, features = ["build"] }
 ```
 
 The normal dependency provides the plugin; the build dependency generates the
@@ -135,7 +135,7 @@ during plugin updates, so readiness checks still apply. Static source bytes stay
 its lifetime; no compressor or decompressor is involved.
 
 The macro accepts only an empty invocation or a block of constants. For the
-constant-declaration recipe, use the same 0.4.0 dependency in both Cargo sections.
+constant-declaration recipe, use the same 0.5.0 dependency in both Cargo sections.
 Declare an embedded source for just the HUD:
 
 ```rust,ignore

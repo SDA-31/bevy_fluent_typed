@@ -188,7 +188,7 @@ fn begin_request<C: FluentCatalog>(
 			.manifest
 			.read(locale.as_ref(), path)
 			.map_err(|error| error.to_string())
-			.and_then(|bytes| (module.parse)(locale, &bytes));
+			.and_then(|bytes| (module.parse)(locale, bytes.into_owned()));
 		publish(localization, path, candidate, updates);
 		return RequestStep::NextModule;
 	}

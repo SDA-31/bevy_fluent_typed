@@ -46,7 +46,7 @@ impl FluentCatalog for Texts {
 }
 
 impl Texts {
-	pub(super) fn parse(locale: &str, bytes: &[u8]) -> Result<Self, String> {
+	pub(super) fn parse(locale: &str, bytes: Vec<u8>) -> Result<Self, String> {
 		let bundle = L10nBundle::new(locale, bytes).map_err(|error| error.to_string())?;
 		let hello = bundle
 			.msg("hello", None)

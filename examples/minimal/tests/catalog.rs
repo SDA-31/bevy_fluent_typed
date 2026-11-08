@@ -223,7 +223,7 @@ fn spanish_embedded_and_external_catalogs_preserve_their_own_translations() {
 			translations
 				.presentation()
 				.hud()
-				.prompt()
+				.msg_prompt()
 				.s0
 				.contains("Pulsa")
 		);

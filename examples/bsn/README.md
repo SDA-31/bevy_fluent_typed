@@ -14,7 +14,7 @@ cargo run --manifest-path examples/bsn/Cargo.toml
 cargo test --manifest-path examples/bsn/Cargo.toml
 ```
 
-These commands use generator 0.2.2 from crates.io and the runtime from this
+These commands use generator 0.3.0 from crates.io and the runtime from this
 checkout. For changes to both libraries, use the
 [local generator override](../../docs/build.md#work-on-local-checkouts).
 For application dependencies and the native syntax for each backend, see the

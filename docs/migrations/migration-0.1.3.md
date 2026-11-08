@@ -1,10 +1,13 @@
-# Migrate from bevy_fluent_typed 0.1.3 to 0.4.0
+# Migrate from bevy_fluent_typed 0.1.3 to 0.5.0
 
 [Migration Guide](README.md)
 
+Also apply the [0.4.0 → 0.5.0 changes](migration-0.4.0.md): structured
+message names, owned parser inputs and stricter translation validation.
+
 Also apply the [explicit target and Msg migration](migration-0.3.1.md) when replacing older text bindings.
 
-This guide upgrades runtime 0.1.3 to 0.4.0.
+This guide upgrades runtime 0.1.3 to 0.5.0.
 It includes the generated manifest helper and native required-resource waiting.
 
 Start with default **Lazy**: inserted text bindings and native resource consumers
@@ -19,10 +22,10 @@ Replace the localization entries in your Cargo.toml:
 
 ```toml
 [dependencies]
-bevy_fluent_typed = { version = "0.4.0", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.5.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.5.0", default-features = false, features = ["build"] }
 ```
 
 The dependency snippet selects Bevy 0.20 by default. Upgrade the application's
@@ -34,7 +37,7 @@ Use Cargo resolver 2 or 3 and update localization metadata as shown in
 
 Remove development Git/path patches for the runtime, bridge and generator when
 switching to the registry. Standard consumers do not declare a bridge or generator
-dependency; runtime 0.4.0 uses generator 0.2.2. If you rename the facade, use the
+dependency; runtime 0.5.0 uses generator 0.3.0. If you rename the facade, use the
 same alias in both dependency sections.
 
 Keep your existing `build.rs`:
@@ -148,7 +151,8 @@ let title = Msg::<texts::presentation::Hud>::new(|hud| hud.msg_title());
 
 Use `Localized<Text, texts::presentation::Hud>` for the corresponding binding.
 Capture owned arguments in deferred closures; do not capture a translated string
-or an old scope snapshot. Typed message accessor signatures remain unchanged.
+or an old scope snapshot. Structured `(Element)` accessors now use the `msg_`
+prefix; see the linked 0.4.0 migration for the affected calls and constructors.
 
 ## 5. Optionally adopt Manual
 
@@ -192,7 +196,7 @@ For selective constant manifests, follow the
 
 ## 6. Account for changed reload behavior
 
-| In 0.1.3 | In 0.4.0 |
+| In 0.1.3 | In 0.5.0 |
 | --- | --- |
 | All embedded languages were initialized | Lazy requests consumer scopes in the selected language; explicit Full requests that entire language |
 | Locale changes could select a retained catalog immediately | Requests persist; the active language stays usable until all needed target leaves validate and switch automatically |
@@ -257,7 +261,7 @@ settings, keep only `Settings { catalog: ... }`. Generated `CATALOG_PATH` replac
 `..` to share source translations across packages. Runtime logical module paths
 and `translations-directory` still cannot escape their declared scope.
 
-Use runtime 0.4.0 with generator 0.2.2. See the
+Use runtime 0.5.0 with generator 0.3.0. See the
 [catalog path and embedding migration](migration-0.2.1.md) for the complete changes.
 
 `texts::manifest()` retains `CATALOG_PATH` verbatim. Configure the application's

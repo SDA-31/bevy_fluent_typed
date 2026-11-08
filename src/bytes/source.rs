@@ -26,7 +26,7 @@ impl<C: FluentCatalog> ByteLoader<C> {
 	where
 		L: Fn(C::Locale, &'static str) -> F + Send + Sync + 'static,
 		F: Future<Output = Result<B, E>> + Send + 'static,
-		B: AsRef<[u8]> + Send + 'static,
+		B: Into<Vec<u8>> + Send + 'static,
 		E: Display,
 	{
 		let load = Arc::new(load);
@@ -40,7 +40,8 @@ impl<C: FluentCatalog> ByteLoader<C> {
 				let bytes = load(locale, path)
 					.await
 					.map_err(|error| format!("load {}/{path}: {error}", locale.as_ref()))?;
-				parse(locale, bytes.as_ref())
+
+				parse(locale, bytes.into())
 					.map_err(|error| format!("parse {}/{path}: {error}", locale.as_ref()))
 			})
 		}))

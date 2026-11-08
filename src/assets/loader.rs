@@ -96,7 +96,7 @@ impl<C: FluentCatalog> AssetLoader for ModuleLoader<C> {
 			locale,
 			path: module.path,
 			revision,
-			candidate: (module.parse)(locale, &bytes),
+			candidate: (module.parse)(locale, bytes),
 		})
 	}
 }

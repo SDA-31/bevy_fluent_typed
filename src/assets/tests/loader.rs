@@ -51,7 +51,7 @@ impl FluentCatalog for OpaqueProvider {
 
 	fn modules() -> Vec<Module<Self>> {
 		vec![Module::new::<Self>("ui/title.ftl", |_, bytes| {
-			let source = std::str::from_utf8(bytes).map_err(|error| error.to_string())?;
+			let source = std::str::from_utf8(&bytes).map_err(|error| error.to_string())?;
 			let value = source.strip_prefix("title = ").ok_or("missing title")?;
 			Ok(Self(value.trim().into()))
 		})]

@@ -1,10 +1,15 @@
-# Migrate from bevy_fluent_typed 0.3.0 to 0.4.0
+# Migrate from bevy_fluent_typed 0.3.0 to 0.5.0
 
 [Migration Guide](README.md)
 
+Also apply the [0.4.0 → 0.5.0 changes](migration-0.4.0.md): structured
+message names, owned parser inputs and stricter translation validation.
+
 Also apply the [explicit target and Msg migration](migration-0.3.1.md) when replacing older text bindings.
 
-Runtime 0.4.0 keeps the loading modes, provider contract and generator 0.2.2.
+Runtime 0.5.0 retains the loading modes and uses generator 0.3.0. Handwritten
+module parsers now receive owned buffers; structured message names also change,
+as described in the linked 0.4.0 migration.
 On Bevy 0.19/0.20, catalog consumers now use ordinary native system registration.
 Rust 1.97.1 remains the minimum. Bevy 0.16–0.18 remain supported, with
 their existing registration helpers for direct catalog demand and readiness.
@@ -95,10 +100,10 @@ native `Option<Res<Scope>>` remains passive because there is no resource-read di
 ```toml
 [dependencies]
 bevy = "0.20"
-bevy_fluent_typed = { version = "0.4.0", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.5.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.5.0", default-features = false, features = ["build"] }
 ```
 
 To retain Bevy 0.19, disable normal-dependency defaults and enable `bevy-0-19`

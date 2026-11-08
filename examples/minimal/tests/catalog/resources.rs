@@ -96,12 +96,12 @@ fn duplicate_local_keys_have_independent_types_references_attributes_and_structu
 	assert!(panel.msg_detail(42).to_string().contains("42"));
 	assert_eq!(hud.msg_caption(), hud.msg_title());
 	assert_eq!(hud.msg_caption_hint(), "Visible HUD");
-	let prompt: texts::presentation::HudPrompt = hud.prompt();
+	let prompt: texts::presentation::HudPrompt = hud.msg_prompt();
 	assert!(prompt.s0.to_string().contains("Press"));
 	let raw =
 		super::raw::Translations::from_manifest(super::raw::Locale::En, &texts::embed_manifest!())
 			.unwrap();
-	let raw_prompt: super::raw::presentation::HudPrompt = raw.presentation().hud().prompt();
+	let raw_prompt: super::raw::presentation::HudPrompt = raw.presentation().hud().msg_prompt();
 	assert_eq!(prompt.s0, raw_prompt.s0);
 }
 

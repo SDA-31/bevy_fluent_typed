@@ -32,10 +32,10 @@ Add these dependencies to `Cargo.toml`:
 ```toml
 [dependencies]
 bevy = "0.20"
-bevy_fluent_typed = { version = "0.4.0", features = ["codegen"] }
+bevy_fluent_typed = { version = "0.5.0", features = ["codegen"] }
 
 [build-dependencies]
-bevy_fluent_typed = { version = "0.4.0", default-features = false, features = ["build"] }
+bevy_fluent_typed = { version = "0.5.0", default-features = false, features = ["build"] }
 ```
 
 The normal dependency provides the plugin; the build dependency generates the
@@ -143,10 +143,10 @@ See the [loading guide](GUIDE.md) for automatic module lifetime and optional man
 ## Comparison with bevy_fluent
 
 This compares [bevy_fluent 0.15.0](https://github.com/kgv/bevy_fluent)
-with this crate's 0.4.0 API. Both use Fluent; the difference is how applications
+with this crate's 0.5.0 API. Both use Fluent; the difference is how applications
 access translations and connect them to Bevy data.
 
-| Concern | `bevy_fluent` 0.15.0 | `bevy_fluent_typed` 0.4.0 |
+| Concern | `bevy_fluent` 0.15.0 | `bevy_fluent_typed` 0.5.0 |
 | --- | --- | --- |
 | Messages and arguments | Runtime identifiers and `FluentArgs`. | Generated typed scope accessors and arguments; explicit `build.rs` generation checks the shared translation contract. |
 | Loading and lifetime | Asset handles; application code builds a `Localization` from loaded bundles. | Consumer-driven scopes by default; inserted bindings retain their scope. Native `Res<Scope>` discovery on Bevy 0.19/0.20, with Full/Manual modes also available. |
@@ -177,7 +177,7 @@ during plugin updates, so readiness checks still apply. Static source bytes stay
 its lifetime; no compressor or decompressor is involved.
 
 The macro accepts only an empty invocation or a block of constants. For the
-constant-declaration recipe, use the same 0.4.0 dependency in both Cargo sections.
+constant-declaration recipe, use the same 0.5.0 dependency in both Cargo sections.
 Declare an embedded source for just the HUD:
 
 ```rust,ignore
@@ -238,7 +238,7 @@ minimal runtime and a handwritten provider.
 | --- | --- |
 | `translations!` cannot find generated output | Add the shown build-dependency and return `bevy_fluent_typed::build()` from `build.rs`. |
 | Types or methods are missing | Add the corresponding FTL module/message in every language and rebuild. File edits at runtime cannot change the compiled schema. |
-| An `embed_manifest!` selector is rejected | Use 0.4.0 for both runtime and build dependencies and use relative schema paths; imported catalog aliases are for constructors/resources. |
+| An `embed_manifest!` selector is rejected | Use 0.5.0 for both runtime and build dependencies and use relative schema paths; imported catalog aliases are for constructors/resources. |
 | The resource is absent | On Bevy 0.19/0.20, ordinary `add_systems` with `Res<Scope>` requests the scope in Lazy and waits for readiness. World inspection is passive. Explicit Manual still needs `load`; older backends use the [registration helpers](GUIDE.md#older-bevy-backends). |
 | A bound label stays empty | Check `localization.status::<YourLeaf>()`. An inserted binding requests its scope in Lazy; check its source and validation. A root binding waits for the whole tree. Explicit Manual needs a manual request. |
 | Files are not found | The manifest origin is relative to Bevy's asset root. Do not prefix it with `assets/` when `AssetPlugin` already points there. |

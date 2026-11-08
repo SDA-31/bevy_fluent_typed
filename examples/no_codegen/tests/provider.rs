@@ -12,7 +12,7 @@ fn every_language_supplies_our_api() {
 			.join(locale)
 			.join("ui/greeting.ftl");
 		assert_eq!(
-			Texts::parse(locale, &std::fs::read(path).unwrap())
+			Texts::parse(locale, std::fs::read(path).unwrap())
 				.unwrap()
 				.hello,
 			expected
@@ -31,6 +31,6 @@ fn incompatible_candidates_fail_before_publication() {
 		"hello = {",
 		"",
 	] {
-		assert!(Texts::parse("en", source.as_bytes()).is_err());
+		assert!(Texts::parse("en", source.as_bytes().to_vec()).is_err());
 	}
 }

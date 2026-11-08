@@ -32,7 +32,10 @@ fn macro_resolves_the_renamed_runtime_and_consumer_build_output() {
 		translated.ui().msg_example_greeting("Ada"),
 		expected.ui().msg_example_greeting("Ada")
 	);
-	assert_eq!(hud.prompt().s0, expected.presentation().hud().prompt().s0);
+	assert_eq!(
+		hud.msg_prompt().s0,
+		expected.presentation().hud().msg_prompt().s0
+	);
 	assert_eq!(
 		LocalizationManifest::parse(fixture::texts::CATALOG_CONFIG, "catalog.toml")
 			.unwrap()
@@ -74,7 +77,9 @@ fn generated_catalog_path_supports_native_file_loading() {
 	let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(fixture::texts::CATALOG_PATH);
 	let filesystem = LocalizationManifest::from_file(path).unwrap();
 	let bytes = filesystem.read("en", "presentation/hud.ftl").unwrap();
-	let hud = fixture::texts::presentation::Hud::new(fixture::texts::Locale::En, &bytes).unwrap();
+	let hud =
+		fixture::texts::presentation::Hud::new(fixture::texts::Locale::En, bytes.into_owned())
+			.unwrap();
 	assert_eq!(
 		hud.msg_title(),
 		super::load(crate::texts::Locale::En)

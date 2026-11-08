@@ -485,7 +485,7 @@ impl crate::FluentCatalog for SecondCatalog {
 		vec![crate::Module::new::<Self>("ui.ftl", |_, bytes| {
 			Ok(Self(format!(
 				"second:{}",
-				std::str::from_utf8(bytes).map_err(|error| error.to_string())?
+				std::str::from_utf8(&bytes).map_err(|error| error.to_string())?
 			)))
 		})]
 	}
