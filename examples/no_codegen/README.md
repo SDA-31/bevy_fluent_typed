@@ -27,9 +27,14 @@ complex schemas should normally use generated accessors instead.
 
 [src/main.rs](src/main.rs) supplies readable bytes and switches languages. The
 retained buffers stay alive until the source is dropped. For fresh owned buffers,
-`from_loader` transfers each result to this example's `Module::new` parser;
-`from_loader` also accepts arbitrary borrowing buffers. All paths use default Lazy:
-inserted bindings request their scope, as do ordinary native resource consumers on Bevy 0.19/0.20. Explicit Full/Manual remain available.
+`from_loader` transfers each result to this example's `Module::new` parser.
+Loader results must implement `Into<Vec<u8>> + Send + 'static`: `Vec<u8>` and
+`String` transfer their allocation, while `&'static [u8]` is copied. Custom
+`AsRef<[u8]>` wrappers need an explicit conversion unless they also implement
+`Into<Vec<u8>>`.
+
+Both paths use default Lazy: inserted bindings request their scope, as do ordinary
+native resource consumers on Bevy 0.19/0.20. Explicit Full/Manual remain available.
 On Bevy 0.16–0.18, resource consumers use the
 [registration helpers](../../GUIDE.md#older-bevy-backends). World inspection does
 not establish demand.
